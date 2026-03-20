@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed-variant": "#3d494a",
+              "on-primary-fixed": "#271900",
+              "on-surface": "#191c1c",
+              "primary-container": "#8a7143",
+              "surface-tint": "#725b2f",
+              "on-tertiary-fixed": "#121e1f",
+              "secondary-fixed": "#d1e4fb",
+              "error": "#ba1a1a",
+              "outline": "#7f7669",
+              "surface-bright": "#f8f9f9",
+              "tertiary": "#525e5f",
+              "inverse-surface": "#2e3131",
+              "surface-variant": "#e1e3e3",
+              "surface-dim": "#d9dada",
+              "on-secondary-fixed": "#091d2e",
+              "tertiary-fixed-dim": "#bcc9ca",
+              "secondary-fixed-dim": "#b5c8df",
+              "secondary-container": "#cfe2f9",
+              "primary": "#6f582d",
+              "surface-container-low": "#f3f4f4",
+              "primary-fixed-dim": "#e1c28e",
+              "on-tertiary-container": "#f4feff",
+              "on-surface-variant": "#4d463b",
+              "surface-container": "#edeeee",
+              "on-error": "#ffffff",
+              "inverse-primary": "#e1c28e",
+              "on-secondary": "#ffffff",
+              "on-primary-fixed-variant": "#58431a",
+              "surface": "#f8f9f9",
+              "surface-container-highest": "#e1e3e3",
+              "tertiary-container": "#6a7778",
+              "secondary": "#4e6073",
+              "surface-container-lowest": "#ffffff",
+              "on-background": "#191c1c",
+              "on-secondary-fixed-variant": "#36485b",
+              "on-error-container": "#93000a",
+              "surface-container-high": "#e7e8e8",
+              "tertiary-fixed": "#d8e5e6",
+              "background": "#f8f9f9",
+              "outline-variant": "#d0c5b6",
+              "on-primary": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "error-container": "#ffdad6",
+              "on-secondary-container": "#526478",
+              "primary-fixed": "#ffdea7",
+              "on-primary-container": "#fffbff",
+              "inverse-on-surface": "#f0f1f1"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.75rem", "lg": "1.25rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .inner-glow {
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.1);
+        }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+        }
+        .bg-silk-gradient {
+            background: linear-gradient(135deg, #6f582d 0%, #8a7143 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface selection:bg-primary-fixed-dim selection:text-on-primary-fixed">
+<!-- TopNavBar -->
+<nav class="docked full-width top-0 sticky z-50 bg-white/80 backdrop-blur-md dark:bg-stone-900/80 shadow-sm dark:shadow-stone-900/20 h-20">
+<div class="max-w-7xl mx-auto px-8 md:px-16 flex justify-between items-center h-full">
+<div class="text-2xl font-serif italic font-bold text-amber-800 dark:text-amber-500 scale-105 duration-500 ease-out">
+                The Sanctuary
+            </div>
+<div class="hidden md:flex items-center space-x-10">
+<a class="text-stone-600 dark:text-stone-400 font-sans font-medium hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-300" href="#">Destinations</a>
+<a class="text-stone-600 dark:text-stone-400 font-sans font-medium hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-300" href="#">Experiences</a>
+<a class="text-stone-600 dark:text-stone-400 font-sans font-medium hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-300" href="#">Journal</a>
+<a class="text-stone-600 dark:text-stone-400 font-sans font-medium hover:text-amber-700 dark:hover:text-amber-400 transition-all duration-300" href="#">Concierge</a>
+</div>
+<div class="flex items-center space-x-6">
+<button class="text-amber-800 dark:text-amber-500 border-b-2 border-amber-800 dark:border-amber-500 pb-1 font-serif text-stone-900 tracking-tight leading-relaxed">Reservations</button>
+<button class="text-stone-600 dark:text-stone-400 font-sans font-medium hover:text-amber-700 transition-all duration-300">Sign In</button>
+</div>
+</div>
+</nav>
+<main class="max-w-7xl mx-auto px-8 md:px-16 pt-12 pb-24">
+<!-- Header Section -->
+<header class="mb-16">
+<h1 class="font-headline text-5xl md:text-6xl text-on-surface tracking-tight mb-4 opacity-0 animate-[fadeIn_0.6s_ease-out_forwards]">
+                Secure Your <span class="italic text-primary">Sanctuary</span>
+</h1>
+<p class="font-body text-lg text-secondary max-w-xl leading-relaxed opacity-0 animate-[fadeIn_0.6s_ease-out_0.2s_forwards]">
+                Finalize your details below to confirm your stay at our curated retreat. We've prepared everything for your arrival.
+            </p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
+<!-- Form Section -->
+<div class="lg:col-span-8 space-y-16">
+<!-- Section 1: Guest Information -->
+<section class="opacity-0 animate-[fadeIn_0.6s_ease-out_0.3s_forwards]">
+<div class="flex items-center space-x-4 mb-8">
+<span class="font-headline text-2xl text-primary/40">01</span>
+<h2 class="font-headline text-2xl text-on-surface">Guest Information</h2>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-lg shadow-sm border border-outline-variant/10">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">First Name</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="text" value="John"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Last Name</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="text" value="Mwale"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Email Address</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="email" value="john.mwale@email.com"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Phone Number</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="tel" value="+260 97 123 4567"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Nationality</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="text" value="Zambian"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">ID / Passport Number</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="text" value="NRC-123456/78/1"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Stay Details -->
+<section class="opacity-0 animate-[fadeIn_0.6s_ease-out_0.4s_forwards]">
+<div class="flex items-center space-x-4 mb-8">
+<span class="font-headline text-2xl text-primary/40">02</span>
+<h2 class="font-headline text-2xl text-on-surface">Stay Details</h2>
+</div>
+<div class="bg-surface-container-low p-8 rounded-lg shadow-sm">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Room Type</label>
+<div class="relative">
+<select class="w-full appearance-none bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors cursor-pointer">
+<option selected="">Suite</option>
+<option>Penthouse</option>
+<option>Garden Villa</option>
+</select>
+<span class="material-symbols-outlined absolute right-0 top-2 pointer-events-none text-outline">expand_more</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Guests</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="number" value="2"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Check-in Date</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="date" value="2026-04-01"/>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Check-out Date</label>
+<input class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors" type="date" value="2026-04-05"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Preferences -->
+<section class="opacity-0 animate-[fadeIn_0.6s_ease-out_0.5s_forwards]">
+<div class="flex items-center space-x-4 mb-8">
+<span class="font-headline text-2xl text-primary/40">03</span>
+<h2 class="font-headline text-2xl text-on-surface">Preferences</h2>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded-lg shadow-sm border border-outline-variant/10">
+<div class="space-y-8">
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Meal Plan</label>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<label class="flex items-center p-4 border border-outline-variant/40 rounded-lg cursor-pointer hover:border-primary transition-all group">
+<input checked="" class="text-primary focus:ring-primary h-4 w-4 mr-3" name="meal-plan" type="radio"/>
+<div class="flex flex-col">
+<span class="font-bold text-sm">Full Board</span>
+<span class="text-xs text-outline">All meals included</span>
+</div>
+</label>
+<label class="flex items-center p-4 border border-outline-variant/40 rounded-lg cursor-pointer hover:border-primary transition-all group">
+<input class="text-primary focus:ring-primary h-4 w-4 mr-3" name="meal-plan" type="radio"/>
+<div class="flex flex-col">
+<span class="font-bold text-sm">Half Board</span>
+<span class="text-xs text-outline">Breakfast &amp; Dinner</span>
+</div>
+</label>
+<label class="flex items-center p-4 border border-outline-variant/40 rounded-lg cursor-pointer hover:border-primary transition-all group">
+<input class="text-primary focus:ring-primary h-4 w-4 mr-3" name="meal-plan" type="radio"/>
+<div class="flex flex-col">
+<span class="font-bold text-sm">Breakfast</span>
+<span class="text-xs text-outline">Morning only</span>
+</div>
+</label>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label text-xs uppercase tracking-widest text-outline">Special Requests</label>
+<textarea class="w-full bg-transparent border-0 border-b border-outline-variant/40 focus:border-primary focus:ring-0 font-body text-on-surface py-2 text-lg transition-colors resize-none" placeholder="Let us know how we can make your stay exceptional..." rows="3">Late check-in, extra pillows please.</textarea>
+</div>
+</div>
+</div>
+</section>
+<div class="pt-8 opacity-0 animate-[fadeIn_0.6s_ease-out_0.6s_forwards] space-y-6">
+<button class="bg-silk-gradient text-on-primary px-12 py-5 rounded-lg shadow-lg hover:scale-[1.01] transition-all duration-300 font-label font-bold tracking-widest uppercase text-sm w-full">
+    Confirm Reservation
+  </button>
+<div class="relative flex items-center py-2">
+<div class="flex-grow border-t border-outline-variant/30"></div>
+<span class="flex-shrink mx-4 text-outline text-xs uppercase tracking-widest font-label">or</span>
+<div class="flex-grow border-t border-outline-variant/30"></div>
+</div>
+<button class="bg-stone-900 text-white px-12 py-5 rounded-lg shadow-lg hover:scale-[1.01] transition-all duration-300 font-label font-bold tracking-widest uppercase text-sm w-full">
+    Confirm Booking
+  </button>
+<p class="mt-6 text-xs text-outline font-body">
+    By clicking confirm, you agree to our Terms of Service and Privacy Policy.
+  </p>
+</div>
+</div>
+<!-- Sidebar: Summary Section -->
+<aside class="lg:col-span-4 sticky top-32 opacity-0 animate-[fadeIn_0.6s_ease-out_0.4s_forwards]">
+<div class="bg-surface-container-low rounded-lg overflow-hidden shadow-xl">
+<div class="h-48 relative">
+<img alt="The Sanctuary Suite" class="w-full h-full object-cover inner-glow" data-alt="Luxurious resort suite with panoramic views" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPJYvDNTpviiqCgriVT1N455s2hAIuXw0lOv_Cb1m8UzAU2meU2S7Cv31wDCygIsyHiP5qDZ13mpbbZoDAoJQyKVDNQE05HAzP70Bwb5fqRsHXvHU_1W0QK8y_vPZFNmekMPht6BYi56SiuH5JdBV96CO3GIiqLUzkBM8r1eI78kV1Ut03-QlUgT9wMpxml5-JLXKTs5Zn9drjOJ5nlW4Gk5gYeFa1SgvybIIJZ-0rH038Io9EY8tfO3zys9kt0ZF2YTT3pElPETxf"/>
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded shadow-sm">
+<span class="text-xs font-label font-bold tracking-tighter text-primary">RESERVATION SUMMARY</span>
+</div>
+</div>
+<div class="p-8 space-y-8">
+<div>
+<h3 class="font-headline text-2xl text-on-surface mb-2">The Sanctuary Suite</h3>
+<div class="flex items-center text-secondary text-sm space-x-2">
+<span class="material-symbols-outlined text-sm">location_on</span>
+<span>Serengeti Plateau, Tanzania</span>
+</div>
+</div>
+<div class="space-y-4 pt-4">
+<div class="flex justify-between items-center text-sm">
+<span class="text-outline">Stay Duration</span>
+<span class="font-bold text-on-surface">4 Nights</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-outline">Guests</span>
+<span class="font-bold text-on-surface">2 Adults</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-outline">Check-in</span>
+<span class="font-bold text-on-surface">April 01, 2026</span>
+</div>
+</div>
+<div class="border-t border-outline-variant/20 pt-8">
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-center">
+<span class="text-outline text-sm">Suite Base Rate</span>
+<span class="text-on-surface">$3,200.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline text-sm">Meal Plan (Full Board)</span>
+<span class="text-on-surface">$450.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-outline text-sm">Taxes &amp; Fees</span>
+<span class="text-on-surface">$185.50</span>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<span class="font-headline text-lg text-on-surface">Total Estimation</span>
+<span class="font-headline text-3xl text-primary font-bold">$3,835.50</span>
+</div>
+</div>
+<div class="bg-white/50 p-4 rounded-lg border border-outline-variant/10">
+<div class="flex space-x-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<p class="text-[10px] leading-relaxed text-outline">
+                                    Your booking is protected by our Platinum Guarantee. 100% refund for cancellations made 48 hours prior to arrival.
+                                </p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full border-t border-stone-200 dark:border-stone-800 mt-24 bg-stone-50 dark:bg-stone-950">
+<div class="max-w-7xl mx-auto px-8 md:px-16 py-12 flex flex-col md:flex-row justify-between">
+<div class="mb-8 md:mb-0">
+<div class="text-xl font-serif font-bold text-stone-900 dark:text-white mb-4">The Sanctuary</div>
+<p class="font-sans text-sm tracking-wide leading-8 text-stone-500 dark:text-stone-400">© 2024 The Curated Sanctuary. Designed for the Intentional Traveler.</p>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-8">
+<div class="flex flex-col space-y-2">
+<a class="text-stone-500 dark:text-stone-400 font-sans text-sm tracking-wide leading-8 hover:underline decoration-stone-300 transition-all" href="#">The Collection</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-sm tracking-wide leading-8 hover:underline decoration-stone-300 transition-all" href="#">Sustainability</a>
+</div>
+<div class="flex flex-col space-y-2">
+<a class="text-stone-500 dark:text-stone-400 font-sans text-sm tracking-wide leading-8 hover:underline decoration-stone-300 transition-all" href="#">Press</a>
+<a class="text-stone-500 dark:text-stone-400 font-sans text-sm tracking-wide leading-8 hover:underline decoration-stone-300 transition-all" href="#">Private Residences</a>
+</div>
+<div class="flex flex-col space-y-2">
+<a class="text-stone-500 dark:text-stone-400 font-sans text-sm tracking-wide leading-8 hover:underline decoration-stone-300 transition-all" href="#">Contact</a>
+</div>
+</div>
+</div>
+</footer>
+<style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</body></html>
