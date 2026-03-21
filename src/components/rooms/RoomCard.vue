@@ -84,7 +84,7 @@ defineProps({
         <div class="flex items-center justify-between">
           <p class="font-sans text-sm text-[--color-on-muted]">
             from
-            <span class="font-semibold text-[--color-on-surface] text-base ml-1">${{ room.price }}</span>
+            <span class="font-semibold text-[--color-on-surface] text-base ml-1">K{{ room.price.toLocaleString() }}</span>
             <span class="text-xs">/night</span>
           </p>
           <BaseButton

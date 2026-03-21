@@ -8,7 +8,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 const router = useRouter()
 const auth   = useAuthStore()
 
-const form    = ref({ firstName: '', lastName: '', email: '', password: '', confirm: '' })
+const form    = ref({ firstName: '', lastName: '', email: '', phone: '', password: '', confirm: '' })
 const showPass    = ref(false)
 const showConfirm = ref(false)
 const error       = ref('')
@@ -23,6 +23,7 @@ function validate() {
   if (!form.value.lastName)   e.lastName  = 'Required'
   if (!form.value.email)               e.email    = 'Email is required'
   else if (!/\S+@\S+\.\S+/.test(form.value.email)) e.email = 'Enter a valid email'
+  if (!form.value.phone)               e.phone    = 'Phone number is required'
   if (!form.value.password)            e.password = 'Password is required'
   else if (form.value.password.length < MIN_PASSWORD) e.password = `Minimum ${MIN_PASSWORD} characters`
   if (!form.value.confirm)             e.confirm  = 'Please confirm your password'
@@ -37,14 +38,14 @@ async function submit() {
   loading.value = true
   try {
     await auth.register({
-      firstName: form.value.firstName,
-      lastName:  form.value.lastName,
+      full_name: `${form.value.firstName} ${form.value.lastName}`.trim(),
       email:     form.value.email,
+      phone:     form.value.phone,
       password:  form.value.password,
     })
     router.push('/')
   } catch (e) {
-    error.value = e.response?.data?.message || 'Registration failed. Please try again.'
+    error.value = e.response?.data?.error?.message || 'Registration failed. Please try again.'
   } finally {
     loading.value = false
   }
@@ -67,6 +68,10 @@ const strengthColor = ['', 'bg-[--color-error]', 'bg-[oklch(0.65_0.10_70)]', 'bg
 
 <template>
   <div class="w-full">
+    <div
+      class="rounded-2xl bg-[--color-surface-card]/70 backdrop-blur-xl p-8 md:p-10"
+      style="border: 1px solid oklch(0.80 0.03 60 / 0.35); box-shadow: 0px 24px 48px oklch(0.18 0.02 45 / 0.10);"
+    >
     <!-- Heading -->
     <div class="mb-8">
       <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-[--color-primary] mb-2">
@@ -91,6 +96,16 @@ const strengthColor = ['', 'bg-[--color-error]', 'bg-[oklch(0.65_0.10_70)]', 'bg
         required
         :error="fieldErrors.email"
         autocomplete="email"
+      />
+
+      <BaseInput
+        v-model="form.phone"
+        label="Phone"
+        type="tel"
+        placeholder="+260971234567"
+        required
+        :error="fieldErrors.phone"
+        autocomplete="tel"
       />
 
       <!-- Password with strength meter -->
@@ -208,6 +223,7 @@ const strengthColor = ['', 'bg-[--color-error]', 'bg-[oklch(0.65_0.10_70)]', 'bg
         Sign in
       </RouterLink>
     </p>
+    </div>
   </div>
 </template>
 

@@ -1,25 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-const MEAL_PLAN_RATES = {
-  full_board:  85,
-  half_board:  45,
-  breakfast:   20,
-  none:         0,
-}
-
 const TAX_RATE = 0.12
 
 export const useBookingStore = defineStore('booking', () => {
-  const roomId          = ref(null)
-  const roomType        = ref('')
+  const roomId           = ref(null)
+  const roomType         = ref('')
   const baseRatePerNight = ref(0)
-  const checkIn         = ref('')
-  const checkOut        = ref('')
-  const guestCount      = ref(1)
-  const mealPlan        = ref('breakfast') // 'full_board' | 'half_board' | 'breakfast' | 'none'
-  const specialRequests = ref('')
-  const guestInfo       = ref({
+  const checkIn          = ref('')
+  const checkOut         = ref('')
+  const guestCount       = ref(1)
+  // mealPlanId: UUID of the chosen meal plan (sent to API)
+  const mealPlanId       = ref(null)
+  // mealPlanName / mealPlanRate: for display in summary
+  const mealPlanName     = ref('Room Only')
+  const mealPlanRate     = ref(0)   // price_per_person_per_night
+  const specialRequests  = ref('')
+  const guestInfo        = ref({
     firstName:   '',
     lastName:    '',
     email:       '',
@@ -37,7 +34,7 @@ export const useBookingStore = defineStore('booking', () => {
   const baseTotal = computed(() => nightCount.value * baseRatePerNight.value)
 
   const mealCost = computed(
-    () => (MEAL_PLAN_RATES[mealPlan.value] ?? 0) * guestCount.value * nightCount.value
+    () => mealPlanRate.value * guestCount.value * nightCount.value
   )
 
   const taxes = computed(() => (baseTotal.value + mealCost.value) * TAX_RATE)
@@ -55,6 +52,12 @@ export const useBookingStore = defineStore('booking', () => {
     checkOut.value = co
   }
 
+  function setMealPlan(id, name, rate) {
+    mealPlanId.value   = id
+    mealPlanName.value = name
+    mealPlanRate.value = rate
+  }
+
   function reset() {
     roomId.value           = null
     roomType.value         = ''
@@ -62,7 +65,9 @@ export const useBookingStore = defineStore('booking', () => {
     checkIn.value          = ''
     checkOut.value         = ''
     guestCount.value       = 1
-    mealPlan.value         = 'breakfast'
+    mealPlanId.value       = null
+    mealPlanName.value     = 'Room Only'
+    mealPlanRate.value     = 0
     specialRequests.value  = ''
     guestInfo.value        = { firstName: '', lastName: '', email: '', phone: '', nationality: '', passportId: '' }
   }
@@ -70,8 +75,9 @@ export const useBookingStore = defineStore('booking', () => {
   return {
     roomId, roomType, baseRatePerNight,
     checkIn, checkOut, guestCount,
-    mealPlan, specialRequests, guestInfo,
+    mealPlanId, mealPlanName, mealPlanRate,
+    specialRequests, guestInfo,
     nightCount, baseTotal, mealCost, taxes, grandTotal,
-    setRoom, setDates, reset,
+    setRoom, setDates, setMealPlan, reset,
   }
 })

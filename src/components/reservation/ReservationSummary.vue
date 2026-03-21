@@ -3,21 +3,19 @@ import { useBookingStore } from '@/stores/booking'
 
 const booking = useBookingStore()
 
-// Room images keyed by roomId — matches the catalogue in RoomDetailView
-const ROOM_IMAGES = {
-  1: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
-  2: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600&q=80',
-  3: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&q=80',
-  4: 'https://images.unsplash.com/photo-1586500036706-41963de24d8b?w=600&q=80',
-  5: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
-  6: 'https://images.unsplash.com/photo-1440778303588-435521a205bc?w=600&q=80',
-}
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
+  'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600&q=80',
+  'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&q=80',
+  'https://images.unsplash.com/photo-1586500036706-41963de24d8b?w=600&q=80',
+  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
+  'https://images.unsplash.com/photo-1440778303588-435521a205bc?w=600&q=80',
+]
 
-const MEAL_LABELS = {
-  full_board: 'Full Board',
-  half_board: 'Half Board',
-  breakfast:  'Breakfast Only',
-  none:       'Room Only',
+function roomImage(id) {
+  if (!id) return FALLBACK_IMAGES[0]
+  const hash = String(id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  return FALLBACK_IMAGES[hash % FALLBACK_IMAGES.length]
 }
 
 function formatDate(d) {
@@ -34,13 +32,13 @@ function formatDate(d) {
     <!-- Room image with inner-glow and title overlay -->
     <div class="relative h-44 overflow-hidden">
       <img
-        :src="ROOM_IMAGES[booking.roomId] || ROOM_IMAGES[1]"
+        :src="roomImage(booking.roomId)"
         :alt="booking.roomType || 'Your room'"
         class="w-full h-full object-cover"
       />
       <!-- Inner glow from design spec -->
       <div class="absolute inset-0" style="box-shadow: inset 0 0 40px rgba(0,0,0,0.15);"></div>
-      <div class="absolute inset-0 bg-gradient-to-t from-[oklch(0.12_0.02_45/0.70)] to-transparent" />
+      <div class="absolute inset-0 bg-linear-to-t from-[oklch(0.12_0.02_45/0.70)] to-transparent" />
       <p class="absolute bottom-4 left-5 font-serif text-white text-xl">
         {{ booking.roomType || 'Your Room' }}
       </p>
@@ -78,7 +76,7 @@ function formatDate(d) {
           <span class="flex items-center gap-1.5">
             <span class="material-symbols-outlined text-base">restaurant</span> Meal Plan
           </span>
-          <span class="text-[--color-on-surface] font-medium">{{ MEAL_LABELS[booking.mealPlan] }}</span>
+          <span class="text-[--color-on-surface] font-medium">{{ booking.mealPlanName || 'Room Only' }}</span>
         </div>
       </div>
 
@@ -86,15 +84,15 @@ function formatDate(d) {
       <div class="pt-4 space-y-2 text-sm font-sans">
         <div class="flex justify-between text-[--color-on-muted]">
           <span>Base Rate</span>
-          <span>${{ booking.baseTotal.toFixed(0) }}</span>
+          <span>K{{ Number(booking.baseTotal.toFixed(0)).toLocaleString() }}</span>
         </div>
         <div v-if="booking.mealCost > 0" class="flex justify-between text-[--color-on-muted]">
           <span>Meal Plan</span>
-          <span>${{ booking.mealCost.toFixed(0) }}</span>
+          <span>K{{ Number(booking.mealCost.toFixed(0)).toLocaleString() }}</span>
         </div>
         <div class="flex justify-between text-[--color-on-muted]">
           <span>Taxes & Fees (12%)</span>
-          <span>${{ booking.taxes.toFixed(0) }}</span>
+          <span>K{{ Number(booking.taxes.toFixed(0)).toLocaleString() }}</span>
         </div>
 
         <!-- Total -->
@@ -103,7 +101,7 @@ function formatDate(d) {
             Total Estimate
           </span>
           <span class="font-serif text-2xl text-[--color-primary]">
-            ${{ booking.grandTotal.toFixed(0) }}
+            K{{ Number(booking.grandTotal.toFixed(0)).toLocaleString() }}
           </span>
         </div>
       </div>

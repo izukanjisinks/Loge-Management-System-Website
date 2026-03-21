@@ -1,37 +1,52 @@
 import { onMounted, onUnmounted } from 'vue'
 
-/**
- * Attach scroll-reveal behaviour to elements with class `.reveal`
- * inside a given root element (defaults to document).
- *
- * Usage:
- *   useScrollReveal()                   // on any view
- *   useScrollReveal(containerRef)       // scoped to a ref
- */
 export function useScrollReveal(root = null) {
-  let observer
+  let intersectionObserver
+  let mutationObserver
+
+  function observe(el) {
+    if (!el.classList.contains('visible')) {
+      intersectionObserver.observe(el)
+    }
+  }
 
   onMounted(() => {
     const target = root?.value ?? document
-    const elements = target.querySelectorAll('.reveal')
 
-    observer = new IntersectionObserver(
+    intersectionObserver = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry, i) => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            // Stagger each element slightly based on its index in the list
-            setTimeout(() => {
-              entry.target.classList.add('visible')
-            }, i * 80)
-            observer.unobserve(entry.target)
+            entry.target.classList.add('visible')
+            intersectionObserver.unobserve(entry.target)
           }
         })
       },
       { threshold: 0.12 }
     )
 
-    elements.forEach((el) => observer.observe(el))
+    // Observe elements already in the DOM
+    target.querySelectorAll('.reveal').forEach(observe)
+
+    // Watch for new .reveal elements added after async data loads
+    mutationObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType !== 1) return
+          if (node.classList?.contains('reveal')) observe(node)
+          node.querySelectorAll?.('.reveal').forEach(observe)
+        })
+      })
+    })
+
+    mutationObserver.observe(target === document ? document.body : target, {
+      childList: true,
+      subtree: true,
+    })
   })
 
-  onUnmounted(() => observer?.disconnect())
+  onUnmounted(() => {
+    intersectionObserver?.disconnect()
+    mutationObserver?.disconnect()
+  })
 }

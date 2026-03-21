@@ -15,23 +15,35 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('user', JSON.stringify(u))
   }
 
+  // Normalise the user object from the API into the shape the UI expects.
+  // The API returns full_name; the UI uses firstName / lastName / name.
+  function _normaliseUser(apiUser) {
+    const parts     = (apiUser.full_name || '').trim().split(' ')
+    const firstName = parts[0] || ''
+    const lastName  = parts.slice(1).join(' ') || ''
+    return { ...apiUser, firstName, lastName, name: apiUser.full_name }
+  }
+
   async function login(email, password) {
     const { data } = await api.post('/auth/login', { email, password })
-    _persist(data.token, data.user)
+    _persist(data.token, _normaliseUser(data.user))
   }
 
   async function register(payload) {
-    const { data } = await api.post('/auth/register', payload)
-    _persist(data.token, data.user)
+    // payload shape expected by this store:
+    // { full_name, email, password, phone, id_passport_number, nationality }
+    const { data } = await api.post('/guest/register', payload)
+    _persist(data.token, _normaliseUser(data.user))
   }
 
-  // Re-fetch the authenticated user from the API (e.g. on app boot)
   async function fetchUser() {
     if (!token.value) return
     try {
-      const { data } = await api.get('/auth/me')
-      user.value = data
-      localStorage.setItem('user', JSON.stringify(data))
+      const { data } = await api.get('/guest/me')
+      // /guest/me returns { user, profile } — merge profile fields onto user
+      const merged = { ...data.user, ...data.profile }
+      user.value = _normaliseUser(merged)
+      localStorage.setItem('user', JSON.stringify(user.value))
     } catch {
       logout()
     }

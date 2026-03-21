@@ -19,9 +19,7 @@ import { RouterLink } from 'vue-router'
         <p class="text-xs font-semibold tracking-widest uppercase text-white mb-4">Explore</p>
         <ul class="space-y-2 text-sm">
           <li><RouterLink to="/rooms" class="hover:text-white transition-colors">Our Rooms</RouterLink></li>
-          <li><a href="#" class="hover:text-white transition-colors">Experiences</a></li>
           <li><a href="#" class="hover:text-white transition-colors">Dining</a></li>
-          <li><a href="#" class="hover:text-white transition-colors">Wellness</a></li>
         </ul>
       </div>
 
@@ -31,8 +29,6 @@ import { RouterLink } from 'vue-router'
         <ul class="space-y-2 text-sm">
           <li><RouterLink to="/bookings" class="hover:text-white transition-colors">My Bookings</RouterLink></li>
           <li><a href="#" class="hover:text-white transition-colors">Packages</a></li>
-          <li><a href="#" class="hover:text-white transition-colors">Gift Cards</a></li>
-          <li><a href="#" class="hover:text-white transition-colors">Loyalty</a></li>
         </ul>
       </div>
 
@@ -58,7 +54,6 @@ import { RouterLink } from 'vue-router'
       <div class="flex gap-5">
         <a href="#" class="hover:text-white transition-colors">Privacy</a>
         <a href="#" class="hover:text-white transition-colors">Terms</a>
-        <a href="#" class="hover:text-white transition-colors">Cookies</a>
       </div>
     </div>
   </footer>

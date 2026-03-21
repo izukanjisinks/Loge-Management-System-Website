@@ -64,7 +64,7 @@ defineProps({
 
         <!-- Price -->
         <div class="text-right shrink-0">
-          <span class="block font-serif text-xl text-[--color-on-surface]">${{ room.price }}</span>
+          <span class="block font-serif text-xl text-[--color-on-surface]">K{{ room.price.toLocaleString() }}</span>
           <span class="font-sans text-[10px] uppercase tracking-tight text-[--color-on-muted] font-bold">
             Per Night
           </span>

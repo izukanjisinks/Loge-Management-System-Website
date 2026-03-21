@@ -35,7 +35,7 @@ async function submit() {
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch (e) {
-    error.value = e.response?.data?.message || 'Incorrect email or password. Please try again.'
+    error.value = e.response?.data?.error?.message || 'Incorrect email or password. Please try again.'
   } finally {
     loading.value = false
   }
@@ -44,6 +44,10 @@ async function submit() {
 
 <template>
   <div class="w-full">
+    <div
+      class="rounded-2xl bg-[--color-surface-card]/70 backdrop-blur-xl p-8 md:p-10"
+      style="border: 1px solid oklch(0.80 0.03 60 / 0.35); box-shadow: 0px 24px 48px oklch(0.18 0.02 45 / 0.10);"
+    >
     <!-- Heading -->
     <div class="mb-8">
       <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-[--color-primary] mb-2">
@@ -126,6 +130,7 @@ async function submit() {
         Create one
       </RouterLink>
     </p>
+    </div>
   </div>
 </template>
 

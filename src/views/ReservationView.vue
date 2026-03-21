@@ -63,15 +63,14 @@ async function submit() {
       checkIn:         booking.checkIn,
       checkOut:        booking.checkOut,
       guestCount:      booking.guestCount,
-      mealPlan:        booking.mealPlan,
+      mealPlanId:      booking.mealPlanId,
       specialRequests: booking.specialRequests,
-      guestInfo:       { ...booking.guestInfo },
     })
     success.value = true
     booking.reset()
     setTimeout(() => router.push({ name: 'bookings' }), 2200)
   } catch (e) {
-    errors.value.submit = e.response?.data?.message || 'Something went wrong. Please try again.'
+    errors.value.submit = e.response?.data?.error?.message || 'Something went wrong. Please try again.'
   } finally {
     loading.value = false
   }
@@ -124,17 +123,17 @@ async function submit() {
       <div class="lg:col-span-8 space-y-14">
 
         <!-- Section 01 -->
-        <div data-section="01" class="opacity-0 animate-[fadeIn_0.6s_ease-out_0.3s_forwards]">
+        <div data-section="01" class="section-fade" style="animation-delay: 0.3s">
           <GuestInfoForm :errors="errors" />
         </div>
 
         <!-- Section 02 -->
-        <div class="opacity-0 animate-[fadeIn_0.6s_ease-out_0.45s_forwards]">
+        <div class="section-fade" style="animation-delay: 0.45s">
           <StayDetailsForm :errors="errors" />
         </div>
 
         <!-- Section 03 -->
-        <div class="opacity-0 animate-[fadeIn_0.6s_ease-out_0.6s_forwards]">
+        <div class="section-fade" style="animation-delay: 0.6s">
           <PreferencesForm />
         </div>
 
@@ -197,4 +196,9 @@ async function submit() {
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.section-fade {
+  opacity: 0;
+  animation: fadeIn 0.6s ease-out forwards;
+}
 </style>

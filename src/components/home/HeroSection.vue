@@ -38,14 +38,14 @@ import BaseButton from '@/components/ui/BaseButton.vue'
         >
           Secluded retreats crafted for those who seek beauty in silence and meaning in rest.
         </p>
-        <div class="flex gap-3 reveal" style="transition-delay: 300ms">
+        <!-- <div class="flex gap-3 reveal" style="transition-delay: 300ms">
           <BaseButton to="/rooms" variant="primary" class="px-8 py-3.5">
             Explore Rooms
           </BaseButton>
           <BaseButton to="/#why" variant="ghost" class="text-white/80 hover:text-white px-6 py-3.5">
             Our Story
           </BaseButton>
-        </div>
+        </div> -->
       </div>
     </div>
   </section>
