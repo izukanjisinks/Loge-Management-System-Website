@@ -223,7 +223,7 @@ function reserve() {
         </div>
 
         <!-- Thumbnail strip -->
-        <div v-if="images.length > 1" class="flex gap-2 mb-10">
+        <!-- <div v-if="images.length > 1" class="flex gap-2 mb-10">
           <button
             v-for="(img, i) in images"
             :key="i"
@@ -236,7 +236,7 @@ function reserve() {
           >
             <img :src="img" :alt="`${room.name} thumbnail ${i + 1}`" class="w-full h-full object-cover" loading="lazy" />
           </button>
-        </div>
+        </div> -->
 
         <!-- Room meta -->
         <div class="mb-2">

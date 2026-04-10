@@ -36,7 +36,7 @@ function normalise(r, index) {
     capacity:    r.capacity,
     price:       r.price_per_night,
     available:   r.is_available,
-    image:       r.image_url || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
+    image:       r.images?.[0] || r.image_url || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     description: r.description || '',
   }

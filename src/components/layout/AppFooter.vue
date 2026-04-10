@@ -37,7 +37,7 @@ import { RouterLink } from 'vue-router'
         <p class="text-xs font-semibold tracking-widest uppercase text-white mb-4">Concierge</p>
         <ul class="space-y-2 text-sm">
           <li class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-base">call</span>+1 800 SANCTUARY
+            <span class="material-symbols-outlined text-base">call</span>+260 966 468 386
           </li>
           <li class="flex items-center gap-2">
             <span class="material-symbols-outlined text-base">mail</span>hello@thesanctuary.com
