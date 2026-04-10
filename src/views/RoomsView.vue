@@ -18,17 +18,8 @@ function capitalise(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 }
 
-const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
-  'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600&q=80',
-  'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600&q=80',
-  'https://images.unsplash.com/photo-1586500036706-41963de24d8b?w=600&q=80',
-  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
-  'https://images.unsplash.com/photo-1440778303588-435521a205bc?w=600&q=80',
-]
-
 // Map API room to the shape RoomCard expects
-function normalise(r, index) {
+function normalise(r) {
   return {
     id:          r.id,
     name:        r.name,
@@ -36,7 +27,7 @@ function normalise(r, index) {
     capacity:    r.capacity,
     price:       r.price_per_night,
     available:   r.is_available,
-    image:       r.images?.[0] || r.image_url || FALLBACK_IMAGES[index % FALLBACK_IMAGES.length],
+    image:       r.images?.[0] || null,
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     description: r.description || '',
   }
@@ -169,7 +160,7 @@ function resetFilters() {
         <input
           v-model.number="filterCapacity"
           type="range" min="1" max="6" step="1"
-          class="w-full accent-[--color-primary] h-1 rounded-full appearance-none bg-[--color-outline]/30"
+          class="w-full accent-[--color-primary] cursor-pointer"
         />
         <div class="flex justify-between font-sans text-[10px] text-[--color-on-muted]">
           <span>1</span><span>6</span>
@@ -184,7 +175,7 @@ function resetFilters() {
         <input
           v-model.number="filterMaxPrice"
           type="range" min="100" :max="priceSliderMax" step="10"
-          class="w-full accent-[--color-primary] h-1 rounded-full appearance-none bg-[--color-outline]/30"
+          class="w-full accent-[--color-primary] cursor-pointer"
         />
         <div class="flex justify-between font-sans text-[10px] text-[--color-on-muted]">
           <span>K100</span><span>K{{ priceSliderMax.toLocaleString() }}</span>

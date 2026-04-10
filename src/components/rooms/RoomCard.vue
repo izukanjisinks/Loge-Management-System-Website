@@ -28,11 +28,19 @@ defineProps({
       <!-- Image -->
       <div class="relative overflow-hidden aspect-[4/3]">
         <img
+          v-if="room.image"
           :src="room.image"
           :alt="room.name"
           class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
           loading="lazy"
         />
+        <div
+          v-else
+          class="w-full h-full bg-[--color-secondary] flex flex-col items-center justify-center gap-2"
+        >
+          <span class="material-symbols-outlined text-4xl text-[--color-outline]">image_not_supported</span>
+          <span class="font-sans text-xs text-[--color-on-muted]">No image</span>
+        </div>
 
         <!-- Unavailable overlay -->
         <div

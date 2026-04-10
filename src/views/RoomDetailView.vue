@@ -38,21 +38,8 @@ function amenityIcon(label) {
   return 'check_circle'
 }
 
-const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80',
-  'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&q=80',
-  'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=1200&q=80',
-  'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=1200&q=80',
-  'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&q=80',
-  'https://images.unsplash.com/photo-1586500036706-41963de24d8b?w=1200&q=80',
-]
-
 function normalise(r) {
   const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
-  // Use a stable index derived from the room id string so the same room
-  // always gets the same placeholder image across page loads.
-  const idHash = String(r.id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  const fallback = FALLBACK_IMAGES[idHash % FALLBACK_IMAGES.length]
   return {
     id:          r.id,
     name:        r.name,
@@ -64,7 +51,7 @@ function normalise(r) {
     bed:         r.bed_type    || '',
     location:    r.location    || '',
     description: r.description || '',
-    images:      r.images?.length ? r.images : [r.image_url || fallback],
+    images:      r.images?.length ? r.images : [],
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
   }
 }
@@ -174,7 +161,17 @@ function reserve() {
 
         <!-- Gallery -->
         <div class="relative rounded-xl overflow-hidden mb-3 aspect-video" style="box-shadow: var(--shadow-card);">
+          <!-- No images placeholder -->
+          <div
+            v-if="!images.length"
+            class="w-full h-full bg-[--color-secondary] flex flex-col items-center justify-center gap-3"
+          >
+            <span class="material-symbols-outlined text-5xl text-[--color-outline]">image_not_supported</span>
+            <p class="font-sans text-sm text-[--color-on-muted]">No images available</p>
+          </div>
+
           <Transition
+            v-else
             enter-active-class="transition duration-500 ease-out"
             enter-from-class="opacity-0 scale-105"
             enter-to-class="opacity-100 scale-100"
