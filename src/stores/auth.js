@@ -25,24 +25,20 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(email, password) {
-    const { data } = await api.post('/auth/login', { email, password })
-    _persist(data.token, _normaliseUser(data.user))
+    const { data } = await api.post('/guest/auth/login', { email, password })
+    _persist(data.token, _normaliseUser(data.guest))
   }
 
   async function register(payload) {
-    // payload shape expected by this store:
-    // { full_name, email, password, phone, id_passport_number, nationality }
-    const { data } = await api.post('/guest/register', payload)
-    _persist(data.token, _normaliseUser(data.user))
+    const { data } = await api.post('/guest/auth/register', payload)
+    _persist(data.token, _normaliseUser(data.guest))
   }
 
   async function fetchUser() {
     if (!token.value) return
     try {
       const { data } = await api.get('/guest/me')
-      // /guest/me returns { user, profile } — merge profile fields onto user
-      const merged = { ...data.user, ...data.profile }
-      user.value = _normaliseUser(merged)
+      user.value = _normaliseUser(data)
       localStorage.setItem('user', JSON.stringify(user.value))
     } catch {
       logout()

@@ -78,7 +78,7 @@ const strengthColor = ['', 'bg-[--color-error]', 'bg-[oklch(0.65_0.10_70)]', 'bg
         New here?
       </p>
       <h1 class="font-serif text-3xl text-[--color-on-surface]">Create your account</h1>
-      <p class="font-sans text-sm text-[--color-on-muted] mt-2">Begin your first journey with The Sanctuary.</p>
+      <p class="font-sans text-sm text-[--color-on-muted] mt-2">Begin your first journey with Mwakanda.</p>
     </div>
 
     <form class="space-y-5" novalidate @submit.prevent="submit">

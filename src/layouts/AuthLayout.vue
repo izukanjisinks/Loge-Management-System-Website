@@ -10,7 +10,7 @@ import { RouterLink } from 'vue-router'
       <!-- Mobile logo -->
       <header class="lg:hidden px-8 pt-8 pb-4">
         <RouterLink to="/" class="font-serif italic text-xl text-[--color-on-surface]">
-          The Sanctuary
+          Mwakanda
         </RouterLink>
       </header>
 
@@ -21,7 +21,7 @@ import { RouterLink } from 'vue-router'
       </main>
 
       <footer class="px-8 py-6 text-center font-sans text-xs text-[--color-on-muted]">
-        © {{ new Date().getFullYear() }} The Sanctuary ·
+        © {{ new Date().getFullYear() }} Mwakanda ·
         <RouterLink to="/" class="hover:text-[--color-on-surface] transition-colors ml-1">Back to home</RouterLink>
       </footer>
     </div>
@@ -39,7 +39,7 @@ import { RouterLink } from 'vue-router'
       <!-- Brand mark -->
       <div class="relative z-10 p-12 flex flex-col justify-between h-full">
         <RouterLink to="/" class="font-serif italic text-2xl text-white tracking-tight">
-          The Sanctuary
+          Mwakanda
         </RouterLink>
         <blockquote class="max-w-xs">
           <p class="font-serif text-xl text-white/90 leading-relaxed italic mb-4">

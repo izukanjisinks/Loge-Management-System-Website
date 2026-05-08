@@ -25,9 +25,10 @@ function handleLogout() {
       <!-- Logo -->
       <RouterLink
         to="/"
-        class="font-serif italic text-xl text-[--color-on-surface] tracking-tight shrink-0"
+        class="font-serif italic text-xl text-[--color-on-surface] tracking-tight shrink-0 flex items-center gap-2"
       >
-        The Sanctuary
+        <img src="/favicon.svg" alt="" class="h-6 w-6" />
+        Mwakanda
       </RouterLink>
 
       <!-- Desktop auth / CTA (includes nav links) -->

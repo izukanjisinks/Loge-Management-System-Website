@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/development/Lodge-Management-System/internal/models/**)",
+      "Read(//c/development/Lodge-Management-System/internal/services/**)"
+    ]
+  }
+}

@@ -30,6 +30,7 @@ function normalise(r) {
     image:       r.images?.[0] || null,
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     description: r.description || '',
+    orgName:     r.organization?.name || '',
   }
 }
 
@@ -57,7 +58,7 @@ onMounted(async () => {
   apiLoading.value = true
   apiError.value   = ''
   try {
-    const { data } = await api.get('/rooms', { params: { page_size: 100 } })
+    const { data } = await api.get('/guest/rooms', { params: { page_size: 100 } })
     rooms.value = (data.data ?? data).map(normalise)
     // Seed the max-price slider to the highest room price so nothing is filtered on load
     if (rooms.value.length) {
@@ -71,11 +72,14 @@ onMounted(async () => {
   }
 })
 
-// ── Room types for filter (derived from API data) ─────────────────────────────
+// ── Room types and orgs for filters (derived from API data) ──────────────────
 const TYPES = computed(() => ['All', ...new Set(rooms.value.map(r => r.type))])
+const ORGS  = computed(() => [...new Set(rooms.value.map(r => r.orgName).filter(Boolean))])
 
 // ── Filter state (seeded from search query params) ───────────────────────────
+const searchQuery       = ref('')
 const filterType        = ref('All')
+const filterOrg         = ref('All')
 const filterCapacity    = ref(1)
 const filterMaxPrice    = ref(1000)
 const showAvailableOnly = ref(false)
@@ -92,22 +96,27 @@ watch(
 )
 
 // ── Derived list ──────────────────────────────────────────────────────────────
-const filtered = computed(() =>
-  rooms.value.filter(r => {
+const filtered = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  return rooms.value.filter(r => {
+    if (q && !r.name.toLowerCase().includes(q) && !r.orgName.toLowerCase().includes(q)) return false
     if (filterType.value !== 'All' && r.type !== filterType.value) return false
+    if (filterOrg.value  !== 'All' && r.orgName !== filterOrg.value) return false
     if (r.capacity < filterCapacity.value)  return false
     if (r.price > filterMaxPrice.value)     return false
     if (showAvailableOnly.value && !r.available) return false
     return true
   })
-)
+})
 
 const resultLabel = computed(() =>
   filtered.value.length === 1 ? '1 sanctuary' : `${filtered.value.length} sanctuaries`
 )
 
 function resetFilters() {
+  searchQuery.value       = ''
   filterType.value        = 'All'
+  filterOrg.value         = 'All'
   filterCapacity.value    = 1
   filterMaxPrice.value    = priceSliderMax.value
   showAvailableOnly.value = false
@@ -115,91 +124,152 @@ function resetFilters() {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto px-6 md:px-16 py-16">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8 py-12">
 
     <!-- Page header -->
-    <div class="mb-10 reveal">
-      <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-[--color-primary] mb-2">
+    <header class="mb-10 reveal">
+      <p class="font-sans text-xs font-bold tracking-[0.2em] uppercase text-[--color-on-muted] mb-2">
         Our Collection
       </p>
-      <h1 class="font-serif text-4xl md:text-5xl text-[--color-on-surface]">
-        Choose Your <em>Sanctuary</em>
+      <h1 class="font-serif text-5xl md:text-6xl text-[--color-on-surface]">
+        Choose Your <em class="font-normal">Sanctuary</em>
       </h1>
-    </div>
+    </header>
 
-    <!-- ── Filter bar ──────────────────────────────────────────────────────── -->
-    <div
-      class="reveal bg-[--color-surface-card] rounded-lg p-5 mb-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-end"
-      style="box-shadow: var(--shadow-card);"
+    <!-- Search bar -->
+    <section class="mb-6 reveal">
+      <div class="relative group">
+        <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+          <span class="material-symbols-outlined text-[--color-on-muted] group-focus-within:text-[--color-primary] transition-colors">search</span>
+        </div>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search by lodge or room name..."
+          class="block w-full pl-14 pr-4 py-5 bg-white/40 border border-white/60 rounded-2xl
+                 font-sans text-base text-[--color-on-surface] placeholder:text-[--color-on-muted]/60
+                 focus:outline-none focus:ring-2 focus:ring-[--color-primary]/20 focus:border-[--color-primary]
+                 shadow-sm transition-all"
+        />
+      </div>
+    </section>
+
+    <!-- ── Filter panel ───────────────────────────────────────────────────── -->
+    <section
+      class="reveal bg-white/40 backdrop-blur-sm rounded-2xl p-8 border border-white/60 shadow-sm mb-12"
     >
-      <!-- Room type -->
-      <div class="flex flex-col gap-1.5">
-        <label class="font-sans text-[10px] font-bold tracking-[0.2em] uppercase text-[--color-on-muted]">
-          Room Type
-        </label>
-        <div class="flex flex-wrap gap-2 pt-1">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-end">
+
+        <!-- Room type chips -->
+        <div class="lg:col-span-5">
+          <label class="block font-sans text-[10px] font-bold tracking-widest uppercase text-[--color-on-muted] mb-4">
+            Room Type
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="t in TYPES"
+              :key="t"
+              class="px-5 py-2 rounded-full font-sans text-xs font-semibold transition-all duration-200"
+              :class="filterType === t
+                ? 'bg-[oklch(0.88_0.01_50)] text-[oklch(0.25_0.01_50)] shadow-sm'
+                : 'border border-[--color-on-surface]/10 text-[--color-on-muted] hover:border-[--color-primary] hover:text-[--color-primary]'"
+              @click="filterType = t"
+            >
+              {{ t }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Min guests slider -->
+        <div class="lg:col-span-3">
+          <div class="flex justify-between items-center mb-4">
+            <label class="font-sans text-[10px] font-bold tracking-widest uppercase text-[--color-on-muted]">
+              Min Guests — <span class="text-[--color-on-surface]">{{ filterCapacity }}</span>
+            </label>
+          </div>
+          <div class="px-1">
+            <input
+              v-model.number="filterCapacity"
+              type="range" min="1" max="6" step="1"
+              class="rooms-slider w-full"
+            />
+            <div class="flex justify-between mt-2 font-sans text-[10px] text-[--color-on-muted] font-medium">
+              <span>1</span><span>6</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Max price slider -->
+        <div class="lg:col-span-3">
+          <div class="flex justify-between items-center mb-4">
+            <label class="font-sans text-[10px] font-bold tracking-widest uppercase text-[--color-on-muted]">
+              Max Price — <span class="text-[--color-on-surface]">K{{ filterMaxPrice.toLocaleString() }}/night</span>
+            </label>
+          </div>
+          <div class="px-1">
+            <input
+              v-model.number="filterMaxPrice"
+              type="range" min="100" :max="priceSliderMax" step="10"
+              class="rooms-slider w-full"
+            />
+            <div class="flex justify-between mt-2 font-sans text-[10px] text-[--color-on-muted] font-medium">
+              <span>K100</span><span>K{{ priceSliderMax.toLocaleString() }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggle + reset -->
+        <div class="lg:col-span-1 flex flex-col items-start lg:items-end justify-between h-full py-1 gap-4">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <span class="rooms-toggle">
+              <input v-model="showAvailableOnly" type="checkbox" />
+              <span class="rooms-toggle-slider" />
+            </span>
+            <span class="font-sans text-[10px] font-bold tracking-tight uppercase text-[--color-on-muted] whitespace-nowrap">
+              Available only
+            </span>
+          </label>
           <button
-            v-for="t in TYPES"
-            :key="t"
-            class="font-sans text-xs px-3 py-1.5 rounded-lg border transition-colors duration-200"
-            :class="filterType === t
-              ? 'bg-[--color-primary] text-white border-[--color-primary]'
-              : 'border-[--color-outline]/40 text-[--color-on-muted] hover:border-[--color-primary]/40'"
-            @click="filterType = t"
+            class="font-sans text-[11px] font-bold text-[--color-on-muted] underline decoration-[--color-on-muted]/30
+                   hover:text-[--color-primary] hover:decoration-[--color-primary] transition-all"
+            @click="resetFilters"
           >
-            {{ t }}
+            Reset filters
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Lodge filter (full-width row, shown always) -->
+      <div v-if="ORGS.length" class="mt-8 pt-6 border-t border-[--color-on-surface]/5">
+        <label class="block font-sans text-[10px] font-bold tracking-widest uppercase text-[--color-on-muted] mb-4">
+          Lodge
+        </label>
+        <div class="flex flex-wrap gap-2">
+          <button
+            class="px-5 py-2 rounded-full font-sans text-xs font-semibold transition-all duration-200"
+            :class="filterOrg === 'All'
+              ? 'bg-[oklch(0.88_0.01_50)] text-[oklch(0.25_0.01_50)] shadow-sm'
+              : 'border border-[--color-on-surface]/10 text-[--color-on-muted] hover:border-[--color-primary] hover:text-[--color-primary]'"
+            @click="filterOrg = 'All'"
+          >
+            All Lodges
+          </button>
+          <button
+            v-for="org in ORGS"
+            :key="org"
+            class="px-5 py-2 rounded-full font-sans text-xs font-semibold transition-all duration-200"
+            :class="filterOrg === org
+              ? 'bg-[oklch(0.88_0.01_50)] text-[oklch(0.25_0.01_50)] shadow-sm'
+              : 'border border-[--color-on-surface]/10 text-[--color-on-muted] hover:border-[--color-primary] hover:text-[--color-primary]'"
+            @click="filterOrg = org"
+          >
+            {{ org }}
           </button>
         </div>
       </div>
 
-      <!-- Guest capacity -->
-      <div class="flex flex-col gap-1.5">
-        <label class="font-sans text-[10px] font-bold tracking-[0.2em] uppercase text-[--color-on-muted]">
-          Min Guests — {{ filterCapacity }}
-        </label>
-        <input
-          v-model.number="filterCapacity"
-          type="range" min="1" max="6" step="1"
-          class="w-full accent-[--color-primary] cursor-pointer"
-        />
-        <div class="flex justify-between font-sans text-[10px] text-[--color-on-muted]">
-          <span>1</span><span>6</span>
-        </div>
-      </div>
-
-      <!-- Max price -->
-      <div class="flex flex-col gap-1.5">
-        <label class="font-sans text-[10px] font-bold tracking-[0.2em] uppercase text-[--color-on-muted]">
-          Max Price — K{{ filterMaxPrice.toLocaleString() }}/night
-        </label>
-        <input
-          v-model.number="filterMaxPrice"
-          type="range" min="100" :max="priceSliderMax" step="10"
-          class="w-full accent-[--color-primary] cursor-pointer"
-        />
-        <div class="flex justify-between font-sans text-[10px] text-[--color-on-muted]">
-          <span>K100</span><span>K{{ priceSliderMax.toLocaleString() }}</span>
-        </div>
-      </div>
-
-      <!-- Availability + reset -->
-      <div class="flex flex-col gap-3">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input
-            v-model="showAvailableOnly"
-            type="checkbox"
-            class="w-4 h-4 rounded accent-[--color-accent]"
-          />
-          <span class="font-sans text-xs text-[--color-on-muted]">Available only</span>
-        </label>
-        <button
-          class="font-sans text-xs text-[--color-primary] hover:underline text-left"
-          @click="resetFilters"
-        >
-          Reset filters
-        </button>
-      </div>
-    </div>
+    </section>
 
     <!-- Loading skeleton -->
     <div v-if="apiLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -267,3 +337,73 @@ function resetFilters() {
 
   </div>
 </template>
+
+<style scoped>
+/* ── Custom range slider ─────────────────────────────────────────────────── */
+.rooms-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+.rooms-slider::-webkit-slider-runnable-track {
+  background: #E5E7EB;
+  height: 4px;
+  border-radius: 2px;
+}
+.rooms-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  background-color: oklch(0.55 0.12 45);
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.rooms-slider:focus::-webkit-slider-thumb {
+  outline: 2px solid oklch(0.55 0.12 45);
+  outline-offset: 2px;
+}
+
+/* ── Toggle switch ───────────────────────────────────────────────────────── */
+.rooms-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.rooms-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.rooms-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #D1D5DB;
+  transition: 0.3s;
+  border-radius: 34px;
+}
+.rooms-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+.rooms-toggle input:checked + .rooms-toggle-slider {
+  background-color: oklch(0.55 0.12 45);
+}
+.rooms-toggle input:checked + .rooms-toggle-slider:before {
+  transform: translateX(22px);
+}
+</style>

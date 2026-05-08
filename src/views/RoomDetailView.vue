@@ -61,7 +61,7 @@ onMounted(async () => {
   apiError.value   = ''
   try {
     const [roomRes] = await Promise.all([
-      api.get(`/rooms/${route.params.id}`),
+      api.get(`/guest/rooms/${route.params.id}`),
       mealPlans.fetchAll(),
     ])
     room.value = normalise(roomRes.data)

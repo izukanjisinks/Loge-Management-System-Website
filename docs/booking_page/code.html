@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Choose Your Sanctuary - Room Search</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Manrope for UI, Playfair Display for Serifs -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&amp;family=Playfair+Display:ital,wght@0,400;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'terra-cream': '#F9F4F0',
+            'terra-accent': '#B35E3F', // Terracotta accent color
+            'terra-dark': '#2D2D2D',
+            'terra-muted': '#6B7280',
+            'terra-card-bg': '#FAF9F6'
+          },
+          fontFamily: {
+            sans: ['Manrope', 'sans-serif'],
+            serif: ['Playfair Display', 'serif'],
+          },
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-sliders">
+    /* Custom Range Slider Styling */
+    input[type='range'] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    input[type='range']::-webkit-slider-runnable-track {
+      background: #E5E7EB;
+      height: 4px;
+      border-radius: 2px;
+    }
+
+    input[type='range']::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -6px; /* Centers thumb on the 4px track */
+      background-color: #B35E3F;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    input[type='range']:focus::-webkit-slider-thumb {
+      outline: 2px solid #B35E3F;
+      outline-offset: 2px;
+    }
+  </style>
+<style data-purpose="toggle-switch">
+    /* Custom Toggle Switch styling */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 22px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #D1D5DB;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #B35E3F;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+  </style>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/></head>
+<body class="bg-terra-cream text-terra-dark font-sans min-h-screen">
+<main class="max-w-7xl mx-auto px-6 py-12 lg:px-8">
+<!-- BEGIN: HeaderSection -->
+<header class="mb-10">
+<p class="text-xs font-bold tracking-[0.2em] text-terra-muted uppercase mb-2">Our Collection</p>
+<h1 class="text-5xl md:text-6xl font-serif text-terra-dark">
+        Choose Your <span class="italic font-normal">Sanctuary</span>
+</h1>
+</header>
+<!-- END: HeaderSection -->
+<!-- BEGIN: FilterSection -->
+<section class="mb-6" data-purpose="search-bar">
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-terra-muted group-focus-within:text-terra-accent transition-colors">search</span>
+</div>
+<input class="block w-full pl-14 pr-4 py-5 bg-white border border-white/60 rounded-2xl text-terra-dark placeholder-terra-muted/60 focus:outline-none focus:ring-2 focus:ring-terra-accent/20 focus:border-terra-accent shadow-sm transition-all text-lg" placeholder="Search by lodge or hotel name..." type="text"/>
+</div>
+</section><section class="bg-white/40 backdrop-blur-sm rounded-2xl p-8 border border-white/60 shadow-sm mb-12" data-purpose="filters">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-end">
+<!-- Room Type Selector -->
+<div class="lg:col-span-5">
+<label class="block text-[10px] font-bold tracking-widest text-terra-muted uppercase mb-4">Room Type</label>
+<div class="flex flex-wrap gap-2">
+<button class="px-5 py-2 rounded-full text-xs font-semibold bg-terra-accent text-white shadow-md shadow-terra-accent/20 transition-all">All</button>
+<button class="px-5 py-2 rounded-full text-xs font-semibold border border-terra-dark/10 hover:border-terra-accent hover:text-terra-accent transition-all">Double</button>
+<button class="px-5 py-2 rounded-full text-xs font-semibold border border-terra-dark/10 hover:border-terra-accent hover:text-terra-accent transition-all">Conference</button>
+<button class="px-5 py-2 rounded-full text-xs font-semibold border border-terra-dark/10 hover:border-terra-accent hover:text-terra-accent transition-all">Single</button>
+<button class="px-5 py-2 rounded-full text-xs font-semibold border border-terra-dark/10 hover:border-terra-accent hover:text-terra-accent transition-all">Suite</button>
+</div>
+</div>
+<!-- Min Guests Slider -->
+<div class="lg:col-span-3">
+<div class="flex justify-between items-center mb-4">
+<label class="text-[10px] font-bold tracking-widest text-terra-muted uppercase">Min Guests — <span class="text-terra-dark">1</span></label>
+</div>
+<div class="px-1">
+<input class="w-full" max="6" min="1" type="range" value="1"/>
+<div class="flex justify-between mt-2 text-[10px] text-terra-muted font-medium">
+<span>1</span>
+<span>6</span>
+</div>
+</div>
+</div>
+<!-- Max Price Slider -->
+<div class="lg:col-span-3">
+<div class="flex justify-between items-center mb-4">
+<label class="text-[10px] font-bold tracking-widest text-terra-muted uppercase">Max Price — <span class="text-terra-dark">K800/night</span></label>
+</div>
+<div class="px-1">
+<input class="w-full" max="800" min="100" type="range" value="800"/>
+<div class="flex justify-between mt-2 text-[10px] text-terra-muted font-medium">
+<span>K100</span>
+<span>K800</span>
+</div>
+</div>
+</div>
+<!-- Toggle and Reset -->
+<div class="lg:col-span-1 flex flex-col items-center lg:items-end justify-between h-full py-1">
+<div class="flex items-center gap-3 mb-4 lg:mb-0">
+<label class="switch">
+<input type="checkbox"/>
+<span class="slider"></span>
+</label>
+<span class="text-[10px] font-bold tracking-tight text-terra-muted uppercase whitespace-nowrap">Available only</span>
+</div>
+<button class="text-[11px] font-bold text-terra-muted underline decoration-terra-muted/30 hover:text-terra-accent hover:decoration-terra-accent transition-all">Reset filters</button>
+</div>
+</div>
+</section>
+<!-- END: FilterSection -->
+<!-- BEGIN: ResultsInfo -->
+<div class="mb-8">
+<p class="text-sm text-terra-muted">Showing <span class="font-bold text-terra-dark">7 sanctuaries</span></p>
+</div>
+<!-- END: ResultsInfo -->
+<!-- BEGIN: RoomGrid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Card 1 -->
+<article class="bg-terra-card-bg rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-64">
+<img alt="Cabin Room 101" class="w-full h-full object-cover grayscale-[20%]" src="https://lh3.googleusercontent.com/aida/ADBb0uj57N851qevyVL11rX2330Fy3KMYthoSNWWBaaoRMdi6F-aFLEwsON6SyXvqBESeetJxY6A4zUASP6Hh-ZjxJYurPK-vBMIfQtfiXPHYCkZf6fK_Ue4bVeRQSrtEWpnjA9l3sTkJPX9y88jIkvno52fwy0eTwtdclSrSEOSFEW1Y8sr8HrMxFXjbHaoLPDAZrRY_7Hdq0mVE1rUNP4fiAt8ov5RDFTOyVCFb2n4Hs7I15-SIwdD3v73nY8Nxnwwlijx9a4XwPObRQ"/>
+<!-- Fully Booked Overlay -->
+<div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+<span class="text-white font-bold text-sm tracking-widest uppercase">Fully Booked</span>
+</div>
+<!-- Capacity Badge -->
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-md flex items-center gap-2 shadow-sm">
+<svg class="w-4 h-4 text-terra-muted" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-xs font-bold text-terra-dark">Up to 2</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<div>
+<p class="text-[10px] font-extrabold text-terra-muted tracking-widest uppercase">Double</p>
+<h3 class="text-xl font-serif text-terra-dark mt-1">Cabin Room 101</h3>
+</div>
+<div class="flex items-center gap-1.5 text-terra-muted">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+<span class="text-[10px] font-bold uppercase tracking-tight">The Sanctuary Lodge</span>
+</div>
+</div>
+<!-- Features -->
+<div class="flex gap-4 my-4 opacity-70">
+<span title="WiFi"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="AC"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="Breakfast Included"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="Bar"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+</div>
+<div class="flex justify-between items-center mt-6 pt-4 border-t border-terra-dark/5">
+<p class="text-xs text-terra-muted font-medium">from <span class="text-lg font-bold text-terra-dark">K280</span>/night</p>
+<p class="text-[10px] font-bold text-terra-muted uppercase">Unavailable</p>
+</div>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-terra-card-bg rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-64">
+<img alt="Conference A" class="w-full h-full object-cover grayscale-[20%]" src="https://lh3.googleusercontent.com/aida/ADBb0uj57N851qevyVL11rX2330Fy3KMYthoSNWWBaaoRMdi6F-aFLEwsON6SyXvqBESeetJxY6A4zUASP6Hh-ZjxJYurPK-vBMIfQtfiXPHYCkZf6fK_Ue4bVeRQSrtEWpnjA9l3sTkJPX9y88jIkvno52fwy0eTwtdclSrSEOSFEW1Y8sr8HrMxFXjbHaoLPDAZrRY_7Hdq0mVE1rUNP4fiAt8ov5RDFTOyVCFb2n4Hs7I15-SIwdD3v73nY8Nxnwwlijx9a4XwPObRQ"/>
+<div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+<span class="text-white font-bold text-sm tracking-widest uppercase">Fully Booked</span>
+</div>
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-md flex items-center gap-2 shadow-sm">
+<svg class="w-4 h-4 text-terra-muted" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-xs font-bold text-terra-dark">Up to 20</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<div>
+<p class="text-[10px] font-extrabold text-terra-muted tracking-widest uppercase">Conference</p>
+<h3 class="text-xl font-serif text-terra-dark mt-1">Conference A</h3>
+</div>
+<div class="flex items-center gap-1.5 text-terra-muted">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+<span class="text-[10px] font-bold uppercase tracking-tight">The Sanctuary Lodge</span>
+</div>
+</div>
+<div class="flex gap-4 my-4 opacity-70">
+<span title="WiFi"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="Catering"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="Audio"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 18.505a.5.5 0 01-.5.5H8a3 3 0 01-3-3v-8a3 3 0 013-3h3.5a.5.5 0 01.5.5v13z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span class="text-xs font-bold text-terra-muted self-center">+1</span>
+</div>
+<div class="flex justify-between items-center mt-6 pt-4 border-t border-terra-dark/5">
+<p class="text-xs text-terra-muted font-medium">from <span class="text-lg font-bold text-terra-dark">K800</span>/night</p>
+<p class="text-[10px] font-bold text-terra-muted uppercase">Unavailable</p>
+</div>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="bg-terra-card-bg rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-64">
+<img alt="Room 101" class="w-full h-full object-cover grayscale-[20%]" src="https://lh3.googleusercontent.com/aida/ADBb0uj57N851qevyVL11rX2330Fy3KMYthoSNWWBaaoRMdi6F-aFLEwsON6SyXvqBESeetJxY6A4zUASP6Hh-ZjxJYurPK-vBMIfQtfiXPHYCkZf6fK_Ue4bVeRQSrtEWpnjA9l3sTkJPX9y88jIkvno52fwy0eTwtdclSrSEOSFEW1Y8sr8HrMxFXjbHaoLPDAZrRY_7Hdq0mVE1rUNP4fiAt8ov5RDFTOyVCFb2n4Hs7I15-SIwdD3v73nY8Nxnwwlijx9a4XwPObRQ"/>
+<div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+<span class="text-white font-bold text-sm tracking-widest uppercase">Fully Booked</span>
+</div>
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-md flex items-center gap-2 shadow-sm">
+<svg class="w-4 h-4 text-terra-muted" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-xs font-bold text-terra-dark">Up to 1</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<div>
+<p class="text-[10px] font-extrabold text-terra-muted tracking-widest uppercase">Single</p>
+<h3 class="text-xl font-serif text-terra-dark mt-1">Room 101</h3>
+</div>
+<div class="flex items-center gap-1.5 text-terra-muted">
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path></svg>
+<span class="text-[10px] font-bold uppercase tracking-tight">The Sanctuary Lodge</span>
+</div>
+</div>
+<div class="flex gap-4 my-4 opacity-70">
+<span title="WiFi"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="AC"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+<span title="Verified"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></span>
+</div>
+<div class="flex justify-between items-center mt-6 pt-4 border-t border-terra-dark/5">
+<p class="text-xs text-terra-muted font-medium">from <span class="text-lg font-bold text-terra-dark">K150</span>/night</p>
+<p class="text-[10px] font-bold text-terra-muted uppercase">Unavailable</p>
+</div>
+</div>
+</article>
+</div>
+<!-- END: RoomGrid -->
+</main>
+</body></html>
