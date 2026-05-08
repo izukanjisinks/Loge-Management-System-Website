@@ -54,35 +54,46 @@ function amenityIcon(label) {
   return 'check_circle'
 }
 
-onMounted(async () => {
-  apiLoading.value = true
-  apiError.value   = ''
-  try {
-    const { data } = await api.get('/guest/rooms', { params: { page_size: 100 } })
-    rooms.value = (data.data ?? data).map(normalise)
-    // Seed the max-price slider to the highest room price so nothing is filtered on load
-    if (rooms.value.length) {
-      const maxPrice = Math.max(...rooms.value.map(r => r.price))
-      filterMaxPrice.value = Math.ceil(maxPrice / 100) * 100  // round up to nearest 100
-    }
-  } catch (err) {
-    apiError.value = err.response?.data?.error?.message || 'Unable to load rooms. Please try again.'
-  } finally {
-    apiLoading.value = false
-  }
-})
-
-// ── Room types and orgs for filters (derived from API data) ──────────────────
-const TYPES = computed(() => ['All', ...new Set(rooms.value.map(r => r.type))])
-const ORGS  = computed(() => [...new Set(rooms.value.map(r => r.orgName).filter(Boolean))])
-
-// ── Filter state (seeded from search query params) ───────────────────────────
+// ── Filter state ─────────────────────────────────────────────────────────────
 const searchQuery       = ref('')
 const filterType        = ref('All')
 const filterOrg         = ref('All')
 const filterCapacity    = ref(1)
 const filterMaxPrice    = ref(1000)
 const showAvailableOnly = ref(false)
+
+// ── API fetch ─────────────────────────────────────────────────────────────────
+async function fetchRooms() {
+  apiLoading.value = true
+  apiError.value   = ''
+  try {
+    const params = { page_size: 100 }
+    const q = searchQuery.value.trim()
+    if (q) params.org_name = q
+    const { data } = await api.get('/guest/rooms', { params })
+    rooms.value = (data.data ?? data).map(normalise)
+    if (rooms.value.length) {
+      const maxPrice = Math.max(...rooms.value.map(r => r.price))
+      filterMaxPrice.value = Math.ceil(maxPrice / 100) * 100
+    }
+  } catch (err) {
+    apiError.value = err.response?.data?.error?.message || 'Unable to load rooms. Please try again.'
+  } finally {
+    apiLoading.value = false
+  }
+}
+
+let searchDebounce = null
+watch(searchQuery, () => {
+  clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => fetchRooms(), 400)
+})
+
+onMounted(() => fetchRooms())
+
+// ── Room types and orgs (derived from loaded data) ────────────────────────────
+const TYPES = computed(() => ['All', ...new Set(rooms.value.map(r => r.type))])
+const ORGS  = computed(() => [...new Set(rooms.value.map(r => r.orgName).filter(Boolean))])
 
 const priceSliderMax = computed(() => {
   if (!rooms.value.length) return 1000
@@ -96,10 +107,8 @@ watch(
 )
 
 // ── Derived list ──────────────────────────────────────────────────────────────
-const filtered = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase()
-  return rooms.value.filter(r => {
-    if (q && !r.name.toLowerCase().includes(q) && !r.orgName.toLowerCase().includes(q)) return false
+const filtered = computed(() =>
+  rooms.value.filter(r => {
     if (filterType.value !== 'All' && r.type !== filterType.value) return false
     if (filterOrg.value  !== 'All' && r.orgName !== filterOrg.value) return false
     if (r.capacity < filterCapacity.value)  return false
@@ -107,7 +116,7 @@ const filtered = computed(() => {
     if (showAvailableOnly.value && !r.available) return false
     return true
   })
-})
+)
 
 const resultLabel = computed(() =>
   filtered.value.length === 1 ? '1 sanctuary' : `${filtered.value.length} sanctuaries`
@@ -120,6 +129,7 @@ function resetFilters() {
   filterCapacity.value    = 1
   filterMaxPrice.value    = priceSliderMax.value
   showAvailableOnly.value = false
+  fetchRooms()
 }
 </script>
 
@@ -145,7 +155,7 @@ function resetFilters() {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search by lodge or room name..."
+          placeholder="Search by lodge or hotel name..."
           class="block w-full pl-14 pr-4 py-5 bg-white/40 border border-white/60 rounded-2xl
                  font-sans text-base text-[--color-on-surface] placeholder:text-[--color-on-muted]/60
                  focus:outline-none focus:ring-2 focus:ring-[--color-primary]/20 focus:border-[--color-primary]
