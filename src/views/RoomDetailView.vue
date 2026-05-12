@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookingStore }   from '@/stores/booking'
 import { useAuthStore }      from '@/stores/auth'
-import { useMealPlansStore } from '@/stores/mealPlans'
 import { usePricing }        from '@/composables/usePricing'
 import BaseButton            from '@/components/ui/BaseButton.vue'
 import api                   from '@/lib/api'
@@ -12,7 +11,6 @@ const route      = useRoute()
 const router     = useRouter()
 const booking    = useBookingStore()
 const auth       = useAuthStore()
-const mealPlans  = useMealPlansStore()
 
 // ── Room data ─────────────────────────────────────────────────────────────────
 const room       = ref(null)
@@ -60,16 +58,8 @@ onMounted(async () => {
   apiLoading.value = true
   apiError.value   = ''
   try {
-    const [roomRes] = await Promise.all([
-      api.get(`/guest/rooms/${route.params.id}`),
-      mealPlans.fetchAll(),
-    ])
+    const roomRes = await api.get(`/guest/rooms/${route.params.id}`)
     room.value = normalise(roomRes.data)
-    // Default meal plan selection: first active plan, or null
-    if (mealPlans.plans.length) {
-      const first = mealPlans.plans[0]
-      mealPlanId.value = first.id
-    }
   } catch {
     apiError.value = 'Unable to load room details. Please try again.'
   } finally {
@@ -87,23 +77,12 @@ function nextImg() { activeImg.value = (activeImg.value + 1) % images.value.leng
 const checkIn    = ref('')
 const checkOut   = ref('')
 const guestCount = ref(1)
-const mealPlanId = ref(null)
 const baseRate   = computed(() => room.value?.price ?? 0)
 
-// Derive rate from selected meal plan for live pricing
-const selectedPlan = computed(() =>
-  mealPlans.plans.find(p => p.id === mealPlanId.value) ?? null
-)
-const mealRate = computed(() => selectedPlan.value?.price_per_person_per_night ?? 0)
-
-// usePricing expects a mealPlan slug — we pass a computed ref with the rate directly
-// by passing a fake "none" slug and overriding mealCost manually via the rate ref.
-// Instead, use the raw composable inputs with our rate:
 const { nightCount, baseTotal } = usePricing(
   checkIn, checkOut, baseRate, guestCount, ref('none')
 )
-const mealCost   = computed(() => mealRate.value * guestCount.value * nightCount.value)
-const grandTotal = computed(() => baseTotal.value + mealCost.value + ((baseTotal.value + mealCost.value) * 0.12))
+const grandTotal = computed(() => baseTotal.value + (baseTotal.value * 0.12))
 
 const dateError = computed(() => {
   if (!checkIn.value || !checkOut.value) return ''
@@ -113,14 +92,9 @@ const dateError = computed(() => {
 
 function reserve() {
   if (!checkIn.value || !checkOut.value || dateError.value) return
-  const plan = selectedPlan.value
   booking.setRoom(room.value.id, room.value.type, room.value.price)
   booking.setDates(checkIn.value, checkOut.value)
-  booking.setMealPlan(
-    plan?.id   ?? null,
-    plan?.name ?? 'Room Only',
-    plan?.price_per_person_per_night ?? 0,
-  )
+  booking.setMealPlan(null, 'Room Only', 0)
   booking.guestCount = guestCount.value
   if (!auth.isAuthenticated) {
     router.push({ name: 'login', query: { redirect: `/reserve/${room.value.id}` } })
@@ -338,44 +312,6 @@ function reserve() {
               </div>
             </div>
 
-            <!-- Meal plan selector (from API) -->
-            <div class="flex flex-col gap-2">
-              <label class="font-sans text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted]">Meal Plan</label>
-              <div v-if="mealPlans.loading" class="space-y-2">
-                <div v-for="n in 3" :key="n" class="h-10 rounded-lg bg-[--color-outline]/20 animate-pulse" />
-              </div>
-              <div v-else class="space-y-2">
-                <!-- Room only (no meal plan) -->
-                <label
-                  class="flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors"
-                  :class="mealPlanId === null
-                    ? 'border-[--color-primary] bg-[oklch(0.55_0.12_45/0.05)]'
-                    : 'border-[oklch(0_0_0/0.07)] hover:border-[oklch(0_0_0/0.14)]'"
-                >
-                  <div class="flex items-center gap-2">
-                    <input type="radio" :value="null" v-model="mealPlanId" class="accent-[--color-primary]" />
-                    <span class="font-sans text-xs font-semibold text-[--color-on-surface]">Room Only</span>
-                  </div>
-                  <span class="font-sans text-xs text-[--color-on-muted]">Included</span>
-                </label>
-                <label
-                  v-for="plan in mealPlans.plans"
-                  :key="plan.id"
-                  class="flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors"
-                  :class="mealPlanId === plan.id
-                    ? 'border-[--color-primary] bg-[oklch(0.55_0.12_45/0.05)]'
-                    : 'border-[oklch(0_0_0/0.07)] hover:border-[oklch(0_0_0/0.14)]'"
-                >
-                  <div class="flex items-center gap-2">
-                    <input type="radio" :value="plan.id" v-model="mealPlanId" class="accent-[--color-primary]" />
-                    <span class="font-sans text-xs font-semibold text-[--color-on-surface]">{{ plan.name }}</span>
-                  </div>
-                  <span class="font-sans text-xs text-[--color-on-muted]">
-                    +K{{ plan.price_per_person_per_night.toLocaleString() }}pp/night
-                  </span>
-                </label>
-              </div>
-            </div>
 
             <!-- Live price breakdown -->
             <Transition
@@ -388,13 +324,9 @@ function reserve() {
                   <span>K{{ room.price.toLocaleString() }} × {{ nightCount }} nights</span>
                   <span>K{{ Number(baseTotal.toFixed(0)).toLocaleString() }}</span>
                 </div>
-                <div v-if="mealCost > 0" class="flex justify-between text-[--color-on-muted]">
-                  <span>Meal plan</span>
-                  <span>K{{ Number(mealCost.toFixed(0)).toLocaleString() }}</span>
-                </div>
                 <div class="flex justify-between text-[--color-on-muted]">
                   <span>Taxes & fees (12%)</span>
-                  <span>K{{ Number(((baseTotal + mealCost) * 0.12).toFixed(0)).toLocaleString() }}</span>
+                  <span>K{{ Number((baseTotal * 0.12).toFixed(0)).toLocaleString() }}</span>
                 </div>
                 <div class="flex justify-between font-semibold text-[--color-on-surface] text-base pt-2">
                   <span>Total estimate</span>

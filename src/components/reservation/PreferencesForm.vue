@@ -1,6 +1,5 @@
 <script setup>
 import { useBookingStore } from '@/stores/booking'
-import MealPlanSelector from './MealPlanSelector.vue'
 
 const booking = useBookingStore()
 </script>
@@ -16,8 +15,6 @@ const booking = useBookingStore()
       class="bg-[--color-surface-card] p-8 rounded-lg space-y-8"
       style="box-shadow: var(--shadow-card);"
     >
-      <MealPlanSelector />
-
       <!-- Special requests -->
       <div class="flex flex-col gap-1.5">
         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-[--color-on-muted]">

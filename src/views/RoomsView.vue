@@ -142,7 +142,7 @@ function resetFilters() {
         Our Collection
       </p>
       <h1 class="font-serif text-5xl md:text-6xl text-[--color-on-surface]">
-        Choose Your <em class="font-normal">Sanctuary</em>
+        Choose Your <em class="font-normal">Room</em>
       </h1>
     </header>
 

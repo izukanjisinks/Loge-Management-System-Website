@@ -72,12 +72,6 @@ function formatDate(d) {
           </span>
           <span class="text-[--color-on-surface] font-medium">{{ booking.nightCount || '—' }}</span>
         </div>
-        <div class="flex justify-between text-[--color-on-muted]">
-          <span class="flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-base">restaurant</span> Meal Plan
-          </span>
-          <span class="text-[--color-on-surface] font-medium">{{ booking.mealPlanName || 'Room Only' }}</span>
-        </div>
       </div>
 
       <!-- Price breakdown -->
@@ -85,10 +79,6 @@ function formatDate(d) {
         <div class="flex justify-between text-[--color-on-muted]">
           <span>Base Rate</span>
           <span>K{{ Number(booking.baseTotal.toFixed(0)).toLocaleString() }}</span>
-        </div>
-        <div v-if="booking.mealCost > 0" class="flex justify-between text-[--color-on-muted]">
-          <span>Meal Plan</span>
-          <span>K{{ Number(booking.mealCost.toFixed(0)).toLocaleString() }}</span>
         </div>
         <div class="flex justify-between text-[--color-on-muted]">
           <span>Taxes & Fees (12%)</span>
