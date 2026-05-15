@@ -28,7 +28,7 @@ function handleLogout() {
         class="font-serif italic text-xl text-[--color-on-surface] tracking-tight shrink-0 flex items-center gap-2"
       >
         <img src="/favicon.svg" alt="" class="h-6 w-6" />
-        Mwakanda
+        Mwakwanda
       </RouterLink>
 
       <!-- Desktop auth / CTA (includes nav links) -->

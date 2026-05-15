@@ -8,7 +8,7 @@ import { RouterLink } from 'vue-router'
 
       <!-- Brand -->
       <div class="md:col-span-1">
-        <p class="font-serif italic text-xl text-white mb-3">Mwakanda</p>
+        <p class="font-serif italic text-xl text-white mb-3">Mwakwanda</p>
         <p class="text-sm leading-relaxed">
           Curated escapes nestled in nature. Every stay, a story worth telling.
         </p>
@@ -50,7 +50,7 @@ import { RouterLink } from 'vue-router'
     </div>
 
     <div class="border-t border-white/10 max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row justify-between gap-3 text-xs text-[oklch(0.55_0.02_50)]">
-      <span>© {{ new Date().getFullYear() }} Mwakanda. All rights reserved.</span>
+      <span>© {{ new Date().getFullYear() }} Mwakwanda. All rights reserved.</span>
       <div class="flex gap-5">
         <a href="#" class="hover:text-white transition-colors">Privacy</a>
         <a href="#" class="hover:text-white transition-colors">Terms</a>
