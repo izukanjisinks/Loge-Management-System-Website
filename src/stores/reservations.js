@@ -39,7 +39,7 @@ export const useReservationsStore = defineStore('reservations', () => {
       await Promise.allSettled(
         uniqueRoomIds.map(async (roomId) => {
           try {
-            const { data: room } = await api.get(`/rooms/${roomId}`)
+            const { data: room } = await api.get(`/guest/rooms/${roomId}`)
             roomImages[roomId] = room.images?.[0] || null
           } catch {
             roomImages[roomId] = null
