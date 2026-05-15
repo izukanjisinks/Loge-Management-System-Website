@@ -5,6 +5,9 @@ import { useBookingStore }   from '@/stores/booking'
 import { useAuthStore }      from '@/stores/auth'
 import { usePricing }        from '@/composables/usePricing'
 import BaseButton            from '@/components/ui/BaseButton.vue'
+import { RangeCalendar }     from '@/components/ui/range-calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
+import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import api                   from '@/lib/api'
 
 const route      = useRoute()
@@ -51,6 +54,7 @@ function normalise(r) {
     description: r.description || '',
     images:      r.images?.length ? r.images : [],
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
+    bookedDates: r.booked_dates ?? [],
   }
 }
 
@@ -78,6 +82,41 @@ const checkIn    = ref('')
 const checkOut   = ref('')
 const guestCount = ref(1)
 const baseRate   = computed(() => room.value?.price ?? 0)
+
+const calendarOpen = ref(false)
+const todayDate    = today(getLocalTimeZone())
+
+function toIso(cd) {
+  if (!cd) return ''
+  return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
+}
+
+// RangeCalendar v-model is { start, end }
+const dateRange = computed({
+  get: () => ({
+    start: checkIn.value ? parseDate(checkIn.value) : undefined,
+    end:   checkOut.value ? parseDate(checkOut.value) : undefined,
+  }),
+  set: (v) => {
+    checkIn.value  = toIso(v?.start)
+    checkOut.value = toIso(v?.end)
+    if (v?.start && v?.end) calendarOpen.value = false
+  },
+})
+
+const isDateUnavailable = computed(() => {
+  const booked = room.value?.bookedDates ?? []
+  if (!booked.length) return () => false
+  return (date) => {
+    const d = toIso(date)
+    return booked.some(b => d >= b.check_in && d < b.check_out)
+  }
+})
+
+function formatDisplay(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 const { nightCount, baseTotal } = usePricing(
   checkIn, checkOut, baseRate, guestCount, ref('none')
@@ -251,7 +290,7 @@ function reserve() {
       <!-- ── Right: sticky booking widget ──────────────────────────────── -->
       <div class="lg:col-span-4">
         <div
-          class="sticky top-24 bg-[--color-surface-card] rounded-xl overflow-hidden"
+          class="sticky top-24 bg-[--color-surface-card] rounded-xl"
           style="box-shadow: var(--shadow-float);"
         >
           <!-- Price header -->
@@ -268,27 +307,33 @@ function reserve() {
           <div class="px-6 pb-6 space-y-5">
 
             <!-- Dates -->
-            <div class="grid grid-cols-2 gap-3">
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted]">Check In</label>
-                <input
-                  v-model="checkIn"
-                  type="date"
-                  class="bg-transparent border-b border-[--color-outline] py-2 text-sm font-sans
-                         text-[--color-on-surface] focus:outline-none focus:border-[--color-primary] transition-colors"
+            <Popover v-model:open="calendarOpen">
+              <PopoverTrigger as-child>
+                <button
+                  type="button"
+                  class="w-full flex items-center justify-between border-b border-[--color-outline] py-2 font-sans text-sm text-left transition-colors focus:outline-none focus:border-[--color-primary]"
+                >
+                  <div class="flex flex-col gap-0.5">
+                    <span class="font-sans text-[10px] font-bold tracking-[0.18em] uppercase" style="color: var(--color-on-muted);">
+                      {{ checkIn && checkOut ? 'Stay' : 'Select dates' }}
+                    </span>
+                    <span v-if="checkIn || checkOut" style="color: var(--color-on-surface);">
+                      {{ formatDisplay(checkIn) || '—' }} → {{ formatDisplay(checkOut) || '—' }}
+                    </span>
+                    <span v-else style="color: var(--color-on-muted);">Pick check-in &amp; check-out</span>
+                  </div>
+                  <span class="material-symbols-outlined text-sm shrink-0" style="color: var(--color-on-muted);">calendar_month</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" class="w-auto">
+                <RangeCalendar
+                  v-model="dateRange"
+                  :min-value="todayDate"
+                  :is-date-unavailable="isDateUnavailable"
                 />
-              </div>
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted]">Check Out</label>
-                <input
-                  v-model="checkOut"
-                  type="date"
-                  class="bg-transparent border-b border-[--color-outline] py-2 text-sm font-sans
-                         text-[--color-on-surface] focus:outline-none focus:border-[--color-primary] transition-colors"
-                />
-              </div>
-            </div>
-            <p v-if="dateError" class="font-sans text-xs text-[--color-error] -mt-2">{{ dateError }}</p>
+              </PopoverContent>
+            </Popover>
+            <p v-if="dateError" class="font-sans text-xs mt-1" style="color: var(--color-error);">{{ dateError }}</p>
 
             <!-- Guests stepper -->
             <div class="flex flex-col gap-1">

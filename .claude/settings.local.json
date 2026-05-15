@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Read(//c/development/Lodge-Management-System/internal/models/**)",
-      "Read(//c/development/Lodge-Management-System/internal/services/**)"
+      "Read(//c/development/Lodge-Management-System/internal/services/**)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/calendar/**)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/range-calendar/**)"
     ]
   }
 }

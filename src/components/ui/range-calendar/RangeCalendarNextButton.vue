@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import type { CalendarPrevProps } from "reka-ui"
+import type { RangeCalendarNextProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
 import { reactiveOmit } from "@vueuse/core"
-import { CalendarPrev, useForwardProps } from "reka-ui"
+import { RangeCalendarNext, useForwardProps } from "reka-ui"
 import { cn } from '@/lib/utils'
 
-const props = defineProps<CalendarPrevProps & { class?: HTMLAttributes["class"] }>()
+const props = defineProps<RangeCalendarNextProps & { class?: HTMLAttributes["class"] }>()
 
 const delegatedProps = reactiveOmit(props, "class")
 
@@ -13,15 +13,15 @@ const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
 <template>
-  <CalendarPrev
-    data-slot="calendar-prev-button"
-    :class="cn('cal-nav-btn', props.class)"
+  <RangeCalendarNext
+    data-slot="range-calendar-next-button"
+    :class="cn('cal-nav-btn shrink-0', props.class)"
     v-bind="forwardedProps"
   >
     <slot>
-      <span class="material-symbols-outlined text-base">chevron_left</span>
+      <span class="material-symbols-outlined text-base">chevron_right</span>
     </slot>
-  </CalendarPrev>
+  </RangeCalendarNext>
 </template>
 
 <style>
@@ -43,7 +43,5 @@ const forwardedProps = useForwardProps(delegatedProps)
   opacity: 1;
   background-color: var(--color-secondary);
 }
-.cal-nav-btn:focus-visible {
-  outline: none;
-}
+.cal-nav-btn:focus-visible { outline: none; }
 </style>

@@ -4,7 +4,6 @@ import type { HTMLAttributes } from "vue"
 import { reactiveOmit } from "@vueuse/core"
 import { CalendarCellTrigger, useForwardProps } from "reka-ui"
 import { cn } from '@/lib/utils'
-import { buttonVariants } from '@/components/ui/button'
 
 const props = withDefaults(defineProps<CalendarCellTriggerProps & { class?: HTMLAttributes["class"] }>(), {
   as: "button",
@@ -18,22 +17,55 @@ const forwardedProps = useForwardProps(delegatedProps)
 <template>
   <CalendarCellTrigger
     data-slot="calendar-cell-trigger"
-    :class="cn(
-      buttonVariants({ variant: 'ghost' }),
-      'size-8 p-0 font-normal aria-selected:opacity-100 cursor-default',
-      '[&[data-today]:not([data-selected])]:bg-accent [&[data-today]:not([data-selected])]:text-accent-foreground',
-      // Selected
-      'data-[selected]:bg-primary data-[selected]:text-primary-foreground data-[selected]:opacity-100 data-[selected]:hover:bg-primary data-[selected]:hover:text-primary-foreground data-[selected]:focus:bg-primary data-[selected]:focus:text-primary-foreground',
-      // Disabled
-      'data-[disabled]:text-muted-foreground data-[disabled]:opacity-50',
-      // Unavailable
-      'data-[unavailable]:text-destructive-foreground data-[unavailable]:line-through',
-      // Outside months
-      'data-[outside-view]:text-muted-foreground',
-      props.class,
-    )"
+    :class="cn('cal-trigger', props.class)"
     v-bind="forwardedProps"
   >
     <slot />
   </CalendarCellTrigger>
 </template>
+
+<style>
+.cal-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-weight: 400;
+  cursor: default;
+  transition: background-color 0.15s, color 0.15s;
+  color: var(--color-on-surface);
+}
+.cal-trigger:hover {
+  background-color: var(--color-secondary);
+}
+.cal-trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.cal-trigger[data-today]:not([data-selected]) {
+  background-color: var(--color-secondary);
+  font-weight: 600;
+}
+.cal-trigger[data-selected] {
+  background-color: var(--color-primary);
+  color: white;
+  opacity: 1;
+}
+.cal-trigger[data-disabled] {
+  color: var(--color-on-muted);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.cal-trigger[data-unavailable] {
+  color: var(--color-error);
+  text-decoration: line-through;
+}
+.cal-trigger[data-outside-view] {
+  color: var(--color-on-muted);
+  opacity: 0.4;
+}
+</style>
