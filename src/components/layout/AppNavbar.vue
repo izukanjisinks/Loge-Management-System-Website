@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -14,14 +14,11 @@ function handleLogout() {
 </script>
 
 <template>
-  <header class="bg-(--color-surface) shadow-sm sticky top-0 z-[100] w-full">
+  <header class="sticky top-0 z-100 w-full bg-(--color-surface) shadow-sm">
     <nav class="flex justify-between items-center w-full px-5 md:px-16 py-4 max-w-[1280px] mx-auto">
 
       <!-- Logo -->
-      <RouterLink
-        to="/"
-        class="font-serif text-2xl text-(--color-primary) tracking-tight"
-      >
+      <RouterLink to="/" class="font-serif text-2xl text-(--color-primary) tracking-tight">
         Mwakwanda
       </RouterLink>
 
@@ -29,21 +26,21 @@ function handleLogout() {
       <div class="hidden md:flex gap-6 items-center">
         <RouterLink
           to="/lodges"
-          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary-container) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
           active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
         >
           Explore
         </RouterLink>
         <RouterLink
           to="/bookings"
-          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary-container) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
           active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
         >
           Reservations
         </RouterLink>
         <a
           href="#"
-          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary-container) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
         >
           About
         </a>
@@ -62,7 +59,7 @@ function handleLogout() {
         <template v-else>
           <RouterLink
             to="/login"
-            class="bg-(--color-primary) text-white px-6 py-2 rounded-full text-sm font-sans font-semibold tracking-[0.05em] scale-95 active:scale-90 transition-transform hover:bg-(--color-primary-container)"
+            class="bg-(--color-primary) text-white px-6 py-2 rounded-full text-sm font-sans font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) active:scale-90 transition-all"
           >
             Sign In
           </RouterLink>
