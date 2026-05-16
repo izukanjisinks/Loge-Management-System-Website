@@ -1,8 +1,7 @@
-<script setup>
+﻿<script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import BaseButton from '@/components/ui/BaseButton.vue'
 
 const auth     = useAuthStore()
 const router   = useRouter()
@@ -15,37 +14,46 @@ function handleLogout() {
 </script>
 
 <template>
-  <header
-    class="fixed top-0 inset-x-0 z-50
-           bg-[oklch(1_0_0/0.80)] backdrop-blur-xl
-           border-b border-[oklch(0_0_0/0.04)]"
-  >
-    <nav class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
+  <header class="bg-(--color-surface) shadow-sm sticky top-0 z-[100] w-full">
+    <nav class="flex justify-between items-center w-full px-5 md:px-16 py-4 max-w-[1280px] mx-auto">
 
       <!-- Logo -->
       <RouterLink
         to="/"
-        class="font-serif italic text-xl text-[--color-on-surface] tracking-tight shrink-0 flex items-center gap-2"
+        class="font-serif text-2xl text-(--color-primary) tracking-tight"
       >
-        <img src="/favicon.svg" alt="" class="h-6 w-6" />
         Mwakwanda
       </RouterLink>
 
-      <!-- Desktop auth / CTA (includes nav links) -->
-      <div class="hidden md:flex items-center gap-3 shrink-0">
-        <ul class="flex items-center gap-6 text-sm font-sans font-medium text-[--color-on-muted] mr-2">
-          <li><RouterLink to="/rooms"  active-class="text-[--color-primary]" class="hover:text-[--color-on-surface] transition-colors">Rooms</RouterLink></li>
-          <li><RouterLink to="/#about" class="hover:text-[--color-on-surface] transition-colors">About</RouterLink></li>
-        </ul>
+      <!-- Desktop nav links -->
+      <div class="hidden md:flex gap-6 items-center">
+        <RouterLink
+          to="/lodges"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary-container) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
+        >
+          Explore
+        </RouterLink>
+        <RouterLink
+          to="/bookings"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary-container) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
+        >
+          Reservations
+        </RouterLink>
+        <a
+          href="#"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary-container) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+        >
+          About
+        </a>
+      </div>
+
+      <!-- Desktop CTA -->
+      <div class="hidden md:flex items-center gap-4">
         <template v-if="auth.isAuthenticated">
-          <RouterLink
-            to="/bookings"
-            class="font-sans text-sm text-[--color-on-muted] hover:text-[--color-on-surface] transition-colors"
-          >
-            My Bookings
-          </RouterLink>
           <button
-            class="font-sans text-sm text-[--color-on-muted] hover:text-[--color-on-surface] transition-colors"
+            class="text-sm text-(--color-on-surface-variant) font-sans font-medium hover:text-(--color-on-surface) transition-colors"
             @click="handleLogout"
           >
             Sign Out
@@ -54,24 +62,20 @@ function handleLogout() {
         <template v-else>
           <RouterLink
             to="/login"
-            class="font-sans text-sm text-[--color-on-muted] hover:text-[--color-on-surface] transition-colors"
+            class="bg-(--color-primary) text-white px-6 py-2 rounded-full text-sm font-sans font-semibold tracking-[0.05em] scale-95 active:scale-90 transition-transform hover:bg-(--color-primary-container)"
           >
             Sign In
           </RouterLink>
         </template>
-
-        <BaseButton to="/rooms" variant="primary" class="text-xs px-5 py-2.5">
-          Reserve
-        </BaseButton>
       </div>
 
       <!-- Mobile hamburger -->
       <button
-        class="md:hidden p-2 text-[--color-on-surface]"
+        class="md:hidden text-(--color-primary)"
         :aria-label="menuOpen ? 'Close menu' : 'Open menu'"
         @click="menuOpen = !menuOpen"
       >
-        <span class="material-symbols-outlined text-2xl">{{ menuOpen ? 'close' : 'menu' }}</span>
+        <span class="material-symbols-outlined">{{ menuOpen ? 'close' : 'menu' }}</span>
       </button>
     </nav>
 
@@ -86,24 +90,25 @@ function handleLogout() {
     >
       <div
         v-if="menuOpen"
-        class="md:hidden bg-[oklch(1_0_0/0.96)] backdrop-blur-xl px-6 pb-6 pt-2 flex flex-col gap-4"
+        class="md:hidden bg-(--color-surface) px-5 pb-6 pt-2 flex flex-col gap-4 border-t border-(--color-outline-variant)"
         @click="menuOpen = false"
       >
-        <RouterLink to="/rooms"  class="font-sans text-sm text-[--color-on-muted] py-2">Rooms</RouterLink>
-        <RouterLink to="/#about" class="font-sans text-sm text-[--color-on-muted] py-2">About</RouterLink>
+        <RouterLink to="/lodges"   class="font-sans text-sm text-(--color-on-surface-variant) py-2">Explore</RouterLink>
+        <RouterLink to="/bookings" class="font-sans text-sm text-(--color-on-surface-variant) py-2">Reservations</RouterLink>
+        <a href="#"                class="font-sans text-sm text-(--color-on-surface-variant) py-2">About</a>
         <template v-if="auth.isAuthenticated">
-          <RouterLink to="/bookings" class="font-sans text-sm text-[--color-on-muted] py-2">My Bookings</RouterLink>
-          <button class="font-sans text-sm text-[--color-on-muted] py-2 text-left" @click="handleLogout">
+          <button class="font-sans text-sm text-(--color-on-surface-variant) py-2 text-left" @click="handleLogout">
             Sign Out
           </button>
         </template>
         <template v-else>
-          <RouterLink to="/login"    class="font-sans text-sm text-[--color-on-muted] py-2">Sign In</RouterLink>
-          <RouterLink to="/register" class="font-sans text-sm text-[--color-on-muted] py-2">Register</RouterLink>
+          <RouterLink
+            to="/login"
+            class="mt-2 w-full text-center bg-(--color-primary) text-white py-3 rounded-full text-sm font-sans font-semibold tracking-[0.05em]"
+          >
+            Sign In
+          </RouterLink>
         </template>
-        <BaseButton to="/rooms" variant="primary" class="mt-2 w-full justify-center">
-          Reserve Now
-        </BaseButton>
       </div>
     </Transition>
   </header>

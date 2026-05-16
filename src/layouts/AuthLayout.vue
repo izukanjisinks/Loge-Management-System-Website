@@ -1,52 +1,50 @@
-<script setup>
+﻿<script setup>
 import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <div class="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+  <div class="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-(--color-background)">
 
-    <!-- Left panel — form -->
-    <div class="flex flex-col bg-[--color-secondary]">
+    <!-- Left: Form panel -->
+    <div class="flex flex-col bg-(--color-surface)">
       <!-- Mobile logo -->
       <header class="lg:hidden px-8 pt-8 pb-4">
-        <RouterLink to="/" class="font-serif italic text-xl text-[--color-on-surface]">
+        <RouterLink to="/" class="font-serif text-2xl text-(--color-primary)">
           Mwakwanda
         </RouterLink>
       </header>
 
-      <main class="flex-1 flex items-center justify-center px-6 py-12">
+      <main class="flex-1 flex items-center justify-center px-5 py-12">
         <div class="w-full max-w-md">
           <RouterView />
         </div>
       </main>
 
-      <footer class="px-8 py-6 text-center font-sans text-xs text-[--color-on-muted]">
-        © {{ new Date().getFullYear() }} Mwakwanda ·
-        <RouterLink to="/" class="hover:text-[--color-on-surface] transition-colors ml-1">Back to home</RouterLink>
+      <footer class="px-8 py-6 text-center font-sans text-xs text-(--color-on-surface-variant) border-t border-(--color-outline-variant)">
+        Â© {{ new Date().getFullYear() }} Mwakwanda Hospitality Group Â·
+        <RouterLink to="/" class="hover:text-(--color-primary) transition-colors ml-1">Back to home</RouterLink>
       </footer>
     </div>
 
-    <!-- Right panel — decorative image (hidden on mobile) -->
+    <!-- Right: Decorative image (desktop only) -->
     <div class="hidden lg:block relative overflow-hidden">
       <img
-        src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&q=80"
-        alt="Forest path at dawn"
+        src="https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=80"
+        alt="Luxury African landscape at dusk"
         class="absolute inset-0 w-full h-full object-cover"
       />
-      <!-- Overlay -->
-      <div class="absolute inset-0 bg-linear-to-bl from-[oklch(0.12_0.02_45/0.70)] to-[oklch(0.25_0.06_145/0.50)]" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
 
-      <!-- Brand mark -->
       <div class="relative z-10 p-12 flex flex-col justify-between h-full">
-        <RouterLink to="/" class="font-serif italic text-2xl text-white tracking-tight">
+        <RouterLink to="/" class="font-serif text-2xl text-white tracking-tight">
           Mwakwanda
         </RouterLink>
         <blockquote class="max-w-xs">
           <p class="font-serif text-xl text-white/90 leading-relaxed italic mb-4">
-            "The clearest way into the Universe is through a forest wilderness."
+            "An unrivaled arrival into the soul of the continent."
           </p>
           <cite class="font-sans text-xs text-white/60 tracking-widest uppercase not-italic">
-            — John Muir
+            â€” The Mwakwanda Standard
           </cite>
         </blockquote>
       </div>

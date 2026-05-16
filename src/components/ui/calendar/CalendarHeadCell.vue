@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
 import type { CalendarHeadCellProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
 import { reactiveOmit } from "@vueuse/core"
@@ -15,7 +15,7 @@ const forwardedProps = useForwardProps(delegatedProps)
 <template>
   <CalendarHeadCell
     data-slot="calendar-head-cell"
-    :class="cn('text-[--color-on-muted] rounded-md flex-1 font-normal text-[0.8rem]', props.class)"
+    :class="cn('text-(--color-on-muted) rounded-md flex-1 font-normal text-[0.8rem]', props.class)"
     v-bind="forwardedProps"
   >
     <slot />

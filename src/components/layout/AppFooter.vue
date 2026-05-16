@@ -1,59 +1,49 @@
-<script setup>
+﻿<script setup>
 import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <footer class="bg-[--color-on-surface] text-[oklch(0.75_0.02_50)] font-sans">
-    <div class="max-w-7xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-4 gap-10">
+  <footer class="w-full border-t border-(--color-outline-variant) bg-(--color-surface-container-low)">
+    <div class="w-full px-5 md:px-16 py-12 max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
 
       <!-- Brand -->
-      <div class="md:col-span-1">
-        <p class="font-serif italic text-xl text-white mb-3">Mwakwanda</p>
-        <p class="text-sm leading-relaxed">
-          Curated escapes nestled in nature. Every stay, a story worth telling.
+      <div class="max-w-xs">
+        <span class="font-serif text-2xl text-(--color-primary) mb-4 block">Mwakwanda</span>
+        <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">
+          Defining the future of luxury hospitality across the African continent through soul, service, and stone.
         </p>
       </div>
 
-      <!-- Explore -->
-      <div>
-        <p class="text-xs font-semibold tracking-widest uppercase text-white mb-4">Explore</p>
-        <ul class="space-y-2 text-sm">
-          <li><RouterLink to="/rooms" class="hover:text-white transition-colors">Our Rooms</RouterLink></li>
-          <li><a href="#" class="hover:text-white transition-colors">Dining</a></li>
-        </ul>
-      </div>
-
-      <!-- Stay -->
-      <div>
-        <p class="text-xs font-semibold tracking-widest uppercase text-white mb-4">Your Stay</p>
-        <ul class="space-y-2 text-sm">
-          <li><RouterLink to="/bookings" class="hover:text-white transition-colors">My Bookings</RouterLink></li>
-          <li><a href="#" class="hover:text-white transition-colors">Packages</a></li>
-        </ul>
-      </div>
-
-      <!-- Contact -->
-      <div>
-        <p class="text-xs font-semibold tracking-widest uppercase text-white mb-4">Concierge</p>
-        <ul class="space-y-2 text-sm">
-          <li class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-base">call</span>+260 966 468 386
-          </li>
-          <li class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-base">mail</span>hello@thesanctuary.com
-          </li>
-          <li class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-base">location_on</span>The Highland Reserve
-          </li>
-        </ul>
+      <!-- Links -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-12">
+        <div class="flex flex-col gap-3">
+          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Company</span>
+          <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">About Us</a>
+          <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Sustainability</a>
+          <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Contact</a>
+        </div>
+        <div class="flex flex-col gap-3">
+          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Service</span>
+          <RouterLink to="/bookings" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Corporate Booking</RouterLink>
+          <RouterLink to="/rooms"    class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Partner Lodges</RouterLink>
+          <a href="#"                class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Concierge</a>
+        </div>
+        <div class="flex flex-col gap-3">
+          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Legal</span>
+          <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Privacy Policy</a>
+          <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Terms of Service</a>
+        </div>
       </div>
     </div>
 
-    <div class="border-t border-white/10 max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row justify-between gap-3 text-xs text-[oklch(0.55_0.02_50)]">
-      <span>© {{ new Date().getFullYear() }} Mwakwanda. All rights reserved.</span>
-      <div class="flex gap-5">
-        <a href="#" class="hover:text-white transition-colors">Privacy</a>
-        <a href="#" class="hover:text-white transition-colors">Terms</a>
+    <!-- Bottom bar -->
+    <div class="w-full px-5 md:px-16 py-5 max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4 opacity-60 border-t border-(--color-outline-variant)">
+      <p class="font-sans text-xs text-(--color-on-surface-variant)">
+        Â© {{ new Date().getFullYear() }} Mwakwanda Hospitality Group. All rights reserved.
+      </p>
+      <div class="flex gap-6">
+        <span class="material-symbols-outlined text-(--color-on-surface-variant) cursor-pointer">language</span>
+        <span class="material-symbols-outlined text-(--color-on-surface-variant) cursor-pointer">account_balance_wallet</span>
       </div>
     </div>
   </footer>

@@ -1,53 +1,100 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
-@theme {
-  /* ── Color Tokens ── */
-  --color-primary:           oklch(0.55 0.12 45);
-  --color-primary-light:     oklch(0.65 0.10 45);
-  --color-primary-dim:       oklch(0.45 0.12 45);
+@theme inline {
+  /* ── Brand Colors ── */
+  --color-primary:                    #874d30;
+  --color-on-primary:                 #ffffff;
+  --color-primary-container:          #a46546;
+  --color-on-primary-container:       #fffbff;
+  --color-inverse-primary:            #ffb693;
+  --color-primary-fixed:              #ffdbcc;
+  --color-primary-fixed-dim:          #ffb693;
+  --color-on-primary-fixed:           #351000;
+  --color-on-primary-fixed-variant:   #6d381d;
 
-  --color-secondary:         oklch(0.94 0.02 60);
-  --color-secondary-dim:     oklch(0.88 0.03 60);
+  --color-secondary:                  #74584a;
+  --color-on-secondary:               #ffffff;
+  --color-secondary-container:        #fed8c5;
+  --color-on-secondary-container:     #795d4e;
+  --color-secondary-fixed:            #ffdbca;
+  --color-secondary-fixed-dim:        #e3bfad;
+  --color-on-secondary-fixed:         #2a170c;
+  --color-on-secondary-fixed-variant: #5a4134;
 
-  --color-accent:            oklch(0.45 0.08 145);
-  --color-accent-light:      oklch(0.92 0.04 145);
+  --color-tertiary:                   #68594a;
+  --color-on-tertiary:                #ffffff;
+  --color-tertiary-container:         #827261;
+  --color-on-tertiary-container:      #fffbff;
+  --color-tertiary-fixed:             #f4dfcb;
+  --color-tertiary-fixed-dim:         #d7c3b0;
+  --color-on-tertiary-fixed:          #241a0e;
+  --color-on-tertiary-fixed-variant:  #524436;
 
-  --color-surface:           oklch(0.97 0.01 60);
-  --color-surface-card:      oklch(1 0 0);
+  /* ── Surface Colors ── */
+  --color-background:                 #fcf9f4;
+  --color-on-background:              #1c1c19;
+  --color-surface:                    #fcf9f4;
+  --color-surface-dim:                #dcdad5;
+  --color-surface-bright:             #fcf9f4;
+  --color-surface-container-lowest:   #ffffff;
+  --color-surface-container-low:      #f6f3ee;
+  --color-surface-container:          #f0ede9;
+  --color-surface-container-high:     #ebe8e3;
+  --color-surface-container-highest:  #e5e2dd;
+  --color-on-surface:                 #1c1c19;
+  --color-on-surface-variant:         #53443d;
+  --color-inverse-surface:            #31302d;
+  --color-inverse-on-surface:         #f3f0eb;
+  --color-surface-variant:            #e5e2dd;
+  --color-surface-tint:               #8a4f32;
 
-  --color-on-surface:        oklch(0.18 0.02 45);
-  --color-on-muted:          oklch(0.42 0.03 50);
+  /* ── Outline ── */
+  --color-outline:                    #85736c;
+  --color-outline-variant:            #d8c2b9;
 
-  --color-outline:           oklch(0.80 0.03 60);
+  /* ── Semantic ── */
+  --color-error:                      #ba1a1a;
+  --color-on-error:                   #ffffff;
+  --color-error-container:            #ffdad6;
+  --color-on-error-container:         #93000a;
 
-  --color-error:             oklch(0.45 0.18 25);
+  /* ── Brand Accents ── */
+  --color-clay-earth:                 #A3644D;
+  --color-savannah-mist:              #F3EBE3;
+  --color-deep-obsidian:              #1F1A17;
 
   /* ── Typography ── */
-  --font-serif: 'Noto Serif', serif;
-  --font-sans:  'Manrope', sans-serif;
+  --font-serif: 'Literata', Georgia, serif;
+  --font-sans:  'Hanken Grotesk', system-ui, sans-serif;
 
   /* ── Border Radius ── */
-  --radius:    4px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-sm:      0.25rem;
+  --radius:         0.5rem;
+  --radius-md:      0.75rem;
+  --radius-lg:      1rem;
+  --radius-xl:      1.5rem;
+  --radius-full:    9999px;
 
-  /* ── Shadows ── */
-  --shadow-card:  0px 12px 32px oklch(0.18 0.02 45 / 0.06);
-  --shadow-float: 0px 8px 24px oklch(0.18 0.02 45 / 0.10);
+  /* ── Shadows (clay-tinted, very soft) ── */
+  --shadow-card:    0px 4px 12px rgba(163, 100, 77, 0.04);
+  --shadow-float:   0px 12px 32px rgba(163, 100, 77, 0.08);
+  --shadow-popover: 0px 8px 24px rgba(163, 100, 77, 0.10);
+
+  /* ── Spacing ── */
+  --spacing-container-max: 1280px;
+  --spacing-gutter:        24px;
 }
 
-/* ── Base Styles ── */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* ── Base Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-secondary);
+  background-color: var(--color-background);
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -57,9 +104,9 @@ h1, h2, h3, h4 {
   font-family: var(--font-serif);
 }
 
-/* ── Material Symbols config ── */
+/* ── Material Symbols ── */
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   vertical-align: middle;
   user-select: none;
 }
@@ -71,7 +118,6 @@ h1, h2, h3, h4 {
   transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
               transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-
 .reveal.visible {
   opacity: 1;
   transform: translateY(0);

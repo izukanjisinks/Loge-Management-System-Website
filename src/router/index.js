@@ -7,6 +7,8 @@ const routes = [
     component: () => import('@/layouts/AppLayout.vue'),
     children: [
       { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
+      { path: 'lodges', name: 'lodges', component: () => import('@/views/LodgesView.vue') },
+      { path: 'lodges/:id', name: 'lodge-detail', component: () => import('@/views/LodgeDetailView.vue') },
       { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
       { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
       {

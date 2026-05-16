@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, ref, watch } from 'vue'
 import { useBookingStore } from '@/stores/booking'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
@@ -12,11 +12,10 @@ defineProps({
   errors: { type: Object, default: () => ({}) },
 })
 
-const calendarOpen  = ref(false)
-const bookedDates   = ref([])
-const todayDate     = today(getLocalTimeZone())
+const calendarOpen = ref(false)
+const bookedDates  = ref([])
+const todayDate    = today(getLocalTimeZone())
 
-// Fetch booked dates for this room when the component mounts
 watch(() => booking.roomId, async (id) => {
   if (!id) return
   try {
@@ -63,88 +62,90 @@ function formatDisplay(iso) {
   if (!iso) return null
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
-
-const inputClass = 'w-full bg-transparent border-0 border-b border-[--color-outline] py-2.5 font-sans text-sm text-[--color-on-surface] transition-colors'
-const labelClass = 'font-sans text-xs font-semibold tracking-widest uppercase text-[--color-on-muted]'
 </script>
 
 <template>
-  <section>
-    <div class="flex items-center gap-4 mb-8">
-      <span class="font-serif text-2xl text-[--color-primary]/40 select-none">02</span>
-      <h2 class="font-serif text-2xl text-[--color-on-surface]">Stay Details</h2>
-    </div>
+  <section class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist) shadow-sm">
+    <h2 class="font-serif text-2xl mb-6 flex items-center gap-3">
+      <span class="material-symbols-outlined text-(--color-primary)">calendar_month</span>
+      Stay Details
+    </h2>
 
-    <div
-      class="bg-[--color-surface] p-8 rounded-lg"
-      style="box-shadow: var(--shadow-card);"
-    >
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <!-- Room type (display only) -->
-        <div class="flex flex-col gap-1.5">
-          <label :class="labelClass">Room Type</label>
-          <div :class="[inputClass, 'flex items-center justify-between cursor-default']">
-            <span>{{ booking.roomType || 'Not selected' }}</span>
-            <span class="material-symbols-outlined text-[--color-on-muted] text-base">lock</span>
-          </div>
+      <!-- Room type display -->
+      <div class="flex flex-col gap-2">
+        <label class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
+          Room Type
+        </label>
+        <div class="bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) flex items-center justify-between">
+          <span>{{ booking.roomType || 'Not selected' }}</span>
+          <span class="material-symbols-outlined text-(--color-on-surface-variant) text-base">lock</span>
         </div>
+      </div>
 
-        <!-- Guest stepper -->
-        <div class="flex flex-col gap-1.5">
-          <label :class="labelClass">Guests</label>
-          <div class="flex items-center gap-4 border-b border-[--color-outline] py-2">
+      <!-- Guests -->
+      <div class="flex flex-col gap-2">
+        <label class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
+          Guests
+        </label>
+        <div class="bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 flex justify-between items-center">
+          <span class="font-sans text-sm text-(--color-on-surface)">
+            {{ booking.guestCount }} {{ booking.guestCount === 1 ? 'guest' : 'guests' }}
+          </span>
+          <div class="flex items-center gap-3">
             <button
               type="button"
-              class="w-7 h-7 rounded-lg bg-[--color-secondary] flex items-center justify-center font-bold text-[--color-on-surface] hover:bg-[--color-outline]/20 transition-colors disabled:opacity-30"
+              class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center font-bold text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
               :disabled="booking.guestCount <= 1"
               @click="booking.guestCount = Math.max(1, booking.guestCount - 1)"
-            >−</button>
-            <span class="font-sans text-sm text-[--color-on-surface] flex-1 text-center">
-              {{ booking.guestCount }} {{ booking.guestCount === 1 ? 'guest' : 'guests' }}
-            </span>
+            >âˆ’</button>
+            <span class="font-sans text-sm font-semibold w-4 text-center">{{ booking.guestCount }}</span>
             <button
               type="button"
-              class="w-7 h-7 rounded-lg bg-[--color-secondary] flex items-center justify-center font-bold text-[--color-on-surface] hover:bg-[--color-outline]/20 transition-colors"
+              class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center font-bold text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors"
               @click="booking.guestCount++"
             >+</button>
           </div>
         </div>
-
-        <!-- Date range picker — spans full width -->
-        <div class="md:col-span-2 flex flex-col gap-1.5">
-          <label :class="labelClass">
-            Stay Dates <span class="text-[--color-error]">*</span>
-          </label>
-          <Popover v-model:open="calendarOpen">
-            <PopoverTrigger as-child>
-              <button
-                type="button"
-                class="w-full flex items-center justify-between border-b py-2.5 font-sans text-sm text-left transition-colors focus:outline-none"
-                :class="(errors.checkIn || errors.checkOut || dateError) ? 'border-[--color-error]' : 'border-[--color-outline]'"
-              >
-                <span v-if="booking.checkIn || booking.checkOut" style="color: var(--color-on-surface);">
-                  {{ formatDisplay(booking.checkIn) || '—' }} → {{ formatDisplay(booking.checkOut) || '—' }}
-                </span>
-                <span v-else style="color: var(--color-on-muted);">Select check-in and check-out</span>
-                <span class="material-symbols-outlined text-base shrink-0" style="color: var(--color-on-muted);">calendar_month</span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" class="w-auto">
-              <RangeCalendar
-                v-model="dateRange"
-                :min-value="todayDate"
-                :is-date-unavailable="isDateUnavailable"
-              />
-            </PopoverContent>
-          </Popover>
-          <span v-if="errors.checkIn || errors.checkOut" class="font-sans text-xs text-[--color-error]">
-            {{ errors.checkIn || errors.checkOut }}
-          </span>
-          <span v-else-if="dateError" class="font-sans text-xs text-[--color-error]">{{ dateError }}</span>
-        </div>
-
       </div>
+
+      <!-- Date picker -->
+      <div class="md:col-span-2 flex flex-col gap-2">
+        <label class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
+          Stay Dates <span class="text-(--color-error)">*</span>
+        </label>
+        <Popover v-model:open="calendarOpen">
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center justify-between gap-2 text-left
+                     border-2 transition-colors focus:outline-none"
+              :class="(errors.checkIn || errors.checkOut || dateError) ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"
+            >
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-(--color-primary)">calendar_today</span>
+                <span class="font-sans text-sm" :class="booking.checkIn ? 'text-(--color-on-surface)' : 'text-(--color-on-surface-variant)'">
+                  {{ booking.checkIn ? `${formatDisplay(booking.checkIn)} â†’ ${formatDisplay(booking.checkOut) || 'â€”'}` : 'Select check-in and check-out dates' }}
+                </span>
+              </div>
+              <span class="material-symbols-outlined text-(--color-on-surface-variant) text-base shrink-0">expand_more</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" class="w-auto">
+            <RangeCalendar
+              v-model="dateRange"
+              :min-value="todayDate"
+              :is-date-unavailable="isDateUnavailable"
+            />
+          </PopoverContent>
+        </Popover>
+        <span v-if="errors.checkIn || errors.checkOut" class="font-sans text-xs text-(--color-error)">
+          {{ errors.checkIn || errors.checkOut }}
+        </span>
+        <span v-else-if="dateError" class="font-sans text-xs text-(--color-error)">{{ dateError }}</span>
+      </div>
+
     </div>
   </section>
 </template>

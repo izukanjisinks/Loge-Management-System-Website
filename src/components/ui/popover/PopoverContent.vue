@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import type { PopoverContentEmits, PopoverContentProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
 import { reactiveOmit } from "@vueuse/core"
@@ -28,7 +28,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     <PopoverContent
       data-slot="popover-content"
       v-bind="{ ...$attrs, ...forwarded }"
-      :class="cn('z-50 w-auto rounded-xl border border-[--color-outline]/30 p-0 shadow-lg outline-hidden', props.class)"
+      :class="cn('z-50 w-auto rounded-xl border border-(--color-outline)/30 p-0 shadow-lg outline-hidden', props.class)"
       style="background-color: var(--color-surface-card); color: var(--color-on-surface); box-shadow: var(--shadow-float);"
     >
       <slot />

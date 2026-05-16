@@ -1,8 +1,7 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReservationsStore } from '@/stores/reservations'
-import BaseButton from '@/components/ui/BaseButton.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import api from '@/lib/api'
 
@@ -18,7 +17,7 @@ const error      = ref('')
 const cancelling = ref(false)
 
 function formatDate(d) {
-  if (!d) return '—'
+  if (!d) return 'â€”'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -28,23 +27,22 @@ onMounted(async () => {
   try {
     const { data } = await api.get(`/guest/bookings/${route.params.id}`)
     booking.value = {
-      id:             data.id,
-      roomId:         data.room_id,
-      roomName:       data.room_name,
-      clientName:     data.client_name,
-      mealPlanName:   data.meal_plan_name,
-      checkIn:        data.check_in,
-      checkOut:       data.check_out,
-      guests:         data.guests,
-      nights:         data.nights,
-      roomCost:       data.room_cost,
-      mealCost:       data.meal_cost,
-      totalAmount:    data.total_amount,
-      status:         data.status,
+      id:              data.id,
+      roomId:          data.room_id,
+      roomName:        data.room_name,
+      clientName:      data.client_name,
+      mealPlanName:    data.meal_plan_name,
+      checkIn:         data.check_in,
+      checkOut:        data.check_out,
+      guests:          data.guests,
+      nights:          data.nights,
+      roomCost:        data.room_cost,
+      mealCost:        data.meal_cost,
+      totalAmount:     data.total_amount,
+      status:          data.status,
       specialRequests: data.special_requests,
-      createdAt:      data.created_at,
+      createdAt:       data.created_at,
     }
-    // Fetch room images separately
     try {
       const { data: room } = await api.get(`/rooms/${data.room_id}`)
       roomImages.value = room.images ?? []
@@ -71,13 +69,12 @@ async function cancel() {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto px-6 md:px-16 py-16">
+  <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8">
 
     <!-- Back -->
     <RouterLink
       to="/bookings"
-      class="inline-flex items-center gap-1.5 font-sans text-sm text-[--color-on-muted]
-             hover:text-[--color-on-surface] transition-colors mb-10"
+      class="inline-flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors mb-8"
     >
       <span class="material-symbols-outlined text-base">arrow_back</span>
       My Bookings
@@ -85,181 +82,146 @@ async function cancel() {
 
     <!-- Loading -->
     <div v-if="loading" class="py-32 text-center">
-      <span class="material-symbols-outlined text-4xl text-[--color-on-muted] animate-spin">progress_activity</span>
+      <span class="material-symbols-outlined text-4xl text-(--color-on-surface-variant) animate-spin">progress_activity</span>
     </div>
 
     <!-- Error -->
     <div v-else-if="error" class="py-32 text-center">
-      <p class="font-sans text-sm text-[--color-error]">{{ error }}</p>
+      <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
+      <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ error }}</p>
     </div>
 
     <template v-else-if="booking">
 
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-[--color-primary] mb-1">
-            Reservation
-          </p>
-          <h1 class="font-serif text-4xl text-[--color-on-surface]">{{ booking.roomName }}</h1>
+          <span class="text-(--color-primary) font-sans text-sm font-semibold tracking-widest uppercase mb-2 block">Reservation</span>
+          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">{{ booking.roomName }}</h1>
         </div>
-        <StatusBadge :status="booking.status" class="self-start sm:self-center text-sm px-4 py-1.5" />
+        <StatusBadge :status="booking.status" />
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
 
-        <!-- Left: images + details -->
-        <div class="lg:col-span-7 space-y-8">
+        <!-- Left: Image + Details -->
+        <div class="lg:col-span-2 space-y-6">
 
           <!-- Gallery -->
-          <div v-if="roomImages.length" class="rounded-xl overflow-hidden aspect-video relative" style="box-shadow: var(--shadow-card);">
-            <Transition
-              enter-active-class="transition duration-400 ease-out"
-              enter-from-class="opacity-0"
-              enter-to-class="opacity-100"
-              mode="out-in"
-            >
-              <img
-                :key="activeImg"
-                :src="roomImages[activeImg]"
-                :alt="booking.roomName"
-                class="w-full h-full object-cover"
-              />
+          <div v-if="roomImages.length" class="rounded-xl overflow-hidden aspect-video relative border border-(--color-savannah-mist)">
+            <Transition enter-active-class="transition duration-400 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" mode="out-in">
+              <img :key="activeImg" :src="roomImages[activeImg]" :alt="booking.roomName" class="w-full h-full object-cover" />
             </Transition>
             <button
               v-if="roomImages.length > 1"
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg
-                     bg-[oklch(1_0_0/0.85)] backdrop-blur-sm flex items-center justify-center
-                     text-[--color-on-surface] hover:bg-white transition-colors"
+              class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
               @click="activeImg = (activeImg - 1 + roomImages.length) % roomImages.length"
             >
-              <span class="material-symbols-outlined text-lg">chevron_left</span>
+              <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <button
               v-if="roomImages.length > 1"
-              class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg
-                     bg-[oklch(1_0_0/0.85)] backdrop-blur-sm flex items-center justify-center
-                     text-[--color-on-surface] hover:bg-white transition-colors"
+              class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
               @click="activeImg = (activeImg + 1) % roomImages.length"
             >
-              <span class="material-symbols-outlined text-lg">chevron_right</span>
+              <span class="material-symbols-outlined">chevron_right</span>
             </button>
-            <div v-if="roomImages.length > 1" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              <button
-                v-for="(_, i) in roomImages"
-                :key="i"
-                class="w-1.5 h-1.5 rounded-full transition-all duration-300"
-                :class="i === activeImg ? 'bg-white scale-125' : 'bg-white/50'"
-                @click="activeImg = i"
-              />
-            </div>
           </div>
-
-          <!-- No image placeholder -->
           <div
             v-else
-            class="rounded-xl aspect-video bg-[--color-secondary] flex flex-col items-center justify-center gap-2"
+            class="rounded-xl aspect-video bg-(--color-surface-container) flex flex-col items-center justify-center gap-2 border border-(--color-savannah-mist)"
           >
-            <span class="material-symbols-outlined text-5xl text-[--color-outline]">image_not_supported</span>
-            <p class="font-sans text-sm text-[--color-on-muted]">No images available</p>
+            <span class="material-symbols-outlined text-5xl text-(--color-outline)">image_not_supported</span>
+            <p class="font-sans text-sm text-(--color-on-surface-variant)">No images available</p>
           </div>
 
-          <!-- Stay details -->
-          <div class="bg-[--color-surface-card] rounded-lg p-6 space-y-4" style="box-shadow: var(--shadow-card);">
-            <h2 class="font-serif text-xl text-[--color-on-surface] mb-2">Stay Details</h2>
-            <div class="grid grid-cols-2 gap-4 text-sm font-sans">
+          <!-- Stay Details card -->
+          <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-savannah-mist) shadow-sm space-y-4">
+            <h2 class="font-serif text-2xl text-(--color-on-surface) mb-2">Stay Details</h2>
+            <div class="grid grid-cols-2 gap-4 font-sans text-sm">
               <div>
-                <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Check In</p>
-                <p class="text-[--color-on-surface] font-medium">{{ formatDate(booking.checkIn) }}</p>
+                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Check In</p>
+                <p class="font-semibold text-(--color-on-surface)">{{ formatDate(booking.checkIn) }}</p>
               </div>
               <div>
-                <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Check Out</p>
-                <p class="text-[--color-on-surface] font-medium">{{ formatDate(booking.checkOut) }}</p>
+                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Check Out</p>
+                <p class="font-semibold text-(--color-on-surface)">{{ formatDate(booking.checkOut) }}</p>
               </div>
               <div>
-                <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Nights</p>
-                <p class="text-[--color-on-surface] font-medium">{{ booking.nights }}</p>
+                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Nights</p>
+                <p class="font-semibold text-(--color-on-surface)">{{ booking.nights }}</p>
               </div>
               <div>
-                <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Guests</p>
-                <p class="text-[--color-on-surface] font-medium">{{ booking.guests }} {{ booking.guests === 1 ? 'guest' : 'guests' }}</p>
+                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Guests</p>
+                <p class="font-semibold text-(--color-on-surface)">{{ booking.guests }} {{ booking.guests === 1 ? 'guest' : 'guests' }}</p>
               </div>
               <div v-if="booking.mealPlanName">
-                <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Meal Plan</p>
-                <p class="text-[--color-on-surface] font-medium">{{ booking.mealPlanName }}</p>
+                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Meal Plan</p>
+                <p class="font-semibold text-(--color-on-surface)">{{ booking.mealPlanName }}</p>
               </div>
               <div>
-                <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Guest</p>
-                <p class="text-[--color-on-surface] font-medium">{{ booking.clientName }}</p>
+                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Guest Name</p>
+                <p class="font-semibold text-(--color-on-surface)">{{ booking.clientName }}</p>
               </div>
             </div>
-
-            <div v-if="booking.specialRequests" class="pt-2 border-t border-[--color-outline]/20">
-              <p class="text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted] mb-1">Special Requests</p>
-              <p class="font-sans text-sm text-[--color-on-muted] leading-relaxed">{{ booking.specialRequests }}</p>
+            <div v-if="booking.specialRequests" class="pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Special Requests</p>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">{{ booking.specialRequests }}</p>
             </div>
           </div>
         </div>
 
-        <!-- Right: price summary + actions -->
-        <div class="lg:col-span-5">
-          <div class="sticky top-24 space-y-4">
+        <!-- Right: Price Summary + Actions -->
+        <aside class="lg:sticky lg:top-28 space-y-4">
 
-            <!-- Price breakdown -->
-            <div class="bg-[--color-surface-card] rounded-lg p-6 space-y-3" style="box-shadow: var(--shadow-float);">
-              <h2 class="font-serif text-xl text-[--color-on-surface] mb-4">Price Summary</h2>
-              <div class="space-y-2 text-sm font-sans">
-                <div class="flex justify-between text-[--color-on-muted]">
-                  <span>Room cost</span>
-                  <span>K{{ booking.roomCost.toLocaleString() }}</span>
-                </div>
-                <div v-if="booking.mealCost" class="flex justify-between text-[--color-on-muted]">
-                  <span>Meal plan</span>
-                  <span>K{{ booking.mealCost.toLocaleString() }}</span>
-                </div>
-                <div class="flex justify-between font-semibold text-[--color-on-surface] text-base pt-3 border-t border-[--color-outline]/20">
-                  <span>Total</span>
-                  <span class="text-[--color-primary]">K{{ booking.totalAmount.toLocaleString() }}</span>
-                </div>
+          <!-- Price breakdown -->
+          <div class="bg-(--color-surface-container-high) p-6 rounded-xl border border-(--color-outline-variant) shadow-lg space-y-3">
+            <h2 class="font-serif text-2xl text-(--color-on-surface) mb-4">Price Summary</h2>
+            <div class="space-y-2 font-sans text-sm">
+              <div class="flex justify-between text-(--color-on-surface-variant)">
+                <span>Room cost</span>
+                <span>K{{ booking.roomCost.toLocaleString() }}</span>
+              </div>
+              <div v-if="booking.mealCost" class="flex justify-between text-(--color-on-surface-variant)">
+                <span>Meal plan</span>
+                <span>K{{ booking.mealCost.toLocaleString() }}</span>
+              </div>
+              <div class="flex justify-between font-bold text-lg pt-3 border-t border-(--color-outline-variant)">
+                <span>Total</span>
+                <span class="text-(--color-primary)">K{{ booking.totalAmount.toLocaleString() }}</span>
               </div>
             </div>
-
-            <!-- Platinum guarantee -->
-            <div class="flex items-start gap-3 p-4 bg-[--color-secondary] rounded-lg">
-              <span
-                class="material-symbols-outlined text-[--color-accent] text-xl shrink-0 mt-0.5"
-                style="font-variation-settings: 'FILL' 1"
-              >verified</span>
-              <div>
-                <p class="font-sans text-xs font-semibold text-[--color-on-surface] mb-0.5">Platinum Guarantee</p>
-                <p class="font-sans text-xs text-[--color-on-muted] leading-relaxed">
-                  Free cancellation up to 48 hours before check-in.
-                </p>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex flex-col gap-2 pt-1">
-              <BaseButton
-                v-if="['pending', 'confirmed'].includes(booking.status)"
-                variant="secondary"
-                class="w-full justify-center py-3"
-                :class="cancelling && 'opacity-70 pointer-events-none'"
-                @click="cancel"
-              >
-                <span v-if="cancelling" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                <span v-else>Cancel Reservation</span>
-              </BaseButton>
-              <BaseButton to="/rooms" variant="primary" class="w-full justify-center py-3">
-                Browse Rooms
-              </BaseButton>
-            </div>
-
           </div>
-        </div>
 
+          <!-- Guarantee note -->
+          <div class="p-4 bg-(--color-tertiary-fixed) rounded-lg flex items-start gap-3">
+            <span class="material-symbols-outlined text-(--color-tertiary)">shield</span>
+            <p class="font-sans text-xs text-(--color-on-tertiary-fixed-variant) leading-tight">
+              Free cancellation up to 48 hours before check-in. No charge today.
+            </p>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-col gap-3 pt-1">
+            <button
+              v-if="['pending', 'confirmed'].includes(booking.status)"
+              class="w-full border-2 border-(--color-primary) text-(--color-primary) py-3 rounded-lg font-sans text-sm font-semibold hover:bg-(--color-primary) hover:text-white transition-all disabled:opacity-60"
+              :disabled="cancelling"
+              @click="cancel"
+            >
+              <span v-if="cancelling" class="material-symbols-outlined text-base align-middle animate-spin">progress_activity</span>
+              <span v-else>Cancel Reservation</span>
+            </button>
+            <RouterLink
+              to="/rooms"
+              class="w-full text-center bg-(--color-primary) text-white py-3 rounded-lg font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-all"
+            >
+              Browse Lodges
+            </RouterLink>
+          </div>
+
+        </aside>
       </div>
     </template>
-
   </div>
 </template>

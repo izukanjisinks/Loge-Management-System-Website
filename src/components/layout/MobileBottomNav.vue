@@ -1,30 +1,28 @@
-<script setup>
+﻿<script setup>
 import { RouterLink } from 'vue-router'
 
 const links = [
-  { to: '/',         icon: 'explore',       label: 'Explore'   },
-  { to: '/rooms',    icon: 'bed',           label: 'Rooms'     },
-  { to: '/bookings', icon: 'calendar_month', label: 'Bookings' },
-  { to: '/login',    icon: 'person',        label: 'Profile'   },
+  { to: '/',         icon: 'explore',        label: 'Discover'  },
+  { to: '/rooms',    icon: 'search',         label: 'Search'    },
+  { to: '/bookings', icon: 'calendar_today', label: 'Bookings'  },
+  { to: '/login',    icon: 'person',         label: 'Profile'   },
 ]
 </script>
 
 <template>
   <nav
-    class="md:hidden fixed bottom-0 inset-x-0 z-50
-           bg-[oklch(1_0_0/0.92)] backdrop-blur-xl
-           border-t border-[oklch(0_0_0/0.05)]
-           flex justify-around py-2 safe-area-bottom"
+    class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 md:hidden
+           bg-(--color-surface) border-t border-(--color-outline-variant) shadow-lg"
   >
     <RouterLink
       v-for="link in links"
       :key="link.to"
       :to="link.to"
-      class="flex flex-col items-center gap-0.5 px-4 py-1 text-[--color-on-muted]"
-      active-class="text-[--color-primary]"
+      class="flex flex-col items-center justify-center text-(--color-on-surface-variant) active:scale-95 transition-transform duration-150 px-3 py-1"
+      active-class="!text-(--color-primary) bg-[rgba(255,182,147,0.2)] rounded-full"
     >
-      <span class="material-symbols-outlined text-2xl">{{ link.icon }}</span>
-      <span class="font-sans text-[10px] font-medium tracking-wide">{{ link.label }}</span>
+      <span class="material-symbols-outlined">{{ link.icon }}</span>
+      <span class="font-sans text-[10px] font-medium mt-0.5">{{ link.label }}</span>
     </RouterLink>
   </nav>
 </template>

@@ -1,38 +1,35 @@
-<script setup>
+﻿<script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookingStore }   from '@/stores/booking'
 import { useAuthStore }      from '@/stores/auth'
 import { usePricing }        from '@/composables/usePricing'
-import BaseButton            from '@/components/ui/BaseButton.vue'
 import { RangeCalendar }     from '@/components/ui/range-calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import api                   from '@/lib/api'
 
-const route      = useRoute()
-const router     = useRouter()
-const booking    = useBookingStore()
-const auth       = useAuthStore()
+const route   = useRoute()
+const router  = useRouter()
+const booking = useBookingStore()
+const auth    = useAuthStore()
 
-// ── Room data ─────────────────────────────────────────────────────────────────
+// â”€â”€ Room data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const room       = ref(null)
 const apiLoading = ref(false)
 const apiError   = ref('')
 
 function amenityIcon(label) {
   const l = label.toLowerCase()
-  if (l.includes('wifi') || l.includes('wi-fi'))      return 'wifi'
+  if (l.includes('wifi') || l.includes('wi-fi'))       return 'wifi'
   if (l.includes('pool'))                              return 'pool'
   if (l.includes('jacuzzi') || l.includes('hot tub')) return 'hot_tub'
   if (l.includes('bar') || l.includes('mini bar'))    return 'local_bar'
   if (l.includes('tv'))                               return 'tv'
   if (l.includes('kitchen'))                          return 'kitchen'
   if (l.includes('fireplace'))                        return 'fireplace'
-  if (l.includes('lounge'))                           return 'weekend'
   if (l.includes('spa'))                              return 'spa'
   if (l.includes('air') || l.includes('ac'))          return 'ac_unit'
-  if (l.includes('coffee') || l.includes('nespresso')) return 'local_cafe'
   if (l.includes('dining') || l.includes('restaurant')) return 'restaurant'
   if (l.includes('deck') || l.includes('terrace'))    return 'deck'
   if (l.includes('garden') || l.includes('yard'))     return 'yard'
@@ -55,6 +52,7 @@ function normalise(r) {
     images:      r.images?.length ? r.images : [],
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     bookedDates: r.booked_dates ?? [],
+    orgName:     r.organization?.name || '',
   }
 }
 
@@ -62,8 +60,8 @@ onMounted(async () => {
   apiLoading.value = true
   apiError.value   = ''
   try {
-    const roomRes = await api.get(`/guest/rooms/${route.params.id}`)
-    room.value = normalise(roomRes.data)
+    const res = await api.get(`/guest/rooms/${route.params.id}`)
+    room.value = normalise(res.data)
   } catch {
     apiError.value = 'Unable to load room details. Please try again.'
   } finally {
@@ -71,18 +69,15 @@ onMounted(async () => {
   }
 })
 
-// ── Gallery ───────────────────────────────────────────────────────────────────
+// â”€â”€ Gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const activeImg = ref(0)
 const images    = computed(() => room.value?.images ?? [])
-function prevImg() { activeImg.value = (activeImg.value - 1 + images.value.length) % images.value.length }
-function nextImg() { activeImg.value = (activeImg.value + 1) % images.value.length }
 
-// ── Booking widget state ──────────────────────────────────────────────────────
+// â”€â”€ Booking widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const checkIn    = ref('')
 const checkOut   = ref('')
 const guestCount = ref(1)
 const baseRate   = computed(() => room.value?.price ?? 0)
-
 const calendarOpen = ref(false)
 const todayDate    = today(getLocalTimeZone())
 
@@ -91,7 +86,6 @@ function toIso(cd) {
   return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
 }
 
-// RangeCalendar v-model is { start, end }
 const dateRange = computed({
   get: () => ({
     start: checkIn.value ? parseDate(checkIn.value) : undefined,
@@ -121,7 +115,7 @@ function formatDisplay(iso) {
 const { nightCount, baseTotal } = usePricing(
   checkIn, checkOut, baseRate, guestCount, ref('none')
 )
-const grandTotal = computed(() => baseTotal.value + (baseTotal.value * 0.12))
+const grandTotal = computed(() => baseTotal.value + baseTotal.value * 0.12)
 
 const dateError = computed(() => {
   if (!checkIn.value || !checkOut.value) return ''
@@ -144,261 +138,255 @@ function reserve() {
 </script>
 
 <template>
-  <!-- Loading state -->
-  <div v-if="apiLoading" class="max-w-7xl mx-auto px-6 md:px-16 py-16">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
-      <div class="lg:col-span-8 space-y-4 animate-pulse">
-        <div class="aspect-video rounded-xl bg-[--color-outline]/20" />
-        <div class="h-6 bg-[--color-outline]/20 rounded w-1/3" />
-        <div class="h-10 bg-[--color-outline]/20 rounded w-2/3" />
-        <div class="h-24 bg-[--color-outline]/20 rounded" />
-      </div>
-      <div class="lg:col-span-4">
-        <div class="rounded-xl bg-[--color-outline]/20 h-96 animate-pulse" />
-      </div>
+  <!-- Loading -->
+  <div v-if="apiLoading" class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 animate-pulse">
+    <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 mb-8">
+      <div class="md:col-span-2 md:row-span-2 rounded-xl bg-(--color-surface-container-high)" />
+      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
+      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
+      <div class="hidden md:block md:col-span-2 rounded-xl bg-(--color-surface-container-high)" />
     </div>
+    <div class="h-8 bg-(--color-surface-container-high) rounded w-1/3 mb-4" />
+    <div class="h-24 bg-(--color-surface-container-high) rounded" />
   </div>
 
-  <!-- Error state -->
-  <div v-else-if="apiError" class="max-w-7xl mx-auto px-6 md:px-16 py-32 text-center">
-    <span class="material-symbols-outlined text-4xl text-[--color-error] block mb-4">error</span>
-    <p class="font-serif text-xl text-[--color-on-surface] mb-2">Room not found</p>
-    <p class="font-sans text-sm text-[--color-on-muted]">{{ apiError }}</p>
+  <!-- Error -->
+  <div v-else-if="apiError" class="max-w-[1280px] mx-auto px-5 md:px-16 py-32 text-center">
+    <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
+    <p class="font-serif text-xl text-(--color-on-surface) mb-2">Room not found</p>
+    <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ apiError }}</p>
   </div>
 
-  <div v-else-if="room" class="max-w-7xl mx-auto px-6 md:px-16 py-16">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+  <div v-else-if="room" class="max-w-[1280px] mx-auto pb-24">
 
-      <!-- ── Left: room content ─────────────────────────────────────────── -->
-      <div class="lg:col-span-8">
-
-        <!-- Gallery -->
-        <div class="relative rounded-xl overflow-hidden mb-3 aspect-video" style="box-shadow: var(--shadow-card);">
-          <!-- No images placeholder -->
-          <div
-            v-if="!images.length"
-            class="w-full h-full bg-[--color-secondary] flex flex-col items-center justify-center gap-3"
-          >
-            <span class="material-symbols-outlined text-5xl text-[--color-outline]">image_not_supported</span>
-            <p class="font-sans text-sm text-[--color-on-muted]">No images available</p>
+    <!-- â”€â”€ Bento Image Gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <section class="px-5 md:px-16 mt-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-150">
+        <!-- Main image -->
+        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-xl cursor-pointer" @click="activeImg = 0">
+          <img
+            v-if="images[0]"
+            :src="images[activeImg] || images[0]"
+            :alt="room.name"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+            loading="eager"
+          />
+          <div v-else class="absolute inset-0 w-full h-full bg-(--color-surface-container) flex items-center justify-center">
+            <span class="material-symbols-outlined text-5xl text-(--color-outline)">image_not_supported</span>
           </div>
 
-          <Transition
-            v-else
-            enter-active-class="transition duration-500 ease-out"
-            enter-from-class="opacity-0 scale-105"
-            enter-to-class="opacity-100 scale-100"
-            mode="out-in"
-          >
-            <img
-              :key="activeImg"
-              :src="images[activeImg]"
-              :alt="`${room.name} — image ${activeImg + 1}`"
-              class="w-full h-full object-cover"
-              loading="eager"
-            />
-          </Transition>
-
-          <button
-            v-if="images.length > 1"
-            class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg
-                   bg-[oklch(1_0_0/0.85)] backdrop-blur-sm flex items-center justify-center
-                   text-[--color-on-surface] hover:bg-white transition-colors"
-            aria-label="Previous image"
-            @click="prevImg"
-          >
-            <span class="material-symbols-outlined text-xl">chevron_left</span>
-          </button>
-          <button
-            v-if="images.length > 1"
-            class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg
-                   bg-[oklch(1_0_0/0.85)] backdrop-blur-sm flex items-center justify-center
-                   text-[--color-on-surface] hover:bg-white transition-colors"
-            aria-label="Next image"
-            @click="nextImg"
-          >
-            <span class="material-symbols-outlined text-xl">chevron_right</span>
-          </button>
-
-          <div v-if="images.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          <!-- Nav arrows when multiple images -->
+          <template v-if="images.length > 1">
             <button
-              v-for="(_, i) in images"
-              :key="i"
-              class="w-2 h-2 rounded-full transition-all duration-300"
-              :class="i === activeImg ? 'bg-white scale-125' : 'bg-white/50'"
-              :aria-label="`Go to image ${i + 1}`"
-              @click="activeImg = i"
-            />
+              class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+              @click.stop="activeImg = (activeImg - 1 + images.length) % images.length"
+            >
+              <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <button
+              class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+              @click.stop="activeImg = (activeImg + 1) % images.length"
+            >
+              <span class="material-symbols-outlined">chevron_right</span>
+            </button>
+          </template>
+        </div>
+
+        <!-- Secondary images -->
+        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-xl">
+          <img :src="images[1]" :alt="`${room.name} 2`" class="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-pointer" loading="lazy" @click="activeImg = 1" />
+        </div>
+        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-xl">
+          <img :src="images[2]" :alt="`${room.name} 3`" class="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-pointer" loading="lazy" @click="activeImg = 2" />
+        </div>
+        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-xl">
+          <img :src="images[3]" :alt="`${room.name} 4`" class="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-pointer" loading="lazy" @click="activeImg = 3" />
+        </div>
+      </div>
+    </section>
+
+    <!-- â”€â”€ Lodge Info & Booking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="px-5 md:px-16 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+
+      <!-- Left: Description & Amenities -->
+      <div class="lg:col-span-2 space-y-8">
+
+        <!-- Title -->
+        <div>
+          <h1 class="font-serif text-[32px] font-semibold leading-10 mb-2">{{ room.name }}</h1>
+          <div class="flex flex-wrap items-center gap-4 text-(--color-on-surface-variant)">
+            <div v-if="room.location" class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-(--color-primary)">location_on</span>
+              <span class="font-sans text-base">{{ room.location }}</span>
+            </div>
+            <div v-if="room.orgName" class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-(--color-primary)">apartment</span>
+              <span class="font-sans text-base">{{ room.orgName }}</span>
+            </div>
+            <span class="font-sans text-xs font-semibold px-3 py-1 rounded-full"
+              :class="room.available
+                ? 'bg-(--color-tertiary-fixed) text-(--color-tertiary)'
+                : 'bg-(--color-error-container) text-(--color-on-error-container)'"
+            >
+              {{ room.available ? 'Available' : 'Fully Booked' }}
+            </span>
           </div>
         </div>
 
-        <!-- Thumbnail strip -->
-        <!-- <div v-if="images.length > 1" class="flex gap-2 mb-10">
-          <button
-            v-for="(img, i) in images"
-            :key="i"
-            class="flex-1 aspect-video rounded-lg overflow-hidden transition-all duration-300"
-            :class="i === activeImg
-              ? 'ring-2 ring-[--color-primary] ring-offset-2'
-              : 'opacity-60 hover:opacity-90'"
-            :aria-label="`View image ${i + 1}`"
-            @click="activeImg = i"
-          >
-            <img :src="img" :alt="`${room.name} thumbnail ${i + 1}`" class="w-full h-full object-cover" loading="lazy" />
-          </button>
-        </div> -->
-
-        <!-- Room meta -->
-        <div class="mb-2">
-          <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-[--color-primary] mb-1">
-            {{ room.type }}
-            <template v-if="room.size"> · {{ room.size }}</template>
-            <template v-if="room.bed"> · {{ room.bed }}</template>
-            · Up to {{ room.capacity }} guests
+        <!-- About -->
+        <div class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist) shadow-sm">
+          <h2 class="font-serif text-2xl mb-4">About the Sanctuary</h2>
+          <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">
+            {{ room.description || 'A premium retreat designed for discerning travellers seeking comfort, authenticity, and the finest African hospitality.' }}
           </p>
+          <div class="flex flex-wrap gap-4 mt-6 text-(--color-on-surface-variant) font-sans text-sm">
+            <div v-if="room.type" class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-(--color-primary)">bed</span>
+              {{ room.type }}
+            </div>
+            <div v-if="room.capacity" class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-(--color-primary)">group</span>
+              Up to {{ room.capacity }} guests
+            </div>
+            <div v-if="room.size" class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-(--color-primary)">straighten</span>
+              {{ room.size }}
+            </div>
+            <div v-if="room.bed" class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-(--color-primary)">king_bed</span>
+              {{ room.bed }}
+            </div>
+          </div>
         </div>
-        <h1 class="font-serif text-4xl md:text-5xl text-[--color-on-surface] mb-5">
-          {{ room.name }}
-        </h1>
-
-        <div v-if="room.location" class="inline-flex items-center gap-1.5 mb-6 text-[--color-on-muted] font-sans text-sm">
-          <span class="material-symbols-outlined text-[--color-primary] text-base">location_on</span>
-          {{ room.location }}
-        </div>
-
-        <p class="font-sans text-base text-[--color-on-muted] leading-[1.8] max-w-prose mb-12">
-          {{ room.description }}
-        </p>
 
         <!-- Amenities -->
         <div v-if="room.amenities.length">
-          <h2 class="font-serif text-2xl text-[--color-on-surface] mb-5">What's included</h2>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <h3 class="font-serif text-2xl mb-6">World-Class Amenities</h3>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div
               v-for="a in room.amenities"
               :key="a.label"
-              class="flex items-center gap-3 bg-[--color-surface] rounded-lg px-4 py-3"
+              class="flex items-center gap-3"
             >
-              <span class="material-symbols-outlined text-[--color-primary] text-xl shrink-0">{{ a.icon }}</span>
-              <span class="font-sans text-sm text-[--color-on-muted]">{{ a.label }}</span>
+              <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center text-(--color-primary) shrink-0">
+                <span class="material-symbols-outlined">{{ a.icon }}</span>
+              </div>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ a.label }}</span>
             </div>
           </div>
         </div>
 
       </div>
 
-      <!-- ── Right: sticky booking widget ──────────────────────────────── -->
-      <div class="lg:col-span-4">
-        <div
-          class="sticky top-24 bg-[--color-surface-card] rounded-xl"
-          style="box-shadow: var(--shadow-float);"
-        >
-          <!-- Price header -->
-          <div class="px-6 pt-6 pb-4">
-            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-[--color-on-muted] mb-1">
-              Starting from
-            </p>
-            <p class="font-serif text-3xl text-[--color-on-surface]">
+      <!-- Right: Sticky Booking Widget -->
+      <aside class="lg:sticky lg:top-28 space-y-4">
+        <div class="bg-(--color-surface-container-high) p-6 rounded-xl border border-(--color-outline-variant) shadow-lg">
+
+          <!-- Price -->
+          <div class="flex justify-between items-baseline mb-6">
+            <span class="font-serif text-2xl text-(--color-on-surface)">
               K{{ room.price.toLocaleString() }}
-              <span class="font-sans text-sm text-[--color-on-muted] font-normal">/night</span>
-            </p>
+            </span>
+            <span class="font-sans text-sm text-(--color-on-surface-variant)">/ night</span>
           </div>
 
-          <div class="px-6 pb-6 space-y-5">
+          <div class="space-y-4">
+            <!-- Date picker -->
+            <div class="grid grid-cols-2 gap-2">
+              <Popover v-model:open="calendarOpen">
+                <PopoverTrigger as-child>
+                  <button
+                    type="button"
+                    class="col-span-2 bg-(--color-surface) p-3 rounded border border-(--color-outline-variant) flex items-center justify-between gap-2 text-left w-full hover:border-(--color-primary) transition-colors"
+                  >
+                    <div class="flex flex-col gap-0.5">
+                      <span class="font-sans text-[10px] font-bold uppercase tracking-wider text-(--color-on-surface-variant)">
+                        {{ checkIn && checkOut ? 'Check In â†’ Check Out' : 'Select Dates' }}
+                      </span>
+                      <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                        {{ checkIn ? formatDisplay(checkIn) : 'Add dates' }}
+                        <template v-if="checkIn || checkOut"> â†’ {{ checkOut ? formatDisplay(checkOut) : 'â€”' }}</template>
+                      </span>
+                    </div>
+                    <span class="material-symbols-outlined text-sm text-(--color-on-surface-variant) shrink-0">calendar_month</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" class="w-auto">
+                  <RangeCalendar
+                    v-model="dateRange"
+                    :min-value="todayDate"
+                    :is-date-unavailable="isDateUnavailable"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <p v-if="dateError" class="font-sans text-xs text-(--color-error)">{{ dateError }}</p>
 
-            <!-- Dates -->
-            <Popover v-model:open="calendarOpen">
-              <PopoverTrigger as-child>
+            <!-- Guests -->
+            <div class="bg-(--color-surface) p-3 rounded border border-(--color-outline-variant) flex justify-between items-center">
+              <div class="flex flex-col gap-0.5">
+                <span class="font-sans text-[10px] font-bold uppercase tracking-wider text-(--color-on-surface-variant)">Guests</span>
+                <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                  {{ guestCount }} {{ guestCount === 1 ? 'Adult' : 'Adults' }}
+                </span>
+              </div>
+              <div class="flex items-center gap-3">
                 <button
-                  type="button"
-                  class="w-full flex items-center justify-between border-b border-[--color-outline] py-2 font-sans text-sm text-left transition-colors focus:outline-none focus:border-[--color-primary]"
-                >
-                  <div class="flex flex-col gap-0.5">
-                    <span class="font-sans text-[10px] font-bold tracking-[0.18em] uppercase" style="color: var(--color-on-muted);">
-                      {{ checkIn && checkOut ? 'Stay' : 'Select dates' }}
-                    </span>
-                    <span v-if="checkIn || checkOut" style="color: var(--color-on-surface);">
-                      {{ formatDisplay(checkIn) || '—' }} → {{ formatDisplay(checkOut) || '—' }}
-                    </span>
-                    <span v-else style="color: var(--color-on-muted);">Pick check-in &amp; check-out</span>
-                  </div>
-                  <span class="material-symbols-outlined text-sm shrink-0" style="color: var(--color-on-muted);">calendar_month</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" class="w-auto">
-                <RangeCalendar
-                  v-model="dateRange"
-                  :min-value="todayDate"
-                  :is-date-unavailable="isDateUnavailable"
-                />
-              </PopoverContent>
-            </Popover>
-            <p v-if="dateError" class="font-sans text-xs mt-1" style="color: var(--color-error);">{{ dateError }}</p>
-
-            <!-- Guests stepper -->
-            <div class="flex flex-col gap-1">
-              <label class="font-sans text-[10px] font-bold tracking-[0.18em] uppercase text-[--color-on-muted]">Guests</label>
-              <div class="flex items-center gap-4 border-b border-[--color-outline] py-2">
-                <button
-                  class="w-7 h-7 rounded-lg bg-[--color-secondary] flex items-center justify-center
-                         text-[--color-on-surface] font-bold hover:bg-[--color-outline]/20 transition-colors disabled:opacity-30"
+                  class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) font-bold hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
                   :disabled="guestCount <= 1"
                   @click="guestCount = Math.max(1, guestCount - 1)"
-                >−</button>
-                <span class="font-sans text-sm text-[--color-on-surface] flex-1 text-center">
-                  {{ guestCount }} {{ guestCount === 1 ? 'guest' : 'guests' }}
-                </span>
+                >âˆ’</button>
+                <span class="font-sans text-sm font-semibold w-4 text-center">{{ guestCount }}</span>
                 <button
-                  class="w-7 h-7 rounded-lg bg-[--color-secondary] flex items-center justify-center
-                         text-[--color-on-surface] font-bold hover:bg-[--color-outline]/20 transition-colors disabled:opacity-30"
+                  class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) font-bold hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
                   :disabled="guestCount >= room.capacity"
                   @click="guestCount = Math.min(room.capacity, guestCount + 1)"
                 >+</button>
               </div>
             </div>
 
-
-            <!-- Live price breakdown -->
-            <Transition
-              enter-active-class="transition duration-300"
-              enter-from-class="opacity-0 -translate-y-1"
-              enter-to-class="opacity-100 translate-y-0"
-            >
-              <div v-if="nightCount > 0" class="space-y-2 text-sm font-sans pt-2">
-                <div class="flex justify-between text-[--color-on-muted]">
-                  <span>K{{ room.price.toLocaleString() }} × {{ nightCount }} nights</span>
-                  <span>K{{ Number(baseTotal.toFixed(0)).toLocaleString() }}</span>
-                </div>
-                <div class="flex justify-between text-[--color-on-muted]">
-                  <span>Taxes & fees (12%)</span>
-                  <span>K{{ Number((baseTotal * 0.12).toFixed(0)).toLocaleString() }}</span>
-                </div>
-                <div class="flex justify-between font-semibold text-[--color-on-surface] text-base pt-2">
-                  <span>Total estimate</span>
-                  <span class="text-[--color-primary]">K{{ Number(grandTotal.toFixed(0)).toLocaleString() }}</span>
-                </div>
-              </div>
-            </Transition>
-
             <!-- CTA -->
-            <BaseButton
-              variant="primary"
-              class="w-full justify-center py-3.5"
+            <button
+              class="w-full bg-(--color-primary) text-white py-4 rounded-lg font-serif text-2xl hover:bg-(--color-primary-container) transition-colors active:scale-95 duration-150 shadow-md"
               :class="(!checkIn || !checkOut || !!dateError) && 'opacity-60 pointer-events-none'"
               @click="reserve"
             >
-              Reserve Now
-              <span class="material-symbols-outlined text-base">arrow_forward</span>
-            </BaseButton>
-
-            <p class="font-sans text-xs text-[--color-on-muted] text-center">
-              <span class="material-symbols-outlined text-[--color-accent] text-sm align-middle mr-1" style="font-variation-settings: 'FILL' 1">verified</span>
-              Free cancellation · No charge today
-            </p>
+              Check Availability
+            </button>
           </div>
-        </div>
-      </div>
 
+          <!-- Price breakdown -->
+          <Transition
+            enter-active-class="transition duration-300"
+            enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+          >
+            <div v-if="nightCount > 0" class="mt-6 pt-6 border-t border-(--color-outline-variant) space-y-2">
+              <div class="flex justify-between text-(--color-on-surface-variant) font-sans text-sm">
+                <span>K{{ room.price.toLocaleString() }} Ã— {{ nightCount }} nights</span>
+                <span>K{{ Number(baseTotal.toFixed(0)).toLocaleString() }}</span>
+              </div>
+              <div class="flex justify-between text-(--color-on-surface-variant) font-sans text-sm">
+                <span>Conservation Levy</span>
+                <span>K{{ Number((baseTotal * 0.12).toFixed(0)).toLocaleString() }}</span>
+              </div>
+              <div class="flex justify-between font-bold text-lg pt-2 font-sans">
+                <span>Total</span>
+                <span>K{{ Number(grandTotal.toFixed(0)).toLocaleString() }}</span>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Info note -->
+        <div class="p-4 bg-(--color-tertiary-fixed) rounded-lg flex items-start gap-3">
+          <span class="material-symbols-outlined text-(--color-primary)">info</span>
+          <p class="font-sans text-sm text-(--color-on-tertiary-fixed-variant)">
+            Our prices include full-board dining and guided experiences daily.
+          </p>
+        </div>
+      </aside>
     </div>
+
   </div>
 </template>

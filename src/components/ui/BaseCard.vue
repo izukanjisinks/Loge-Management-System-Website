@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 defineProps({
   hover: { type: Boolean, default: false },
 })
@@ -6,9 +6,8 @@ defineProps({
 
 <template>
   <div
-    class="bg-[--color-surface-card] rounded-lg"
-    :class="hover && 'transition-transform duration-700 ease-out hover:scale-[1.01] cursor-pointer shadow-[var(--shadow-card)]'"
-    style="box-shadow: var(--shadow-card);"
+    class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-savannah-mist)"
+    :class="hover && 'group cursor-pointer transition-shadow duration-300 hover:shadow-lg shadow-sm'"
   >
     <slot />
   </div>
