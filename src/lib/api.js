@@ -12,14 +12,15 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle 401 globally — clear token and redirect to login
-// Skip auth endpoints so login/register errors surface normally
+// Handle 401 globally — only redirect when the user had an active session (token expired).
+// Public endpoints that return 401 due to missing org context must NOT trigger a logout.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    const url = err.config?.url || ''
+    const url          = err.config?.url || ''
     const isAuthEndpoint = url.includes('/auth/')
-    if (err.response?.status === 401 && !isAuthEndpoint) {
+    const hadToken     = !!localStorage.getItem('token')
+    if (err.response?.status === 401 && !isAuthEndpoint && hadToken) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'

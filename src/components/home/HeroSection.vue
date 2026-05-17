@@ -25,10 +25,10 @@ function search() {
     <!-- Hero Content -->
     <div class="relative z-10 flex flex-col items-center justify-center h-full px-5 text-center text-white">
       <h1 class="font-serif text-5xl md:text-[48px] font-bold leading-[1.17] tracking-[-0.02em] mb-4 max-w-3xl">
-        An Unrivaled Arrival into the Soul of the Continent.
+        Simplifying Hospitality, One Booking at a Time.
       </h1>
       <p class="font-sans text-lg leading-7 mb-8 max-w-xl opacity-90">
-        Experience modern African hospitality where luxury meets the grounded warmth of the landscape.
+        From individual travelers to corporate bookings, we make accommodation simple and stress-free.
       </p>
 
       <!-- Search Bar -->

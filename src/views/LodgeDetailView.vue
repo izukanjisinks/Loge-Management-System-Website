@@ -1,195 +1,307 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { lodges } from '@/data/lodges'
+import { useLodges, useRooms, useAvailableRooms, amenityIcon, roomImage } from '@/composables/useRooms'
 
-const route  = useRoute()
+const route = useRoute()
 const router = useRouter()
 
-const lodge = computed(() => lodges.find(l => l.id === Number(route.params.id)))
+const lodgeId = route.params.id
 
-function reserve(suiteId) {
-  router.push({ name: 'reservation', params: { roomId: suiteId } })
+// Fetch lodge info from the list (no single-lodge endpoint available)
+const { lodges, loading: lodgeLoading, error: lodgeError, fetchLodges } = useLodges()
+const lodge = computed(() => lodges.value.find(l => l.id === lodgeId))
+
+// GET /api/v1/rooms is public — no auth required
+const { rooms, loading: roomsLoading, error: roomsError, fetchRooms } = useRooms()
+
+// Availability checker — also public
+const { available, loading: availLoading, error: availError, searched, fetchAvailable } = useAvailableRooms()
+
+const today = new Date().toISOString().split('T')[0]
+const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+const checkIn = ref(today)
+const checkOut = ref(tomorrow)
+
+const nights = computed(() => {
+  const diff = new Date(checkOut.value) - new Date(checkIn.value)
+  return Math.max(0, Math.floor(diff / 86400000))
+})
+
+onMounted(async () => {
+  await fetchLodges({ page_size: 100 })
+  fetchRooms({ org_id: lodgeId, page_size: 100 })
+})
+
+const COVERS = [
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80',
+  'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=1200&q=80',
+  'https://images.unsplash.com/photo-1444201983204-c43cbd584d93?w=1200&q=80',
+  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80',
+]
+
+function lodgeCover(i) {
+  return lodge.value?.logo_url ?? COVERS[i % COVERS.length]
+}
+
+async function checkAvailability() {
+  if (nights.value === 0) return
+  await fetchAvailable(checkIn.value, checkOut.value, lodgeId)
+}
+
+function reserve(roomId) {
+  router.push({
+    name: 'reservation',
+    params: { roomId },
+    query: { check_in: checkIn.value, check_out: checkOut.value },
+  })
 }
 </script>
 
 <template>
-  <div v-if="!lodge" class="max-w-[1280px] mx-auto px-5 md:px-16 py-32 text-center">
-    <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">search_off</span>
-    <p class="font-serif text-2xl text-(--color-on-surface) mb-2">Lodge not found</p>
-    <RouterLink to="/lodges" class="font-sans text-sm text-(--color-primary) hover:underline">← Back to lodges</RouterLink>
+  <!-- Loading -->
+  <div v-if="lodgeLoading" class="max-w-[1280px] mx-auto px-5 md:px-16 py-10 animate-pulse space-y-6">
+    <div class="h-72 bg-(--color-surface-container-highest) rounded-2xl" />
+    <div class="h-8 bg-(--color-surface-container-highest) rounded w-1/3" />
+    <div class="h-4 bg-(--color-surface-container-highest) rounded w-1/4" />
   </div>
 
-  <div v-else class="pb-24">
+  <!-- Error / not found -->
+  <div v-else-if="lodgeError || (!lodgeLoading && !lodge)"
+    class="max-w-[1280px] mx-auto px-5 md:px-16 py-32 text-center">
+    <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">search_off</span>
+    <p class="font-serif text-2xl text-(--color-on-surface) mb-2">Lodge not found</p>
+    <RouterLink to="/lodges" class="font-sans text-sm text-(--color-primary) hover:underline">← Back to lodges
+    </RouterLink>
+  </div>
 
-    <!-- ── Bento Gallery ────────────────────────────────────────────── -->
-    <section class="px-5 md:px-16 pt-8 max-w-[1280px] mx-auto">
-      <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 h-72 md:h-[520px]">
-        <!-- Main large image -->
-        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-2xl">
-          <img
-            :src="lodge.images[0]"
-            :alt="lodge.name"
-            class="absolute inset-0 w-full h-full object-cover"
-          />
-        </div>
-        <!-- Small images -->
-        <div class="hidden md:block relative overflow-hidden rounded-2xl">
-          <img :src="lodge.images[1]" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
-        </div>
-        <div class="hidden md:block relative overflow-hidden rounded-2xl">
-          <img :src="lodge.images[2]" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
-        </div>
-        <div class="hidden md:col-span-2 md:block relative overflow-hidden rounded-2xl">
-          <img :src="lodge.images[3]" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
-        </div>
+  <div v-else-if="lodge" class="pb-24">
+
+    <!-- ── Hero banner ────────────────────────────────────────────── -->
+    <section class="relative h-64 md:h-80 overflow-hidden">
+      <img :src="lodgeCover(0)" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent" />
+      <div class="relative z-10 h-full flex flex-col justify-end px-5 md:px-16 pb-10 max-w-[1280px] mx-auto">
+        <RouterLink to="/lodges"
+          class="flex items-center gap-1 font-sans text-sm text-white/70 hover:text-white mb-4 transition-colors w-fit">
+          <span class="material-symbols-outlined text-base">arrow_back</span>
+          All lodges
+        </RouterLink>
+        <h1 class="font-serif text-3xl md:text-4xl font-semibold text-white">{{ lodge.name }}</h1>
+        <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-white/80 mt-2">
+          <span class="material-symbols-outlined text-base">location_on</span>
+          {{ lodge.address }}
+        </p>
       </div>
     </section>
 
-    <!-- ── Main Content ─────────────────────────────────────────────── -->
-    <div class="max-w-[1280px] mx-auto px-5 md:px-16 mt-10 grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+    <!-- ── Lodge info strip ───────────────────────────────────────── -->
+    <div class="bg-(--color-surface) border-b border-(--color-outline-variant)">
+      <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-5 flex flex-wrap gap-6">
+        <div v-if="lodge.email" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant)">
+          <span class="material-symbols-outlined text-base text-(--color-primary)">mail</span>
+          {{ lodge.email }}
+        </div>
+        <div v-if="lodge.phone" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant)">
+          <span class="material-symbols-outlined text-base text-(--color-primary)">phone</span>
+          {{ lodge.phone }}
+        </div>
+      </div>
+    </div>
 
-      <!-- Left: Description & Amenities -->
-      <div class="lg:col-span-2 space-y-8">
+    <!-- ── Availability checker ───────────────────────────────────── -->
+    <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-5">
+      <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface) mb-2">Check Availability</h2>
+      <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">
+        Pick your dates to see which rooms are free at {{ lodge.name }}.
+      </p>
 
-        <!-- Title -->
+      <div
+        class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
+        <div class="flex-1 flex flex-col gap-1">
+          <label
+            class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in</label>
+          <input v-model="checkIn" type="date" :min="today"
+            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20" />
+        </div>
+        <div class="flex-1 flex flex-col gap-1">
+          <label
+            class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out</label>
+          <input v-model="checkOut" type="date" :min="checkIn"
+            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20" />
+        </div>
+        <div class="flex items-end">
+          <button :disabled="nights === 0 || availLoading"
+            class="w-full sm:w-auto px-7 py-2.5 bg-(--color-primary) text-white rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center gap-2 disabled:opacity-50"
+            @click="checkAvailability">
+            <span v-if="availLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+            <span v-else class="material-symbols-outlined text-base">search</span>
+            {{ availLoading ? 'Checking…' : `Check (${nights} night${nights !== 1 ? 's' : ''})` }}
+          </button>
+        </div>
+      </div>
+
+      <div v-if="availError"
+        class="p-4 bg-(--color-error-container) text-(--color-on-error-container) rounded-xl flex items-center gap-2 mb-4 font-sans text-sm">
+        <span class="material-symbols-outlined text-base">error</span>
+        {{ availError }}
+      </div>
+
+      <template v-if="searched && !availLoading">
+        <div v-if="available.length === 0"
+          class="py-14 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+          <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event_busy</span>
+          <p class="font-serif text-xl text-(--color-on-surface) mb-2">No rooms available</p>
+          <p class="font-sans text-sm text-(--color-on-surface-variant)">All rooms are booked for those dates. Try
+            different dates.</p>
+        </div>
+
+        <div v-else
+          class="overflow-x-auto rounded-2xl border border-(--color-outline-variant) bg-(--color-surface-container-lowest)">
+          <table class="w-full text-left border-collapse">
+            <thead class="bg-(--color-surface-container-highest) border-b border-(--color-outline-variant)">
+              <tr>
+                <th
+                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  Room</th>
+                <th
+                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  Type</th>
+                <th
+                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  Sleeps</th>
+                <th
+                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  / night</th>
+                <th
+                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  Total ({{ nights }}n)</th>
+                <th class="px-6 py-4"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-(--color-outline-variant)">
+              <tr v-for="r in available" :key="r.id" class="hover:bg-(--color-surface-container-low) transition-colors">
+                <td class="px-6 py-5">
+                  <div class="flex gap-3 items-center">
+                    <div class="w-16 h-14 rounded-lg overflow-hidden shrink-0 bg-(--color-surface-container)">
+                      <img :src="roomImage(r)" :alt="r.name" class="w-full h-full object-cover" />
+                    </div>
+                    <p class="font-serif text-base text-(--color-on-surface)">{{ r.name }}</p>
+                  </div>
+                </td>
+                <td class="px-6 py-5">
+                  <span
+                    class="font-sans text-xs font-semibold bg-(--color-savannah-mist) text-(--color-primary) px-2.5 py-1 rounded-full capitalize">{{
+                    r.type }}</span>
+                </td>
+                <td class="px-6 py-5 font-sans text-sm text-(--color-on-surface)">{{ r.capacity }}</td>
+                <td class="px-6 py-5 font-serif text-base text-(--color-primary)">K{{
+                  Number(r.price_per_night).toLocaleString() }}</td>
+                <td class="px-6 py-5 font-serif text-base text-(--color-on-surface)">K{{ (Number(r.price_per_night) *
+                  nights).toLocaleString() }}</td>
+                <td class="px-6 py-5 text-right">
+                  <button
+                    class="px-5 py-2 border-2 border-(--color-primary) text-(--color-primary) font-sans text-sm font-semibold rounded-full hover:bg-(--color-primary) hover:text-white transition-all"
+                    @click="reserve(r.id)">
+                    Reserve
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </section>
+
+    <!-- ── Available Rooms ────────────────────────────────────────── -->
+    <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-12">
+      <div class="flex items-baseline justify-between mb-8">
         <div>
-          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface) mb-2">{{ lodge.name }}</h1>
-          <p class="flex items-center gap-2 font-sans text-base text-(--color-on-surface-variant)">
-            <span class="material-symbols-outlined text-base text-(--color-primary)">location_on</span>
-            {{ lodge.location }}
+          <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface)">Rooms at {{ lodge.name }}</h2>
+          <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
+            <template v-if="roomsLoading">Loading rooms…</template>
+            <template v-else>{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} available</template>
           </p>
         </div>
+      </div>
 
-        <!-- About card -->
-        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant) shadow-sm">
-          <h2 class="font-serif text-2xl text-(--color-on-surface) mb-4">About the Sanctuary</h2>
-          <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">{{ lodge.description }}</p>
-        </div>
+      <!-- Rooms error -->
+      <div v-if="roomsError" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
+        <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
+        <p class="font-sans text-sm text-(--color-on-error-container)">{{ roomsError }}</p>
+      </div>
 
-        <!-- Amenities -->
-        <div>
-          <h3 class="font-serif text-2xl text-(--color-on-surface) mb-6">World-Class Amenities</h3>
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-5">
-            <div v-for="a in lodge.amenities" :key="a.label" class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-base text-(--color-primary)">{{ a.icon }}</span>
-              </div>
-              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ a.label }}</span>
-            </div>
+      <!-- Rooms skeleton -->
+      <div v-else-if="roomsLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+        <div v-for="i in 3" :key="i"
+          class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
+          <div class="h-44 bg-(--color-surface-container-highest)" />
+          <div class="p-4 space-y-2">
+            <div class="h-4 bg-(--color-surface-container-highest) rounded w-3/4" />
+            <div class="h-3 bg-(--color-surface-container-highest) rounded w-1/2" />
           </div>
         </div>
       </div>
 
-      <!-- Right: Booking widget -->
-      <aside class="lg:sticky lg:top-24 space-y-4">
-        <div class="bg-(--color-surface-container-high) p-6 rounded-2xl border border-(--color-outline-variant) shadow-lg">
-          <div class="flex justify-between items-baseline mb-6">
-            <span class="font-serif text-2xl text-(--color-on-surface)">From K{{ lodge.priceFrom.toLocaleString() }}</span>
-            <span class="font-sans text-sm text-(--color-on-surface-variant)">/ night</span>
+      <!-- Room cards -->
+      <div v-else-if="rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+        <div v-for="room in rooms" :key="room.id"
+          class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col">
+          <div class="relative h-44 overflow-hidden">
+            <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
+            <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
+              class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+              {{ room.is_available ? 'Available' : 'Unavailable' }}
+            </span>
+            <span
+              class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
+              {{ room.type }}
+            </span>
           </div>
 
-          <!-- Rating -->
-          <div class="flex items-center gap-2 mb-6">
-            <div class="flex">
-              <span
-                v-for="i in 5"
-                :key="i"
-                class="material-symbols-outlined text-base text-amber-500"
-                style="font-variation-settings:'FILL' 1"
-              >star</span>
+          <div class="p-5 flex flex-col flex-1">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <h3 class="font-serif text-lg text-(--color-on-surface)">{{ room.name }}</h3>
+              <div class="text-right shrink-0">
+                <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString()
+                  }}
+                </p>
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
+              </div>
             </div>
-            <span class="font-sans text-sm text-(--color-on-surface-variant)">{{ lodge.reviews }} reviews</span>
+
+            <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
+              <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
+              Sleeps {{ room.capacity }}
+            </p>
+
+            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
+              {{ room.description || 'A comfortable and well-appointed room.' }}
+            </p>
+
+            <div class="flex flex-wrap gap-1 mb-4">
+              <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
+                class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
+                <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
+                {{ a }}
+              </span>
+            </div>
+
+            <button :disabled="!room.is_available" class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all
+                     bg-(--color-primary) text-white hover:bg-(--color-clay-earth)
+                     disabled:opacity-40 disabled:cursor-not-allowed" @click="reserve(room.id)">
+              {{ room.is_available ? 'Reserve' : 'Unavailable' }}
+            </button>
           </div>
-
-          <RouterLink
-            :to="`/lodges/${lodge.id}#suites`"
-            class="w-full block text-center bg-(--color-primary) text-white py-3.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-colors shadow-md mb-3"
-          >
-            View Available Suites
-          </RouterLink>
-          <RouterLink
-            to="/lodges"
-            class="w-full block text-center font-sans text-sm text-(--color-primary) hover:underline"
-          >
-            ← Back to all lodges
-          </RouterLink>
         </div>
+      </div>
 
-        <!-- Info note -->
-        <div class="p-4 bg-(--color-tertiary-fixed) rounded-xl flex items-start gap-3">
-          <span class="material-symbols-outlined text-(--color-tertiary) shrink-0">info</span>
-          <p class="font-sans text-xs text-(--color-on-tertiary-fixed-variant) leading-relaxed">
-            Our prices include full-board dining and two guided game drives daily.
-          </p>
-        </div>
-      </aside>
-    </div>
-
-    <!-- ── Available Suites Table ───────────────────────────────────── -->
-    <section id="suites" class="max-w-[1280px] mx-auto px-5 md:px-16 mt-20">
-      <h2 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface) mb-8">Available Suites</h2>
-
-      <div class="overflow-x-auto rounded-2xl border border-(--color-outline-variant) bg-(--color-surface-container-lowest)">
-        <table class="w-full text-left border-collapse">
-          <thead class="bg-(--color-surface-container-highest) border-b border-(--color-outline-variant)">
-            <tr>
-              <th class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Suite Type</th>
-              <th class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Sleeps</th>
-              <th class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Amenities</th>
-              <th class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Rate</th>
-              <th class="px-6 py-4"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-(--color-outline-variant)">
-            <tr
-              v-for="suite in lodge.suites"
-              :key="suite.id"
-              class="hover:bg-(--color-surface-container-low) transition-colors"
-            >
-              <!-- Suite info -->
-              <td class="px-6 py-5">
-                <div class="flex gap-4 items-center">
-                  <div class="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-(--color-surface-container)">
-                    <img :src="suite.image" :alt="suite.name" class="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <p class="font-serif text-lg text-(--color-on-surface) mb-0.5">{{ suite.name }}</p>
-                    <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ suite.size }} · {{ suite.view }}</p>
-                  </div>
-                </div>
-              </td>
-              <!-- Sleeps -->
-              <td class="px-6 py-5 font-sans text-sm text-(--color-on-surface)">{{ suite.sleeps }}</td>
-              <!-- Amenities chips -->
-              <td class="px-6 py-5">
-                <div class="flex flex-wrap gap-1.5">
-                  <span
-                    v-for="a in suite.amenities"
-                    :key="a"
-                    class="px-2 py-0.5 bg-(--color-savannah-mist) text-(--color-primary) font-sans text-xs font-bold rounded uppercase tracking-tight"
-                  >
-                    {{ a }}
-                  </span>
-                </div>
-              </td>
-              <!-- Rate -->
-              <td class="px-6 py-5">
-                <p class="font-serif text-xl text-(--color-primary)">K{{ suite.price.toLocaleString() }}</p>
-                <p class="font-sans text-xs text-(--color-on-surface-variant)">per night</p>
-              </td>
-              <!-- CTA -->
-              <td class="px-6 py-5 text-right">
-                <button
-                  class="px-5 py-2 border-2 border-(--color-primary) text-(--color-primary) font-sans text-sm font-semibold rounded-full hover:bg-(--color-primary) hover:text-white transition-all"
-                  @click="reserve(suite.id)"
-                >
-                  Select
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else
+        class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-16">
+        <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">bed</span>
+        <p class="font-serif text-xl text-(--color-on-surface)">No rooms listed</p>
+        <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This lodge has no rooms configured yet.</p>
       </div>
     </section>
 
