@@ -105,7 +105,7 @@ const filtered = computed(() => lodges.value)
           v-for="(lodge, idx) in filtered"
           :key="lodge.id"
           :to="`/lodges/${lodge.id}`"
-          class="group block bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+          class="group flex flex-col bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
         >
           <!-- Cover image -->
           <div class="relative h-52 overflow-hidden">
@@ -148,7 +148,7 @@ const filtered = computed(() => lodges.value)
           </div>
 
           <!-- Content -->
-          <div class="p-5">
+          <div class="p-5 flex flex-col flex-1">
             <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mb-3">
               <span class="material-symbols-outlined text-base text-(--color-primary)">location_on</span>
               {{ lodge.address }}
@@ -159,7 +159,7 @@ const filtered = computed(() => lodges.value)
               {{ lodge.email }}
             </p>
 
-            <div class="flex items-center justify-end pt-4 border-t border-(--color-outline-variant)">
+            <div class="flex items-center justify-end pt-4 border-t border-(--color-outline-variant) mt-auto">
               <span class="inline-flex items-center gap-1 bg-(--color-primary) text-white px-5 py-2 rounded-full font-sans text-sm font-semibold group-hover:bg-(--color-primary-container) transition-colors">
                 View Rooms
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
