@@ -48,7 +48,7 @@ function formatDate(d) {
           <div>
             <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Dates</p>
             <p class="font-sans text-xs text-(--color-on-surface-variant)">
-              {{ formatDate(booking.checkIn) }} â€” {{ formatDate(booking.checkOut) }}
+              {{ formatDate(booking.checkIn) }}  {{ formatDate(booking.checkOut) }}
               <template v-if="booking.nightCount > 0"> ({{ booking.nightCount }} nights)</template>
             </p>
           </div>

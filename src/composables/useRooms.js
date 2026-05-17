@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import api from '@/lib/api'
 
 export function useLodges() {
@@ -25,16 +25,23 @@ export function useLodges() {
 }
 
 export function useRooms() {
-  const rooms   = ref([])
-  const total   = ref(0)
-  const loading = ref(false)
-  const error   = ref(null)
+  const rooms    = ref([])
+  const total    = ref(0)
+  const page     = ref(1)
+  const pageSize = ref(9)
+  const loading  = ref(false)
+  const error    = ref(null)
+
+  const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
   async function fetchRooms(params = {}) {
     loading.value = true
     error.value   = null
+    const merged = { page: page.value, page_size: pageSize.value, ...params }
+    if (params.page)      page.value     = params.page
+    if (params.page_size) pageSize.value = params.page_size
     try {
-      const { data } = await api.get('/guest/rooms', { params })
+      const { data } = await api.get('/guest/rooms', { params: merged })
       rooms.value = data.data ?? data
       total.value = data.total ?? rooms.value.length
     } catch {
@@ -44,7 +51,7 @@ export function useRooms() {
     }
   }
 
-  return { rooms, total, loading, error, fetchRooms }
+  return { rooms, total, page, pageSize, totalPages, loading, error, fetchRooms }
 }
 
 export function useRoom() {
@@ -81,7 +88,7 @@ export function useAvailableRooms() {
     try {
       const params = { check_in: checkIn, check_out: checkOut }
       if (orgId) params.org_id = orgId
-      const { data } = await api.get('/rooms/available', { params })
+      const { data } = await api.get('/guest/rooms', { params })
       available.value = Array.isArray(data) ? data : (data.data ?? [])
       searched.value  = true
     } catch {

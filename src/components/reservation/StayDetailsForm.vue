@@ -1,8 +1,8 @@
-﻿<script setup>
+<script setup>
 import { computed, ref, watch } from 'vue'
 import { useBookingStore } from '@/stores/booking'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
-import { RangeCalendar } from '@/components/ui/range-calendar'
+import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 import api from '@/lib/api'
 
@@ -12,7 +12,8 @@ defineProps({
   errors: { type: Object, default: () => ({}) },
 })
 
-const calendarOpen = ref(false)
+const checkInOpen  = ref(false)
+const checkOutOpen = ref(false)
 const bookedDates  = ref([])
 const todayDate    = today(getLocalTimeZone())
 
@@ -31,17 +32,30 @@ function toIso(cd) {
   return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
 }
 
-const dateRange = computed({
-  get: () => ({
-    start: booking.checkIn  ? parseDate(booking.checkIn)  : undefined,
-    end:   booking.checkOut ? parseDate(booking.checkOut) : undefined,
-  }),
+function formatDisplay(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const checkInValue = computed({
+  get: () => booking.checkIn ? parseDate(booking.checkIn) : undefined,
   set: (v) => {
-    booking.checkIn  = toIso(v?.start)
-    booking.checkOut = toIso(v?.end)
-    if (v?.start && v?.end) calendarOpen.value = false
+    booking.checkIn = toIso(v)
+    checkInOpen.value = false
   },
 })
+
+const checkOutValue = computed({
+  get: () => booking.checkOut ? parseDate(booking.checkOut) : undefined,
+  set: (v) => {
+    booking.checkOut = toIso(v)
+    checkOutOpen.value = false
+  },
+})
+
+const checkOutMin = computed(() =>
+  booking.checkIn ? parseDate(booking.checkIn).add({ days: 1 }) : todayDate.add({ days: 1 })
+)
 
 const isDateUnavailable = computed(() => {
   if (!bookedDates.value.length) return () => false
@@ -57,11 +71,6 @@ const dateError = computed(() => {
     ? 'Check-out must be after check-in'
     : ''
 })
-
-function formatDisplay(iso) {
-  if (!iso) return null
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
 </script>
 
 <template>
@@ -99,7 +108,7 @@ function formatDisplay(iso) {
               class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center font-bold text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
               :disabled="booking.guestCount <= 1"
               @click="booking.guestCount = Math.max(1, booking.guestCount - 1)"
-            >âˆ’</button>
+            >−</button>
             <span class="font-sans text-sm font-semibold w-4 text-center">{{ booking.guestCount }}</span>
             <button
               type="button"
@@ -110,40 +119,66 @@ function formatDisplay(iso) {
         </div>
       </div>
 
-      <!-- Date picker -->
-      <div class="md:col-span-2 flex flex-col gap-2">
+      <!-- Check-in -->
+      <div class="flex flex-col gap-2">
         <label class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
-          Stay Dates <span class="text-(--color-error)">*</span>
+          Check In <span class="text-(--color-error)">*</span>
         </label>
-        <Popover v-model:open="calendarOpen">
+        <Popover v-model:open="checkInOpen">
           <PopoverTrigger as-child>
             <button
               type="button"
-              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center justify-between gap-2 text-left
-                     border-2 transition-colors focus:outline-none"
-              :class="(errors.checkIn || errors.checkOut || dateError) ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"
+              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center gap-2 text-left border-2 transition-colors focus:outline-none"
+              :class="errors.checkIn ? 'border-(--color-error)' : 'border-transparent'"
             >
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-(--color-primary)">calendar_today</span>
-                <span class="font-sans text-sm" :class="booking.checkIn ? 'text-(--color-on-surface)' : 'text-(--color-on-surface-variant)'">
-                  {{ booking.checkIn ? `${formatDisplay(booking.checkIn)} â†’ ${formatDisplay(booking.checkOut) || 'â€”'}` : 'Select check-in and check-out dates' }}
-                </span>
-              </div>
-              <span class="material-symbols-outlined text-(--color-on-surface-variant) text-base shrink-0">expand_more</span>
+              <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+              <span class="font-sans text-sm" :class="booking.checkIn ? 'text-(--color-on-surface)' : 'text-(--color-outline)'">
+                {{ formatDisplay(booking.checkIn) || 'Select date' }}
+              </span>
             </button>
           </PopoverTrigger>
           <PopoverContent align="start" class="w-auto">
-            <RangeCalendar
-              v-model="dateRange"
+            <Calendar
+              v-model="checkInValue"
               :min-value="todayDate"
               :is-date-unavailable="isDateUnavailable"
+              layout="month-and-year"
             />
           </PopoverContent>
         </Popover>
-        <span v-if="errors.checkIn || errors.checkOut" class="font-sans text-xs text-(--color-error)">
-          {{ errors.checkIn || errors.checkOut }}
+        <span v-if="errors.checkIn" class="font-sans text-xs text-(--color-error)">{{ errors.checkIn }}</span>
+      </div>
+
+      <!-- Check-out -->
+      <div class="flex flex-col gap-2">
+        <label class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
+          Check Out <span class="text-(--color-error)">*</span>
+        </label>
+        <Popover v-model:open="checkOutOpen">
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center gap-2 text-left border-2 transition-colors focus:outline-none"
+              :class="(errors.checkOut || dateError) ? 'border-(--color-error)' : 'border-transparent'"
+            >
+              <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+              <span class="font-sans text-sm" :class="booking.checkOut ? 'text-(--color-on-surface)' : 'text-(--color-outline)'">
+                {{ formatDisplay(booking.checkOut) || 'Select date' }}
+              </span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" class="w-auto">
+            <Calendar
+              v-model="checkOutValue"
+              :min-value="checkOutMin"
+              :is-date-unavailable="isDateUnavailable"
+              layout="month-and-year"
+            />
+          </PopoverContent>
+        </Popover>
+        <span v-if="errors.checkOut || dateError" class="font-sans text-xs text-(--color-error)">
+          {{ errors.checkOut || dateError }}
         </span>
-        <span v-else-if="dateError" class="font-sans text-xs text-(--color-error)">{{ dateError }}</span>
       </div>
 
     </div>

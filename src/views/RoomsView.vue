@@ -8,10 +8,14 @@ import api from '@/lib/api'
 useScrollReveal()
 const route = useRoute()
 
-// â”€â”€ API data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const rooms      = ref([])
+const total      = ref(0)
+const page       = ref(1)
+const PAGE_SIZE  = 9
 const apiLoading = ref(false)
 const apiError   = ref('')
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 function capitalise(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
@@ -48,7 +52,6 @@ function normalise(r) {
   }
 }
 
-// â”€â”€ Filter state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const searchQuery       = ref('')
 const filterType        = ref('All')
 const filterOrg         = ref('All')
@@ -56,16 +59,20 @@ const filterCapacity    = ref(1)
 const filterMaxPrice    = ref(1000)
 const showAvailableOnly = ref(false)
 
-async function fetchRooms() {
+async function fetchRooms(p = page.value) {
   apiLoading.value = true
   apiError.value   = ''
+  page.value = p
   try {
-    const params = { page_size: 100 }
+    const params = { page: p, page_size: PAGE_SIZE }
     const q = searchQuery.value.trim()
     if (q) params.org_name = q
+    if (filterType.value !== 'All') params.type = filterType.value.toLowerCase()
     const { data } = await api.get('/guest/rooms', { params })
-    rooms.value = (data.data ?? data).map(normalise)
-    if (rooms.value.length) {
+    const list = data.data ?? data
+    rooms.value = list.map(normalise)
+    total.value = data.total ?? rooms.value.length
+    if (rooms.value.length && filterMaxPrice.value === 1000) {
       const maxPrice = Math.max(...rooms.value.map(r => r.price))
       filterMaxPrice.value = Math.ceil(maxPrice / 100) * 100
     }
@@ -79,10 +86,12 @@ async function fetchRooms() {
 let searchDebounce = null
 watch(searchQuery, () => {
   clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(() => fetchRooms(), 400)
+  searchDebounce = setTimeout(() => fetchRooms(1), 400)
 })
 
-onMounted(() => fetchRooms())
+watch(filterType, () => fetchRooms(1))
+
+onMounted(() => fetchRooms(1))
 
 const TYPES = computed(() => ['All', ...new Set(rooms.value.map(r => r.type))])
 const ORGS  = computed(() => [...new Set(rooms.value.map(r => r.orgName).filter(Boolean))])
@@ -120,12 +129,12 @@ function resetFilters() {
   filterCapacity.value    = 1
   filterMaxPrice.value    = priceSliderMax.value
   showAvailableOnly.value = false
-  fetchRooms()
+  fetchRooms(1)
 }
 </script>
 
 <template>
-  <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 flex flex-col md:flex-row gap-6">
+  <div class="max-w-[1280px] mx-auto px-5 md:px-16 pt-8 pb-4 flex flex-col md:flex-row gap-6">
 
     <!-- â”€â”€ Left Sidebar: Filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <aside class="w-full md:w-64 shrink-0">
@@ -258,65 +267,98 @@ function resetFilters() {
     </aside>
 
     <!-- â”€â”€ Right: Results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <section class="flex-1">
+    <section class=”flex-1 flex flex-col”>
       <!-- Header row -->
-      <div class="flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4">
+      <div class=”flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4”>
         <div>
-          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">Available Lodges</h1>
-          <p class="font-sans text-sm text-(--color-on-surface-variant)">
+          <h1 class=”font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)”>Available Lodges</h1>
+          <p class=”font-sans text-sm text-(--color-on-surface-variant)”>
             Showing {{ resultLabel }} in Southern Africa
           </p>
         </div>
       </div>
 
-      <!-- Loading skeleton -->
-      <div v-if="apiLoading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div
-          v-for="n in 4"
-          :key="n"
-          class="rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse"
-        >
-          <div class="h-64 bg-(--color-surface-container-high)" />
-          <div class="p-6 space-y-3">
-            <div class="h-4 bg-(--color-surface-container-high) rounded w-2/3" />
-            <div class="h-3 bg-(--color-surface-container-high) rounded w-1/2" />
+      <!-- Content area with fixed min height -->
+      <div class=”flex-1 min-h-[600px] flex flex-col”>
+        <!-- Loading skeleton -->
+        <div v-if=”apiLoading” class=”grid grid-cols-1 md:grid-cols-2 gap-8”>
+          <div
+            v-for=”n in 4”
+            :key=”n”
+            class=”rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse”
+          >
+            <div class=”h-64 bg-(--color-surface-container-high)” />
+            <div class=”p-6 space-y-3”>
+              <div class=”h-4 bg-(--color-surface-container-high) rounded w-2/3” />
+              <div class=”h-3 bg-(--color-surface-container-high) rounded w-1/2” />
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- API error -->
-      <div v-else-if="apiError" class="py-24 text-center">
-        <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
-        <p class="font-serif text-xl text-(--color-on-surface) mb-2">Something went wrong</p>
-        <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ apiError }}</p>
-      </div>
+        <!-- API error -->
+        <div v-else-if=”apiError” class=”flex-1 flex flex-col items-center justify-center py-24 text-center”>
+          <span class=”material-symbols-outlined text-4xl text-(--color-error) block mb-4”>error</span>
+          <p class=”font-serif text-xl text-(--color-on-surface) mb-2”>Something went wrong</p>
+          <p class=”font-sans text-sm text-(--color-on-surface-variant)”>{{ apiError }}</p>
+        </div>
 
-      <template v-else>
-        <!-- Room grid -->
-        <Transition enter-active-class="transition duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" mode="out-in">
-          <div v-if="filtered.length" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <RoomCard
-              v-for="(room, i) in filtered"
-              :key="room.id"
-              :room="room"
-              :index="i"
-            />
-          </div>
+        <template v-else>
+          <!-- Room grid -->
+          <Transition enter-active-class=”transition duration-300” enter-from-class=”opacity-0” enter-to-class=”opacity-100” mode=”out-in”>
+            <div v-if=”filtered.length” class=”grid grid-cols-1 md:grid-cols-2 gap-8”>
+              <RoomCard
+                v-for=”(room, i) in filtered”
+                :key=”room.id”
+                :room=”room”
+                :index=”i”
+              />
+            </div>
 
-          <!-- Empty state -->
-          <div v-else class="py-24 text-center">
-            <span class="material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4">search_off</span>
-            <p class="font-serif text-xl text-(--color-on-surface) mb-2">No lodges match your filters</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Try adjusting the type, capacity, or price range.</p>
+            <!-- Empty state -->
+            <div v-else class=”flex-1 flex flex-col items-center justify-center py-24 text-center”>
+              <span class=”material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4”>search_off</span>
+              <p class=”font-serif text-xl text-(--color-on-surface) mb-2”>No lodges match your filters</p>
+              <p class=”font-sans text-sm text-(--color-on-surface-variant) mb-6”>Try adjusting the type, capacity, or price range.</p>
+              <button
+                class=”font-sans text-sm text-(--color-primary) hover:underline”
+                @click=”resetFilters”
+              >
+                Clear all filters
+              </button>
+            </div>
+          </Transition>
+
+          <!-- Pagination -->
+          <div class=”flex items-center justify-center gap-2 mt-10 mb-2”>
             <button
-              class="font-sans text-sm text-(--color-primary) hover:underline"
-              @click="resetFilters"
+              :disabled=”page <= 1 || apiLoading”
+              class=”w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors”
+              @click=”fetchRooms(page - 1)”
             >
-              Clear all filters
+              <span class=”material-symbols-outlined text-base”>chevron_left</span>
+            </button>
+
+            <button
+              v-for=”p in totalPages” :key=”p”
+              :class=”p === page
+                ? 'bg-(--color-primary) text-white border-transparent'
+                : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'”
+              class=”w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors”
+              @click=”fetchRooms(p)”
+            >
+              {{ p }}
+            </button>
+
+            <button
+              :disabled=”page >= totalPages || apiLoading”
+              class=”w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors”
+              @click=”fetchRooms(page + 1)”
+            >
+              <span class=”material-symbols-outlined text-base”>chevron_right</span>
             </button>
           </div>
-        </Transition>
-      </template>
+        </template>
+      </div>
     </section>
 
   </div>

@@ -28,8 +28,8 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     <PopoverContent
       data-slot="popover-content"
       v-bind="{ ...$attrs, ...forwarded }"
-      :class="cn('z-50 w-auto rounded-xl border border-(--color-outline)/30 p-0 shadow-lg outline-hidden', props.class)"
-      style="background-color: var(--color-surface-card); color: var(--color-on-surface); box-shadow: var(--shadow-float);"
+      :class="cn('z-50 w-auto rounded-xl border border-(--color-outline-variant) p-0 shadow-lg outline-hidden', props.class)"
+      style="background-color: #ffffff; color: var(--color-on-surface); box-shadow: var(--shadow-float);"
     >
       <slot />
     </PopoverContent>

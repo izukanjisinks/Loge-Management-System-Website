@@ -33,10 +33,10 @@ defineProps({
         />
         <div
           v-else
-          class="w-full h-full bg-(--color-surface-container) flex flex-col items-center justify-center gap-2"
+          class="w-full h-full bg-(--color-surface-container-high) flex flex-col items-center justify-center gap-3"
         >
-          <span class="material-symbols-outlined text-4xl text-(--color-outline)">image_not_supported</span>
-          <span class="font-sans text-xs text-(--color-on-surface-variant)">No image</span>
+          <span class="material-symbols-outlined text-5xl text-(--color-outline)">bed</span>
+          <span class="font-serif text-sm text-(--color-on-surface-variant)">{{ room.name }}</span>
         </div>
 
         <!-- Unavailable overlay -->

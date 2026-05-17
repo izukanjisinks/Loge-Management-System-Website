@@ -14,7 +14,7 @@ const booking = useBookingStore()
     <textarea
       v-model="booking.specialRequests"
       rows="4"
-      placeholder="Dietary requirements, preferred arrival time, accessibility needs, or special occasionsâ€¦"
+      placeholder="Dietary requirements, preferred arrival time, accessibility needs, or special occasions"
       class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3
              font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant)
              focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20

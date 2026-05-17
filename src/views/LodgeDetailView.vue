@@ -1,7 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLodges, useRooms, useAvailableRooms, amenityIcon, roomImage } from '@/composables/useRooms'
+import { useLodges, useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
+import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,24 +16,54 @@ const { lodges, loading: lodgeLoading, error: lodgeError, fetchLodges } = useLod
 const lodge = computed(() => lodges.value.find(l => l.id === lodgeId))
 
 // GET /api/v1/rooms is public — no auth required
-const { rooms, loading: roomsLoading, error: roomsError, fetchRooms } = useRooms()
+const { rooms, total: roomsTotal, page: roomsPage, totalPages: roomsTotalPages, loading: roomsLoading, error: roomsError, fetchRooms } = useRooms()
 
-// Availability checker — also public
-const { available, loading: availLoading, error: availError, searched, fetchAvailable } = useAvailableRooms()
+const searched    = ref(false)
+const dateFilters = ref({})
 
-const today = new Date().toISOString().split('T')[0]
-const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-const checkIn = ref(today)
-const checkOut = ref(tomorrow)
+async function goToPage(p) {
+  await fetchRooms({ org_id: lodgeId, page: p, ...dateFilters.value })
+}
+
+const todayDate    = today(getLocalTimeZone())
+const checkInOpen  = ref(false)
+const checkOutOpen = ref(false)
+const checkIn  = ref('')
+const checkOut = ref('')
+
+function toIso(cd) {
+  if (!cd) return ''
+  return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
+}
+
+function formatDisplay(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const checkInValue = computed({
+  get: () => checkIn.value ? parseDate(checkIn.value) : undefined,
+  set: (v) => { checkIn.value = toIso(v); checkInOpen.value = false },
+})
+
+const checkOutValue = computed({
+  get: () => checkOut.value ? parseDate(checkOut.value) : undefined,
+  set: (v) => { checkOut.value = toIso(v); checkOutOpen.value = false },
+})
+
+const checkOutMin = computed(() =>
+  checkIn.value ? parseDate(checkIn.value).add({ days: 1 }) : todayDate.add({ days: 1 })
+)
 
 const nights = computed(() => {
+  if (!checkIn.value || !checkOut.value) return 0
   const diff = new Date(checkOut.value) - new Date(checkIn.value)
   return Math.max(0, Math.floor(diff / 86400000))
 })
 
 onMounted(async () => {
   await fetchLodges({ page_size: 100 })
-  fetchRooms({ org_id: lodgeId, page_size: 100 })
+  fetchRooms({ org_id: lodgeId })
 })
 
 const COVERS = [
@@ -46,7 +79,10 @@ function lodgeCover(i) {
 
 async function checkAvailability() {
   if (nights.value === 0) return
-  await fetchAvailable(checkIn.value, checkOut.value, lodgeId)
+  searched.value = false
+  dateFilters.value = { check_in: checkIn.value, check_out: checkOut.value }
+  await fetchRooms({ org_id: lodgeId, ...dateFilters.value })
+  searched.value = true
 }
 
 function reserve(roomId) {
@@ -116,111 +152,66 @@ function reserve(roomId) {
         Pick your dates to see which rooms are free at {{ lodge.name }}.
       </p>
 
-      <div
-        class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
+      <div class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
+        <!-- Check-in -->
         <div class="flex-1 flex flex-col gap-1">
-          <label
-            class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in</label>
-          <input v-model="checkIn" type="date" :min="today"
-            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20" />
+          <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in</label>
+          <Popover v-model:open="checkInOpen">
+            <PopoverTrigger as-child>
+              <button type="button" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 flex items-center gap-2 text-left focus:outline-none">
+                <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                <span class="font-sans text-sm" :class="checkIn ? 'text-(--color-on-surface)' : 'text-(--color-outline)'">
+                  {{ formatDisplay(checkIn) || 'Select date' }}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" class="w-auto">
+              <Calendar v-model="checkInValue" :min-value="todayDate" layout="month-and-year" />
+            </PopoverContent>
+          </Popover>
         </div>
+
+        <!-- Check-out -->
         <div class="flex-1 flex flex-col gap-1">
-          <label
-            class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out</label>
-          <input v-model="checkOut" type="date" :min="checkIn"
-            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20" />
+          <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out</label>
+          <Popover v-model:open="checkOutOpen">
+            <PopoverTrigger as-child>
+              <button type="button" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 flex items-center gap-2 text-left focus:outline-none">
+                <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                <span class="font-sans text-sm" :class="checkOut ? 'text-(--color-on-surface)' : 'text-(--color-outline)'">
+                  {{ formatDisplay(checkOut) || 'Select date' }}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" class="w-auto">
+              <Calendar v-model="checkOutValue" :min-value="checkOutMin" layout="month-and-year" />
+            </PopoverContent>
+          </Popover>
         </div>
+
         <div class="flex items-end">
-          <button :disabled="nights === 0 || availLoading"
+          <button
+            :disabled="nights === 0 || roomsLoading"
             class="w-full sm:w-auto px-7 py-2.5 bg-(--color-primary) text-white rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center gap-2 disabled:opacity-50"
-            @click="checkAvailability">
-            <span v-if="availLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+            @click="checkAvailability"
+          >
+            <span v-if="roomsLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
             <span v-else class="material-symbols-outlined text-base">search</span>
-            {{ availLoading ? 'Checking…' : `Check (${nights} night${nights !== 1 ? 's' : ''})` }}
+            {{ roomsLoading ? 'Checking…' : `Check${nights > 0 ? ` (${nights} night${nights !== 1 ? 's' : ''})` : ''}` }}
           </button>
         </div>
       </div>
-
-      <div v-if="availError"
-        class="p-4 bg-(--color-error-container) text-(--color-on-error-container) rounded-xl flex items-center gap-2 mb-4 font-sans text-sm">
-        <span class="material-symbols-outlined text-base">error</span>
-        {{ availError }}
-      </div>
-
-      <template v-if="searched && !availLoading">
-        <div v-if="available.length === 0"
-          class="py-14 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
-          <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event_busy</span>
-          <p class="font-serif text-xl text-(--color-on-surface) mb-2">No rooms available</p>
-          <p class="font-sans text-sm text-(--color-on-surface-variant)">All rooms are booked for those dates. Try
-            different dates.</p>
-        </div>
-
-        <div v-else
-          class="overflow-x-auto rounded-2xl border border-(--color-outline-variant) bg-(--color-surface-container-lowest)">
-          <table class="w-full text-left border-collapse">
-            <thead class="bg-(--color-surface-container-highest) border-b border-(--color-outline-variant)">
-              <tr>
-                <th
-                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  Room</th>
-                <th
-                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  Type</th>
-                <th
-                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  Sleeps</th>
-                <th
-                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  / night</th>
-                <th
-                  class="px-6 py-4 font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  Total ({{ nights }}n)</th>
-                <th class="px-6 py-4"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-(--color-outline-variant)">
-              <tr v-for="r in available" :key="r.id" class="hover:bg-(--color-surface-container-low) transition-colors">
-                <td class="px-6 py-5">
-                  <div class="flex gap-3 items-center">
-                    <div class="w-16 h-14 rounded-lg overflow-hidden shrink-0 bg-(--color-surface-container)">
-                      <img :src="roomImage(r)" :alt="r.name" class="w-full h-full object-cover" />
-                    </div>
-                    <p class="font-serif text-base text-(--color-on-surface)">{{ r.name }}</p>
-                  </div>
-                </td>
-                <td class="px-6 py-5">
-                  <span
-                    class="font-sans text-xs font-semibold bg-(--color-savannah-mist) text-(--color-primary) px-2.5 py-1 rounded-full capitalize">{{
-                    r.type }}</span>
-                </td>
-                <td class="px-6 py-5 font-sans text-sm text-(--color-on-surface)">{{ r.capacity }}</td>
-                <td class="px-6 py-5 font-serif text-base text-(--color-primary)">K{{
-                  Number(r.price_per_night).toLocaleString() }}</td>
-                <td class="px-6 py-5 font-serif text-base text-(--color-on-surface)">K{{ (Number(r.price_per_night) *
-                  nights).toLocaleString() }}</td>
-                <td class="px-6 py-5 text-right">
-                  <button
-                    class="px-5 py-2 border-2 border-(--color-primary) text-(--color-primary) font-sans text-sm font-semibold rounded-full hover:bg-(--color-primary) hover:text-white transition-all"
-                    @click="reserve(r.id)">
-                    Reserve
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </template>
     </section>
 
-    <!-- ── Available Rooms ────────────────────────────────────────── -->
+    <!-- ── Rooms ────────────────────────────────────────── -->
     <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-12">
       <div class="flex items-baseline justify-between mb-8">
         <div>
           <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface)">Rooms at {{ lodge.name }}</h2>
           <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
             <template v-if="roomsLoading">Loading rooms…</template>
-            <template v-else>{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} available</template>
+            <template v-else-if="searched">{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} available for selected dates</template>
+            <template v-else>{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }}</template>
           </p>
         </div>
       </div>
@@ -298,10 +289,40 @@ function reserve(roomId) {
       </div>
 
       <div v-else
-        class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-16">
-        <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">bed</span>
-        <p class="font-serif text-xl text-(--color-on-surface)">No rooms listed</p>
-        <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This lodge has no rooms configured yet.</p>
+        class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-8">
+        <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">{{ searched ? 'event_busy' : 'bed' }}</span>
+        <p class="font-serif text-xl text-(--color-on-surface)">{{ searched ? 'No rooms available' : 'No rooms listed' }}</p>
+        <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">{{ searched ? 'All rooms are booked for those dates. Try different dates.' : 'This lodge has no rooms configured yet.' }}</p>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-center gap-2 mt-10 mb-4">
+        <button
+          :disabled="roomsPage <= 1 || roomsLoading"
+          class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          @click="goToPage(roomsPage - 1)"
+        >
+          <span class="material-symbols-outlined text-base">chevron_left</span>
+        </button>
+
+        <button
+          v-for="p in roomsTotalPages" :key="p"
+          :class="p === roomsPage
+            ? 'bg-(--color-primary) text-white border-transparent'
+            : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
+          class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
+          @click="goToPage(p)"
+        >
+          {{ p }}
+        </button>
+
+        <button
+          :disabled="roomsPage >= roomsTotalPages || roomsLoading"
+          class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          @click="goToPage(roomsPage + 1)"
+        >
+          <span class="material-symbols-outlined text-base">chevron_right</span>
+        </button>
       </div>
     </section>
 
