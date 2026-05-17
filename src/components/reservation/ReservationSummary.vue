@@ -18,7 +18,7 @@ function roomImage(id) {
 }
 
 function formatDate(d) {
-  if (!d) return 'â€”'
+  if (!d) return null
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 </script>
@@ -48,8 +48,11 @@ function formatDate(d) {
           <div>
             <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Dates</p>
             <p class="font-sans text-xs text-(--color-on-surface-variant)">
-              {{ formatDate(booking.checkIn) }}  {{ formatDate(booking.checkOut) }}
-              <template v-if="booking.nightCount > 0"> ({{ booking.nightCount }} nights)</template>
+              <template v-if="booking.checkIn && booking.checkOut">
+                {{ formatDate(booking.checkIn) }} &rarr; {{ formatDate(booking.checkOut) }}
+                ({{ booking.nightCount }} nights)
+              </template>
+              <template v-else>Not selected</template>
             </p>
           </div>
         </div>
@@ -66,27 +69,36 @@ function formatDate(d) {
     </div>
 
     <!-- Price breakdown -->
-    <div class="py-6 space-y-3">
-      <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-        <span>{{ booking.nightCount || 0 }} nights Ã— K{{ Number((booking.baseRate ?? 0).toFixed(0)).toLocaleString() }}</span>
-        <span>K{{ Number((booking.baseTotal ?? 0).toFixed(0)).toLocaleString() }}</span>
+    <template v-if="booking.nightCount > 0">
+      <div class="py-6 space-y-3">
+        <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
+          <span>{{ booking.nightCount }} nights × K{{ Number((booking.baseRatePerNight ?? 0).toFixed(0)).toLocaleString() }}</span>
+          <span>K{{ Number((booking.baseTotal ?? 0).toFixed(0)).toLocaleString() }}</span>
+        </div>
+        <div v-if="booking.mealCost > 0" class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
+          <span>{{ booking.mealPlanName }}</span>
+          <span>K{{ Number((booking.mealCost ?? 0).toFixed(0)).toLocaleString() }}</span>
+        </div>
+        <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
+          <span>Conservation Levy (12%)</span>
+          <span>K{{ Number((booking.taxes ?? 0).toFixed(0)).toLocaleString() }}</span>
+        </div>
       </div>
-      <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-        <span>Conservation Levy</span>
-        <span>K{{ Number((booking.taxes ?? 0).toFixed(0)).toLocaleString() }}</span>
-      </div>
-    </div>
 
-    <!-- Total -->
-    <div class="pt-4 border-t border-(--color-primary)/20 flex justify-between items-end">
-      <div>
-        <p class="font-sans text-xs font-semibold tracking-wider uppercase text-(--color-on-surface-variant)">Total Payable</p>
-        <p class="font-serif text-[32px] font-semibold leading-10 text-(--color-primary)">
-          K{{ Number((booking.grandTotal ?? 0).toFixed(0)).toLocaleString() }}
-        </p>
+      <!-- Total -->
+      <div class="pt-4 border-t border-primary/20 flex justify-between items-end">
+        <div>
+          <p class="font-sans text-xs font-semibold tracking-wider uppercase text-(--color-on-surface-variant)">Total Payable</p>
+          <p class="font-serif text-[32px] font-semibold leading-10 text-(--color-primary)">
+            K{{ Number((booking.grandTotal ?? 0).toFixed(0)).toLocaleString() }}
+          </p>
+        </div>
+        <span class="font-sans text-xs text-(--color-on-surface-variant) italic mb-1">Inclusive of all taxes</span>
       </div>
-      <span class="font-sans text-xs text-(--color-on-surface-variant) italic mb-1">Inclusive of all taxes</span>
-    </div>
+    </template>
+    <template v-else>
+      <p class="py-6 font-sans text-sm text-(--color-on-surface-variant) italic">Select dates to see pricing.</p>
+    </template>
 
     <!-- Guarantee -->
     <div class="mt-8 p-4 bg-(--color-tertiary-fixed) rounded-lg flex gap-3">

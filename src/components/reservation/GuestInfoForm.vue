@@ -1,5 +1,7 @@
 ﻿<script setup>
+import { ref, computed } from 'vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 import { useBookingStore } from '@/stores/booking'
 
 const booking = useBookingStore()
@@ -7,6 +9,21 @@ const booking = useBookingStore()
 defineProps({
   errors: { type: Object, default: () => ({}) },
 })
+
+const nationalityOpen  = ref(false)
+const nationalityQuery = ref('')
+
+const filteredCountries = computed(() => {
+  const q = nationalityQuery.value.toLowerCase()
+  if (!q) return COUNTRIES
+  return COUNTRIES.filter(c => c.toLowerCase().includes(q))
+})
+
+function selectNationality(country) {
+  booking.guestInfo.nationality = country
+  nationalityOpen.value  = false
+  nationalityQuery.value = ''
+}
 
 const COUNTRIES = [
   'Afghan', 'Albanian', 'Algerian', 'American', 'Andorran', 'Angolan', 'Argentine', 'Armenian',
@@ -83,17 +100,50 @@ const COUNTRIES = [
         <label class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
           Nationality
         </label>
-        <select
-          v-model="booking.guestInfo.nationality"
-          autocomplete="country-name"
-          class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3
-                 font-sans text-sm text-(--color-on-surface)
-                 focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20
-                 transition-all cursor-pointer"
-        >
-          <option value="" disabled>Select nationality</option>
-          <option v-for="country in COUNTRIES" :key="country" :value="country">{{ country }}</option>
-        </select>
+        <Popover v-model:open="nationalityOpen">
+          <PopoverTrigger as-child>
+            <button
+              type="button"
+              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center justify-between gap-2 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20 transition-all"
+              :class="booking.guestInfo.nationality ? 'text-(--color-on-surface)' : 'text-(--color-outline)'"
+            >
+              {{ booking.guestInfo.nationality || 'Select nationality' }}
+              <span class="material-symbols-outlined text-base text-(--color-outline)">unfold_more</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent class="w-72 p-0 overflow-hidden" align="start">
+            <!-- Search input -->
+            <div class="flex items-center gap-2 px-3 py-2 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-base text-(--color-outline)">search</span>
+              <input
+                v-model="nationalityQuery"
+                type="text"
+                placeholder="Search nationality…"
+                class="flex-1 bg-transparent font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none"
+                autofocus
+              />
+            </div>
+            <!-- Options list -->
+            <ul class="max-h-56 overflow-y-auto py-1" style="scrollbar-gutter: stable; padding-right: 4px;">
+              <li
+                v-for="country in filteredCountries"
+                :key="country"
+                class="flex items-center gap-2 px-3 py-2 font-sans text-sm cursor-pointer hover:bg-(--color-surface-container) transition-colors"
+                :class="booking.guestInfo.nationality === country ? 'text-(--color-primary) font-semibold' : 'text-(--color-on-surface)'"
+                @click="selectNationality(country)"
+              >
+                <span
+                  class="material-symbols-outlined text-base"
+                  :class="booking.guestInfo.nationality === country ? 'opacity-100' : 'opacity-0'"
+                >check</span>
+                {{ country }}
+              </li>
+              <li v-if="filteredCountries.length === 0" class="px-3 py-4 text-center font-sans text-sm text-(--color-outline)">
+                No results
+              </li>
+            </ul>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <BaseInput

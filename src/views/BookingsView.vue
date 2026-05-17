@@ -40,7 +40,7 @@ onMounted(() => reservations.fetchAll())
         <div class="flex items-center justify-between mb-8">
           <h2 class="font-serif text-2xl text-(--color-on-surface)">Active Reservations</h2>
           <RouterLink
-            to="/rooms"
+            to="/lodges"
             class="font-sans text-sm font-semibold text-(--color-primary) flex items-center gap-1 hover:underline"
           >
             Browse lodges
@@ -57,7 +57,7 @@ onMounted(() => reservations.fetchAll())
           <p class="font-serif text-xl text-(--color-on-surface) mb-2">No upcoming stays</p>
           <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Your next adventure is waiting to be planned.</p>
           <RouterLink
-            to="/rooms"
+            to="/lodges"
             class="inline-flex items-center gap-2 bg-(--color-primary) text-white px-6 py-2.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-colors"
           >
             <span class="material-symbols-outlined text-base">search</span>

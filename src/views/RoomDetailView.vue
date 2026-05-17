@@ -43,7 +43,7 @@ function normalise(r) {
     name:        r.name,
     type:        cap(r.type),
     capacity:    r.capacity,
-    price:       r.price_per_night,
+    price:       parseFloat(r.price_per_night) || 0,
     available:   r.is_available,
     size:        r.size        || '',
     bed:         r.bed_type    || '',
