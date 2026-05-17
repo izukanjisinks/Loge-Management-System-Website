@@ -72,7 +72,7 @@ async function submit() {
           <input
             v-model="password"
             :type="showPass ? 'text' : 'password'"
-            placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+            placeholder="Enter your password"
             autocomplete="current-password"
             class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 pr-10
                    font-sans text-sm text-(--color-on-surface)

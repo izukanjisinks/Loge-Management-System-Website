@@ -21,8 +21,8 @@ import { RouterLink } from 'vue-router'
       </main>
 
       <footer class="px-8 py-6 text-center font-sans text-xs text-(--color-on-surface-variant) border-t border-(--color-outline-variant)">
-        Â© {{ new Date().getFullYear() }} Mwakwanda Hospitality Group Â·
-        <RouterLink to="/" class="hover:text-(--color-primary) transition-colors ml-1">Back to home</RouterLink>
+        Copyright © {{ new Date().getFullYear() }} Mwakwanda Hospitality Group
+        <!-- <RouterLink to="/" class="hover:text-(--color-primary) transition-colors ml-1">Back to home</RouterLink> -->
       </footer>
     </div>
 

@@ -9,7 +9,7 @@ function search() {
 </script>
 
 <template>
-  <section class="relative w-full overflow-hidden" style="height: calc(100dvh - 60px)">
+  <section class="relative w-full h-full overflow-hidden">
     <!-- Background Image -->
     <div class="absolute inset-0 z-0">
       <img

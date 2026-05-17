@@ -8,12 +8,12 @@ const route = useRoute()
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-(--color-background)">
+  <div class="h-dvh flex flex-col overflow-hidden bg-(--color-background)">
     <AppNavbar />
-    <main class="flex-1">
+    <main class="flex-1 min-h-0 overflow-y-auto">
       <RouterView />
+      <AppFooter v-if="route.name !== 'home'" />
     </main>
-    <AppFooter v-if="route.name !== 'home'" />
     <MobileBottomNav />
   </div>
 </template>

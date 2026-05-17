@@ -39,7 +39,7 @@ import { RouterLink } from 'vue-router'
     <!-- Bottom bar -->
     <div class="w-full px-5 md:px-16 py-5 max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4 opacity-60 border-t border-(--color-outline-variant)">
       <p class="font-sans text-xs text-(--color-on-surface-variant)">
-        Â© {{ new Date().getFullYear() }} Mwakwanda Hospitality Group. All rights reserved.
+        Copyright © {{ new Date().getFullYear() }} Mwakwanda Hospitality Group. All rights reserved.
       </p>
       <div class="flex gap-6">
         <span class="material-symbols-outlined text-(--color-on-surface-variant) cursor-pointer">language</span>

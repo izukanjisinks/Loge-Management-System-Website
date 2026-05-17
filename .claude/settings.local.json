@@ -4,7 +4,9 @@
       "Read(//c/development/Lodge-Management-System/internal/models/**)",
       "Read(//c/development/Lodge-Management-System/internal/services/**)",
       "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/calendar/**)",
-      "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/range-calendar/**)"
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/range-calendar/**)",
+      "Bash(npm --version)",
+      "Bash(Test-Path \"c:\\\\Users\\\\SYNC\\\\Documents\\\\GitHub\\\\Loge-Management-System-Website\\\\node_modules\")"
     ]
   }
 }
