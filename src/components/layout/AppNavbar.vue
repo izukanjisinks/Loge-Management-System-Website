@@ -18,8 +18,9 @@ function handleLogout() {
     <nav class="flex justify-between items-center w-full px-5 md:px-16 py-4 max-w-[1280px] mx-auto">
 
       <!-- Logo -->
-      <RouterLink to="/" class="font-serif text-2xl text-(--color-primary) tracking-tight">
-        Mwakwanda
+      <RouterLink to="/" class="flex items-center gap-2">
+        <img src="/mwakwanda_favicon.svg" alt="Mwakwanda logo" class="h-8 w-8" />
+        <span class="font-serif text-2xl font-bold text-(--color-primary) tracking-tight">Mwakwanda</span>
       </RouterLink>
 
       <!-- Desktop nav links -->
@@ -38,12 +39,13 @@ function handleLogout() {
         >
           Reservations
         </RouterLink>
-        <a
-          href="#"
+        <RouterLink
+          to="/about"
           class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
         >
           About
-        </a>
+        </RouterLink>
       </div>
 
       <!-- Desktop CTA -->
@@ -92,7 +94,7 @@ function handleLogout() {
       >
         <RouterLink to="/lodges"   class="font-sans text-sm text-(--color-on-surface-variant) py-2">Explore</RouterLink>
         <RouterLink to="/bookings" class="font-sans text-sm text-(--color-on-surface-variant) py-2">Reservations</RouterLink>
-        <a href="#"                class="font-sans text-sm text-(--color-on-surface-variant) py-2">About</a>
+        <RouterLink to="/about"    class="font-sans text-sm text-(--color-on-surface-variant) py-2">About</RouterLink>
         <template v-if="auth.isAuthenticated">
           <button class="font-sans text-sm text-(--color-on-surface-variant) py-2 text-left" @click="handleLogout">
             Sign Out

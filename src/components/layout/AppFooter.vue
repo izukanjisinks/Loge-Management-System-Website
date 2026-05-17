@@ -18,7 +18,7 @@ import { RouterLink } from 'vue-router'
       <div class="grid grid-cols-2 md:grid-cols-3 gap-12">
         <div class="flex flex-col gap-3">
           <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Company</span>
-          <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">About Us</a>
+          <RouterLink to="/about" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">About Us</RouterLink>
           <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Sustainability</a>
           <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Contact</a>
         </div>

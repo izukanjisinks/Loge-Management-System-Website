@@ -1,0 +1,195 @@
+<script setup>
+import { RouterLink } from 'vue-router'
+
+const values = [
+  {
+    icon: 'landscape',
+    title: 'Rooted in Place',
+    body: 'Every property we partner with is chosen for its deep connection to the land — architecture, materials, and rhythm shaped by where it stands.',
+  },
+  {
+    icon: 'volunteer_activism',
+    title: 'Generous Hospitality',
+    body: 'We believe luxury is not distance from others but closeness — attentive, unhurried, and genuinely warm from the first greeting to the last.',
+  },
+  {
+    icon: 'eco',
+    title: 'Responsible Travel',
+    body: 'Conservation and community are non-negotiable. A portion of every booking funds wildlife corridors and local employment in each region.',
+  },
+  {
+    icon: 'workspace_premium',
+    title: 'Uncompromising Quality',
+    body: 'From linens to the last bite of dinner, every detail is considered. We hold our partners to a standard we would expect for ourselves.',
+  },
+]
+
+const team = [
+  {
+    name: 'Amara Dube',
+    role: 'Founder & Chief Experience Officer',
+    image: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&q=80',
+    bio: 'Born in Bulawayo, Amara spent fifteen years running conservation lodges across East and Southern Africa before founding Mwakwanda.',
+  },
+  {
+    name: 'Sipho Nkosi',
+    role: 'Head of Lodge Partnerships',
+    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80',
+    bio: 'A hospitality veteran with placements in Nairobi, Cape Town, and Maputo, Sipho curates every property that joins the Mwakwanda collection.',
+  },
+  {
+    name: 'Lena Osei',
+    role: 'Director of Guest Relations',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80',
+    bio: 'Lena leads the concierge team with the belief that every traveller deserves a journey tailored entirely to their own sense of wonder.',
+  },
+]
+
+const stats = [
+  { value: '40+', label: 'Partner lodges' },
+  { value: '12', label: 'Countries across Africa' },
+  { value: '8K+', label: 'Guests hosted' },
+  { value: '2018', label: 'Year founded' },
+]
+</script>
+
+<template>
+  <div class="bg-(--color-background)">
+
+    <!-- ── Hero ─────────────────────────────────────────────────────── -->
+    <section class="relative h-[480px] md:h-[560px] overflow-hidden">
+      <img
+        src="https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=1600&q=80"
+        alt="Sweeping African savannah at golden hour"
+        class="absolute inset-0 w-full h-full object-cover"
+        loading="eager"
+      />
+      <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/25 to-transparent" />
+      <div class="relative z-10 h-full flex flex-col items-center justify-end pb-14 px-5 text-center text-white">
+        <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-inverse-primary) mb-3">
+          Our Story
+        </p>
+        <h1 class="font-serif text-4xl md:text-5xl font-bold leading-tight max-w-2xl mb-4">
+          Built on a Love for the African Continent
+        </h1>
+        <p class="font-sans text-base md:text-lg text-white/80 max-w-xl leading-relaxed">
+          Mwakwanda began with a simple belief — that luxury travel and genuine belonging to a place are not opposites.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Stats bar ─────────────────────────────────────────────────── -->
+    <section class="bg-(--color-surface) border-b border-(--color-outline-variant)">
+      <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div v-for="s in stats" :key="s.label">
+          <p class="font-serif text-3xl md:text-4xl text-(--color-primary) font-semibold">{{ s.value }}</p>
+          <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">{{ s.label }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Our story ─────────────────────────────────────────────────── -->
+    <section class="max-w-[1280px] mx-auto px-5 md:px-16 py-20 grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+      <div>
+        <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-primary) mb-3">Who We Are</p>
+        <h2 class="font-serif text-3xl md:text-4xl text-(--color-on-surface) font-semibold leading-tight mb-6">
+          A Hospitality Group Shaped by the Continent Itself
+        </h2>
+        <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed mb-5">
+          Mwakwanda was founded in 2018 by a group of travellers, conservationists, and hoteliers who had grown tired of luxury that felt imported. They wanted properties that spoke in the voice of the land — lodges where you fell asleep to the sounds of the bush, woke to honest food, and left feeling genuinely changed.
+        </p>
+        <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed mb-8">
+          Today the collection spans over forty properties across twelve African countries, each selected through a rigorous process that weighs guest experience equally against ecological stewardship and community impact.
+        </p>
+        <RouterLink
+          to="/lodges"
+          class="inline-flex items-center gap-2 bg-(--color-primary) text-white px-7 py-3.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors"
+        >
+          Explore Our Lodges
+          <span class="material-symbols-outlined text-base">arrow_forward</span>
+        </RouterLink>
+      </div>
+      <div class="relative h-80 lg:h-auto lg:aspect-[4/5] rounded-2xl overflow-hidden shadow-lg">
+        <img
+          src="https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&q=80"
+          alt="Lodge veranda overlooking the plains"
+          class="w-full h-full object-cover"
+        />
+        <div class="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
+      </div>
+    </section>
+
+    <!-- ── Values ────────────────────────────────────────────────────── -->
+    <section class="bg-(--color-savannah-mist)">
+      <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-20">
+        <div class="text-center mb-12">
+          <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-primary) mb-3">What We Stand For</p>
+          <h2 class="font-serif text-3xl md:text-4xl text-(--color-on-surface) font-semibold">Our Values</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div
+            v-for="v in values"
+            :key="v.title"
+            class="bg-(--color-surface) rounded-2xl p-7 border border-(--color-outline-variant) shadow-sm"
+          >
+            <span class="material-symbols-outlined text-3xl text-(--color-primary) mb-4 block">{{ v.icon }}</span>
+            <h3 class="font-serif text-lg text-(--color-on-surface) font-semibold mb-3">{{ v.title }}</h3>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">{{ v.body }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Team ──────────────────────────────────────────────────────── -->
+    <section class="max-w-[1280px] mx-auto px-5 md:px-16 py-20">
+      <div class="text-center mb-12">
+        <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-primary) mb-3">The People</p>
+        <h2 class="font-serif text-3xl md:text-4xl text-(--color-on-surface) font-semibold">Leadership Team</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div
+          v-for="member in team"
+          :key="member.name"
+          class="group text-center"
+        >
+          <div class="w-32 h-32 rounded-full overflow-hidden mx-auto mb-5 ring-4 ring-(--color-outline-variant) group-hover:ring-(--color-primary) transition-all duration-300">
+            <img
+              :src="member.image"
+              :alt="member.name"
+              class="w-full h-full object-cover"
+            />
+          </div>
+          <h3 class="font-serif text-xl text-(--color-on-surface) font-semibold mb-1">{{ member.name }}</h3>
+          <p class="font-sans text-xs font-semibold tracking-[0.15em] uppercase text-(--color-primary) mb-3">{{ member.role }}</p>
+          <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed max-w-xs mx-auto">{{ member.bio }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CTA ───────────────────────────────────────────────────────── -->
+    <section class="relative overflow-hidden">
+      <img
+        src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&q=80"
+        alt="Tented camp under a star-lit sky"
+        class="absolute inset-0 w-full h-full object-cover"
+      />
+      <div class="absolute inset-0 bg-black/60" />
+      <div class="relative z-10 max-w-[1280px] mx-auto px-5 md:px-16 py-24 text-center text-white">
+        <h2 class="font-serif text-3xl md:text-4xl font-bold mb-5 max-w-xl mx-auto leading-tight">
+          Ready to Experience Mwakwanda?
+        </h2>
+        <p class="font-sans text-base text-white/80 max-w-lg mx-auto mb-8 leading-relaxed">
+          Browse our curated collection of lodges and begin planning a journey that stays with you long after you leave.
+        </p>
+        <RouterLink
+          to="/lodges"
+          class="inline-flex items-center gap-2 bg-(--color-clay-earth) text-white px-8 py-4 rounded-full font-sans text-sm font-semibold hover:bg-(--color-primary) transition-colors"
+        >
+          <span class="material-symbols-outlined text-base">explore</span>
+          Start Exploring
+        </RouterLink>
+      </div>
+    </section>
+
+  </div>
+</template>
