@@ -124,25 +124,11 @@ const filtered = computed(() => lodges.value)
             </div>
             <template v-if="lodge.logo_url">
               <div class="absolute inset-0 bg-linear-to-t from-black/55 to-transparent" />
-              <!-- Active badge -->
-              <div class="absolute top-3 right-3">
-                <span class="bg-emerald-500/90 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  Active
-                </span>
-              </div>
               <!-- Lodge name overlay -->
               <div class="absolute bottom-3 left-4 right-4">
                 <h3 class="font-serif text-xl font-semibold text-white leading-tight group-hover:text-(--color-inverse-primary) transition-colors">
                   {{ lodge.name }}
                 </h3>
-              </div>
-            </template>
-            <template v-else>
-              <!-- Active badge over placeholder -->
-              <div class="absolute top-3 right-3">
-                <span class="bg-emerald-500/90 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  Active
-                </span>
               </div>
             </template>
           </div>
