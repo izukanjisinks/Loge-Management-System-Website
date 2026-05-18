@@ -24,7 +24,7 @@ function formatDate(d) {
 </script>
 
 <template>
-  <div class="sticky top-28 bg-(--color-surface-container) p-6 rounded-xl border border-(--color-outline-variant)/30">
+  <div class="sticky top-28 bg-(--color-surface-container) p-6 rounded-xl border border-(--color-outline-variant)">
     <h3 class="font-serif text-2xl mb-6">Booking Summary</h3>
 
     <!-- Room image -->
@@ -34,7 +34,7 @@ function formatDate(d) {
         :alt="booking.roomType || 'Your room'"
         class="w-full h-full object-cover"
       />
-      <div class="absolute bottom-0 left-0 w-full p-4 bg-linear-to-t from-(--color-deep-obsidian)/80 to-transparent">
+      <div class="absolute bottom-0 left-0 w-full p-4 bg-linear-to-t from-black/80 to-transparent">
         <p class="text-white font-sans font-semibold text-sm">{{ booking.roomType || 'Selected Room' }}</p>
         <p class="text-white/80 font-sans text-xs">Mwakwanda Lodge</p>
       </div>

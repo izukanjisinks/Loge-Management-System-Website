@@ -118,7 +118,7 @@ const progressWidth = computed(() => step.value === 1 ? 'w-1/2' : 'w-full')
   <Transition enter-active-class="transition duration-500" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
     <div
       v-if="success"
-      class="fixed inset-0 z-50 bg-(--color-background)/90 backdrop-blur-md flex items-center justify-center px-5"
+      class="fixed inset-0 z-50 bg-(--color-background) backdrop-blur-md flex items-center justify-center px-5"
     >
       <div class="text-center max-w-sm">
         <span

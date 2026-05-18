@@ -25,7 +25,7 @@ function select(plan) {
 
     <!-- Loading skeleton -->
     <div v-if="mealPlans.loading" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div v-for="n in 4" :key="n" class="h-20 rounded-lg bg-(--color-outline)/20 animate-pulse" />
+      <div v-for="n in 4" :key="n" class="h-20 rounded-lg bg-(--color-surface-container-high) animate-pulse"></div>
     </div>
 
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -32,7 +32,7 @@ import { RouterLink } from 'vue-router'
     <div class="hidden lg:block relative overflow-hidden">
       <img src="https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=1200&q=80"
         alt="Luxury African landscape at dusk" class="absolute inset-0 w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent"></div>
 
       <div class="relative z-10 p-12 flex flex-col justify-between h-full">
         <RouterLink to="/" class="flex items-center gap-2">

@@ -152,7 +152,7 @@ function resetFilters() {
               placeholder="Lodge or hotel name..."
               class="w-full bg-(--color-savannah-mist) border-none rounded-lg pl-10 pr-3 py-2.5
                      font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant)
-                     focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20 transition-all"
+                     focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all"
             />
           </div>
         </div>
@@ -202,7 +202,7 @@ function resetFilters() {
         <!-- Min Guests -->
         <div class="flex flex-col gap-3">
           <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
-            Min Guests &mdash; <span class=”text-(--color-on-surface)”>{{ filterCapacity }}</span>
+            Min Guests &mdash; <span class="text-(--color-on-surface)">{{ filterCapacity }}</span>
           </span>
           <input
             v-model.number="filterCapacity"
@@ -267,61 +267,61 @@ function resetFilters() {
     </aside>
 
     <!-- Right: Results -->
-    <section class=”flex-1 flex flex-col”>
+    <section class="flex-1 flex flex-col">
       <!-- Header row -->
-      <div class=”flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4”>
+      <div class="flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4">
         <div>
-          <h1 class=”font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)”>Available Lodges</h1>
-          <p class=”font-sans text-sm text-(--color-on-surface-variant)”>
+          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">Available Lodges</h1>
+          <p class="font-sans text-sm text-(--color-on-surface-variant)">
             Showing {{ resultLabel }} in Southern Africa
           </p>
         </div>
       </div>
 
       <!-- Content area with fixed min height -->
-      <div class=”flex-1 min-h-[600px] flex flex-col”>
+      <div class="flex-1 min-h-[600px] flex flex-col">
         <!-- Loading skeleton -->
-        <div v-if=”apiLoading” class=”grid grid-cols-1 md:grid-cols-2 gap-8”>
+        <div v-if="apiLoading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div
-            v-for=”n in 4”
-            :key=”n”
-            class=”rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse”
+            v-for="n in 4"
+            :key="n"
+            class="rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse"
           >
-            <div class=”h-64 bg-(--color-surface-container-high)” />
-            <div class=”p-6 space-y-3”>
-              <div class=”h-4 bg-(--color-surface-container-high) rounded w-2/3” />
-              <div class=”h-3 bg-(--color-surface-container-high) rounded w-1/2” />
+            <div class="h-64 bg-(--color-surface-container-high)"></div>
+            <div class="p-6 space-y-3">
+              <div class="h-4 bg-(--color-surface-container-high) rounded max-w-48"></div>
+              <div class="h-3 bg-(--color-surface-container-high) rounded max-w-32"></div>
             </div>
           </div>
         </div>
 
         <!-- API error -->
-        <div v-else-if=”apiError” class=”flex-1 flex flex-col items-center justify-center py-24 text-center”>
-          <span class=”material-symbols-outlined text-4xl text-(--color-error) block mb-4”>error</span>
-          <p class=”font-serif text-xl text-(--color-on-surface) mb-2”>Something went wrong</p>
-          <p class=”font-sans text-sm text-(--color-on-surface-variant)”>{{ apiError }}</p>
+        <div v-else-if="apiError" class="flex-1 flex flex-col items-center justify-center py-24 text-center">
+          <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
+          <p class="font-serif text-xl text-(--color-on-surface) mb-2">Something went wrong</p>
+          <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ apiError }}</p>
         </div>
 
         <template v-else>
           <!-- Room grid -->
-          <Transition enter-active-class=”transition duration-300” enter-from-class=”opacity-0” enter-to-class=”opacity-100” mode=”out-in”>
-            <div v-if=”filtered.length” class=”grid grid-cols-1 md:grid-cols-2 gap-8”>
+          <Transition enter-active-class="transition duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" mode="out-in">
+            <div v-if="filtered.length" class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <RoomCard
-                v-for=”(room, i) in filtered”
-                :key=”room.id”
-                :room=”room”
-                :index=”i”
+                v-for="(room, i) in filtered"
+                :key="room.id"
+                :room="room"
+                :index="i"
               />
             </div>
 
             <!-- Empty state -->
-            <div v-else class=”flex-1 flex flex-col items-center justify-center py-24 text-center”>
-              <span class=”material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4”>search_off</span>
-              <p class=”font-serif text-xl text-(--color-on-surface) mb-2”>No lodges match your filters</p>
-              <p class=”font-sans text-sm text-(--color-on-surface-variant) mb-6”>Try adjusting the type, capacity, or price range.</p>
+            <div v-else class="flex-1 flex flex-col items-center justify-center py-24 text-center">
+              <span class="material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4">search_off</span>
+              <p class="font-serif text-xl text-(--color-on-surface) mb-2">No lodges match your filters</p>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Try adjusting the type, capacity, or price range.</p>
               <button
-                class=”font-sans text-sm text-(--color-primary) hover:underline”
-                @click=”resetFilters”
+                class="font-sans text-sm text-(--color-primary) hover:underline"
+                @click="resetFilters"
               >
                 Clear all filters
               </button>
@@ -329,32 +329,32 @@ function resetFilters() {
           </Transition>
 
           <!-- Pagination -->
-          <div class=”flex items-center justify-center gap-2 mt-10 mb-2”>
+          <div class="flex items-center justify-center gap-2 mt-10 mb-2">
             <button
-              :disabled=”page <= 1 || apiLoading”
-              class=”w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors”
-              @click=”fetchRooms(page - 1)”
+              :disabled="page <= 1 || apiLoading"
+              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              @click="fetchRooms(page - 1)"
             >
-              <span class=”material-symbols-outlined text-base”>chevron_left</span>
+              <span class="material-symbols-outlined text-base">chevron_left</span>
             </button>
 
             <button
-              v-for=”p in totalPages” :key=”p”
-              :class=”p === page
+              v-for="p in totalPages" :key="p"
+              :class="p === page
                 ? 'bg-(--color-primary) text-white border-transparent'
-                : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'”
-              class=”w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors”
-              @click=”fetchRooms(p)”
+                : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
+              class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
+              @click="fetchRooms(p)"
             >
               {{ p }}
             </button>
 
             <button
-              :disabled=”page >= totalPages || apiLoading”
-              class=”w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors”
-              @click=”fetchRooms(page + 1)”
+              :disabled="page >= totalPages || apiLoading"
+              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              @click="fetchRooms(page + 1)"
             >
-              <span class=”material-symbols-outlined text-base”>chevron_right</span>
+              <span class="material-symbols-outlined text-base">chevron_right</span>
             </button>
           </div>
         </template>

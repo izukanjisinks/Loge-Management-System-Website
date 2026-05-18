@@ -141,13 +141,13 @@ function reserve() {
   <!-- Loading -->
   <div v-if="apiLoading" class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 animate-pulse">
     <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 mb-8">
-      <div class="md:col-span-2 md:row-span-2 rounded-xl bg-(--color-surface-container-high)" />
-      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
-      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
-      <div class="hidden md:block md:col-span-2 rounded-xl bg-(--color-surface-container-high)" />
+      <div class="md:col-span-2 md:row-span-2 rounded-xl bg-(--color-surface-container-high)"></div>
+      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)"></div>
+      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)"></div>
+      <div class="hidden md:block md:col-span-2 rounded-xl bg-(--color-surface-container-high)"></div>
     </div>
-    <div class="h-8 bg-(--color-surface-container-high) rounded w-1/3 mb-4" />
-    <div class="h-24 bg-(--color-surface-container-high) rounded" />
+    <div class="h-8 bg-(--color-surface-container-high) rounded max-w-xs mb-4"></div>
+    <div class="h-24 bg-(--color-surface-container-high) rounded"></div>
   </div>
 
   <!-- Error -->

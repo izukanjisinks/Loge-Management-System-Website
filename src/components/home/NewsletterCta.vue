@@ -48,7 +48,7 @@ function submit() {
           class="grow bg-(--color-savannah-mist) border-none rounded-lg px-4 py-3
                  font-sans text-sm text-(--color-on-surface)
                  placeholder:text-(--color-on-surface-variant)
-                 focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20
+                 focus:outline-none focus:ring-2 focus:ring-(--color-primary)
                  transition-all"
         />
         <button

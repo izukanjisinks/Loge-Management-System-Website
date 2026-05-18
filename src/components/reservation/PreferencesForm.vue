@@ -17,7 +17,7 @@ const booking = useBookingStore()
       placeholder="Dietary requirements, preferred arrival time, accessibility needs, or special occasions"
       class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3
              font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant)
-             focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20
+             focus:outline-none focus:ring-2 focus:ring-(--color-primary)
              transition-all resize-none"
     />
     <p class="font-sans text-xs text-(--color-on-surface-variant) mt-2">

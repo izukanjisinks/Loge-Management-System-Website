@@ -175,7 +175,7 @@ onMounted(() => reservations.fetchAll())
               >
                 <span class="material-symbols-outlined text-4xl text-(--color-outline)">image_not_supported</span>
               </div>
-              <div class="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
+              <div class="absolute inset-0 bg-linear-to-t from-black/50 to-transparent"></div>
               <div class="absolute bottom-3 left-3">
                 <StatusBadge :status="r.status" />
               </div>

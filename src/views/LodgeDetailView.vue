@@ -97,9 +97,9 @@ function reserve(roomId) {
 <template>
   <!-- Loading -->
   <div v-if="lodgeLoading" class="max-w-[1280px] mx-auto px-5 md:px-16 py-10 animate-pulse space-y-6">
-    <div class="h-72 bg-(--color-surface-container-highest) rounded-2xl" />
-    <div class="h-8 bg-(--color-surface-container-highest) rounded w-1/3" />
-    <div class="h-4 bg-(--color-surface-container-highest) rounded w-1/4" />
+    <div class="h-72 bg-(--color-surface-container-highest) rounded-2xl"></div>
+    <div class="h-8 bg-(--color-surface-container-highest) rounded max-w-xs"></div>
+    <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
   </div>
 
   <!-- Error / not found -->
@@ -116,7 +116,7 @@ function reserve(roomId) {
     <!-- ── Hero banner ────────────────────────────────────────────── -->
     <section class="relative h-64 md:h-80 overflow-hidden">
       <img :src="lodgeCover(0)" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent"></div>
       <div class="relative z-10 h-full flex flex-col justify-end px-5 md:px-16 pb-10 max-w-[1280px] mx-auto">
         <RouterLink to="/lodges"
           class="flex items-center gap-1 font-sans text-sm text-white/70 hover:text-white mb-4 transition-colors w-fit">
@@ -226,10 +226,10 @@ function reserve(roomId) {
       <div v-else-if="roomsLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
         <div v-for="i in 3" :key="i"
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
-          <div class="h-44 bg-(--color-surface-container-highest)" />
+          <div class="h-44 bg-(--color-surface-container-highest)"></div>
           <div class="p-4 space-y-2">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded w-3/4" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-1/2" />
+            <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
           </div>
         </div>
       </div>
@@ -240,7 +240,7 @@ function reserve(roomId) {
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col">
           <div class="relative h-44 overflow-hidden">
             <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
+            <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
             <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
               class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
               {{ room.is_available ? 'Available' : 'Unavailable' }}

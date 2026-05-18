@@ -53,7 +53,7 @@ const filtered = computed(() => lodges.value)
           v-model="search"
           type="text"
           placeholder="Search by name or location…"
-          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-4 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20"
+          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-4 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)"
         />
       </div>
     </div>
@@ -77,11 +77,11 @@ const filtered = computed(() => lodges.value)
           :key="i"
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse"
         >
-          <div class="h-52 bg-(--color-surface-container-highest)" />
+          <div class="h-52 bg-(--color-surface-container-highest)"></div>
           <div class="p-5 space-y-3">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded w-3/4" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-1/2" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-full" />
+            <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-56"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-40"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded w-full"></div>
           </div>
         </div>
       </div>
@@ -123,7 +123,7 @@ const filtered = computed(() => lodges.value)
               <span class="font-serif text-sm text-(--color-on-surface-variant)">{{ lodge.name }}</span>
             </div>
             <template v-if="lodge.logo_url">
-              <div class="absolute inset-0 bg-linear-to-t from-black/55 to-transparent" />
+              <div class="absolute inset-0 bg-linear-to-t from-black/55 to-transparent"></div>
               <!-- Lodge name overlay -->
               <div class="absolute bottom-3 left-4 right-4">
                 <h3 class="font-serif text-xl font-semibold text-white leading-tight group-hover:text-(--color-inverse-primary) transition-colors">

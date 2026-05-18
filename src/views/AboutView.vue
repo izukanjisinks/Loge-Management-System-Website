@@ -61,7 +61,7 @@ const stats = [
       <img src="https://images.unsplash.com/photo-1523805009345-7448845a9e53?w=1600&q=80"
         alt="Sweeping African savannah at golden hour" class="absolute inset-0 w-full h-full object-cover"
         loading="eager" />
-      <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/25 to-transparent" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/25 to-transparent"></div>
       <div class="relative z-10 h-full flex flex-col items-center justify-end pb-14 px-5 text-center text-white">
         <!-- <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-inverse-primary) mb-3">
           Our Story
@@ -119,7 +119,7 @@ const stats = [
       <div class="relative h-80 lg:h-auto lg:aspect-[4/5] rounded-2xl overflow-hidden shadow-lg">
         <img src="https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&q=80"
           alt="Lodge veranda overlooking the plains" class="w-full h-full object-cover" />
-        <div class="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
+        <div class="absolute inset-0 bg-linear-to-t from-black/30 to-transparent"></div>
       </div>
     </section>
 

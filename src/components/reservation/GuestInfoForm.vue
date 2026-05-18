@@ -104,7 +104,7 @@ const COUNTRIES = [
           <PopoverTrigger as-child>
             <button
               type="button"
-              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center justify-between gap-2 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20 transition-all"
+              class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 flex items-center justify-between gap-2 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all"
               :class="booking.guestInfo.nationality ? 'text-(--color-on-surface)' : 'text-(--color-outline)'"
             >
               {{ booking.guestInfo.nationality || 'Select nationality' }}

@@ -27,7 +27,7 @@ defineProps({
           class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
         />
-        <div class="absolute top-4 left-4 bg-(--color-surface)/90 backdrop-blur-md px-3 py-1 rounded-full text-(--color-primary) text-xs font-sans font-semibold">
+        <div class="absolute top-4 left-4 bg-(--color-surface) backdrop-blur-md px-3 py-1 rounded-full text-(--color-primary) text-xs font-sans font-semibold">
           Limited Availability
         </div>
       </div>
