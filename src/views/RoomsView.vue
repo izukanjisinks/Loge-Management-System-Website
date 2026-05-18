@@ -136,7 +136,7 @@ function resetFilters() {
 <template>
   <div class="max-w-[1280px] mx-auto px-5 md:px-16 pt-8 pb-4 flex flex-col md:flex-row gap-6">
 
-    <!-- â”€â”€ Left Sidebar: Filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- Left Sidebar: Filters -->
     <aside class="w-full md:w-64 shrink-0">
       <div class="sticky top-28 flex flex-col gap-8">
         <h2 class="font-serif text-2xl text-(--color-on-surface)">Filters</h2>
@@ -202,7 +202,7 @@ function resetFilters() {
         <!-- Min Guests -->
         <div class="flex flex-col gap-3">
           <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
-            Min Guests â€” <span class="text-(--color-on-surface)">{{ filterCapacity }}</span>
+            Min Guests &mdash; <span class=”text-(--color-on-surface)”>{{ filterCapacity }}</span>
           </span>
           <input
             v-model.number="filterCapacity"
@@ -266,7 +266,7 @@ function resetFilters() {
       </div>
     </aside>
 
-    <!-- â”€â”€ Right: Results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- Right: Results -->
     <section class=”flex-1 flex flex-col”>
       <!-- Header row -->
       <div class=”flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4”>

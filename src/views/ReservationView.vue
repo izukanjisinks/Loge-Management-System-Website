@@ -171,7 +171,7 @@ const progressWidth = computed(() => step.value === 1 ? 'w-1/2' : 'w-full')
 
         <div class="lg:col-span-8 space-y-6">
 
-          <!-- Booking type toggle -->
+          <!-- Booking type toggle
           <div class="bg-(--color-surface-container-low) p-2 rounded-xl flex gap-1 w-full max-w-md">
             <button class="flex-1 py-2 rounded-lg bg-(--color-surface) text-(--color-primary) font-sans text-sm font-bold shadow-sm transition-all">
               Individual Booking
@@ -179,7 +179,7 @@ const progressWidth = computed(() => step.value === 1 ? 'w-1/2' : 'w-full')
             <button class="flex-1 py-2 rounded-lg text-(--color-on-surface-variant) font-sans text-sm hover:bg-(--color-surface-container) transition-all">
               Corporate Booking
             </button>
-          </div>
+          </div> -->
 
           <div data-section="guest">
             <GuestInfoForm :errors="errors" />
