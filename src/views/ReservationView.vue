@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBookingStore }      from '@/stores/booking'
@@ -8,7 +8,7 @@ import GuestInfoForm       from '@/components/reservation/GuestInfoForm.vue'
 import StayDetailsForm     from '@/components/reservation/StayDetailsForm.vue'
 import PreferencesForm     from '@/components/reservation/PreferencesForm.vue'
 import ReservationSummary  from '@/components/reservation/ReservationSummary.vue'
-import api from '@/lib/api'
+import { publicApi } from '@/lib/api'
 
 const router       = useRouter()
 const route        = useRoute()
@@ -16,7 +16,7 @@ const booking      = useBookingStore()
 const auth         = useAuthStore()
 const reservations = useReservationsStore()
 
-const errors  = ref({})
+const errors  = ref<Record<string, string>>({})
 const loading = ref(false)
 const success  = ref(false)
 const step     = ref(1)
@@ -30,13 +30,33 @@ onMounted(async () => {
     booking.guestInfo.lastName  = auth.user.lastName  ?? booking.guestInfo.lastName
   }
 
-  if (!booking.baseRatePerNight) {
+  const qci = route.query.check_in as string | undefined
+  const qco = route.query.check_out as string | undefined
+  if (qci) booking.setDates(qci, qco ?? '')
+
+  const roomId    = route.params.roomId as string
+  const qName     = route.query.room_name as string | undefined
+  const qType     = route.query.room_type as string | undefined
+  const qCapacity = route.query.room_capacity as string | undefined
+  const qPrice    = route.query.room_price as string | undefined
+
+  const qLodgeName = route.query.lodge_name as string | undefined
+  if (qLodgeName) booking.lodgeName = qLodgeName
+
+  if (qName) {
+    const type     = qType ? qType.charAt(0).toUpperCase() + qType.slice(1) : ''
+    const price    = parseFloat(qPrice ?? '0') || 0
+    const capacity = parseInt(qCapacity ?? '0') || 0
+    booking.setRoom(roomId, qName, type, price, capacity)
+  } else if (booking.roomId !== roomId) {
     try {
-      const { data } = await api.get(`/guest/rooms/${route.params.roomId}`)
+      const { data } = await publicApi.get(`/guest/rooms/${roomId}`)
       if (!mounted) return
-      const price = parseFloat(data.price_per_night) || 0
-      const type  = data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : ''
-      booking.setRoom(data.id, type, price)
+      const price    = parseFloat(data.price_per_night) || 0
+      const name     = data.name ?? ''
+      const type     = data.type ? data.type.charAt(0).toUpperCase() + data.type.slice(1) : ''
+      const capacity = Number(data.capacity) || 0
+      booking.setRoom(data.id, name, type, price, capacity)
     } catch { /* leave as-is */ }
   }
 })
@@ -51,7 +71,7 @@ const dateError = computed(() => {
 })
 
 function validate() {
-  const e = {}
+  const e: Record<string, string> = {}
   const g = booking.guestInfo
   if (!g.firstName)       e.firstName = 'Required'
   if (!g.lastName)        e.lastName  = 'Required'
@@ -66,7 +86,12 @@ function validate() {
 }
 
 function goBack() {
-  router.push({ name: 'rooms' })
+  const lodgeId = route.query.lodge_id as string | undefined
+  if (lodgeId) {
+    router.push({ name: 'lodge-detail', params: { id: lodgeId } })
+  } else {
+    router.push({ name: 'rooms' })
+  }
 }
 
 function goToConfirmation() {
@@ -99,7 +124,7 @@ async function submit() {
   }
 }
 
-function formatDate(d) {
+function formatDate(d: string | null | undefined): string {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
@@ -110,7 +135,7 @@ const stepDefs = computed(() => [
   { label: 'Confirmation',  done: false,          active: step.value === 2 },
 ])
 
-const progressWidth = computed(() => step.value === 1 ? 'w-1/2' : 'w-full')
+const progressWidth = computed(() => step.value === 1 ? 'w-[50%]' : 'w-full')
 </script>
 
 <template>
@@ -165,7 +190,7 @@ const progressWidth = computed(() => step.value === 1 ? 'w-1/2' : 'w-full')
       </div>
     </div>
 
-    <!-- ── Step 1: Forms ─────────────────────────────────────────────── -->
+    <!-- â”€â”€ Step 1: Forms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <template v-if="step === 1">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
@@ -222,7 +247,7 @@ const progressWidth = computed(() => step.value === 1 ? 'w-1/2' : 'w-full')
       </div>
     </template>
 
-    <!-- ── Step 2: Confirmation ──────────────────────────────────────── -->
+    <!-- â”€â”€ Step 2: Confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <template v-else>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 

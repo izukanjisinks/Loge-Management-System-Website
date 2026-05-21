@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -128,7 +128,7 @@ const strengthColor = [
           />
           <button
             type="button"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-on-surface-variant) hover:text-(--color-on-surface) transition-colors"
+            class="absolute right-3 top-[50%] -translate-y-1/2 text-(--color-on-surface-variant) hover:text-(--color-on-surface) transition-colors"
             @click="showPass = !showPass"
           >
             <span class="material-symbols-outlined text-xl">{{ showPass ? 'visibility_off' : 'visibility' }}</span>
@@ -175,7 +175,7 @@ const strengthColor = [
           />
           <button
             type="button"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-on-surface-variant) hover:text-(--color-on-surface) transition-colors"
+            class="absolute right-3 top-[50%] -translate-y-1/2 text-(--color-on-surface-variant) hover:text-(--color-on-surface) transition-colors"
             @click="showConfirm = !showConfirm"
           >
             <span class="material-symbols-outlined text-xl">{{ showConfirm ? 'visibility_off' : 'visibility' }}</span>

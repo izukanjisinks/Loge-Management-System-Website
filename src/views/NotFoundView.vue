@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center">
     <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-primary) mb-3">
       404

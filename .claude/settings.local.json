@@ -6,7 +6,14 @@
       "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/calendar/**)",
       "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/range-calendar/**)",
       "Bash(npm --version)",
-      "Bash(Test-Path \"c:\\\\Users\\\\SYNC\\\\Documents\\\\GitHub\\\\Loge-Management-System-Website\\\\node_modules\")"
+      "Bash(Test-Path \"c:\\\\Users\\\\SYNC\\\\Documents\\\\GitHub\\\\Loge-Management-System-Website\\\\node_modules\")",
+      "Bash(git stash *)",
+      "Bash(python3 -c ' *)",
+      "Bash(npx vite *)",
+      "PowerShell(npx vite build 2>&1)",
+      "Bash(python -c ' *)",
+      "Bash(node -e ' *)",
+      "Bash(npm run *)"
     ]
   }
 }

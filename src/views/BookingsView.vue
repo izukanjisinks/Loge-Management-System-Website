@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useReservationsStore } from '@/stores/reservations'
@@ -101,6 +101,7 @@ onMounted(() => reservations.fetchAll())
                   <div>
                     <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-1">Reservation #{{ r.id }}</p>
                     <h3 class="font-serif text-2xl text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ r.roomName }}</h3>
+                    <p v-if="r.lodgeName" class="font-sans text-sm text-(--color-on-surface-variant) mt-0.5">{{ r.lodgeName }}</p>
                   </div>
                   <p class="font-serif text-2xl text-(--color-primary) shrink-0">K{{ r.totalAmount.toLocaleString() }}</p>
                 </div>

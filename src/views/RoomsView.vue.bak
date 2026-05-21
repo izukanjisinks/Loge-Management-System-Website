@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScrollReveal } from '@/composables/useScrollReveal'
 import RoomCard from '@/components/rooms/RoomCard.vue'
-import { publicApi } from '@/lib/api'
+import api from '@/lib/api'
 
 useScrollReveal()
 const route = useRoute()
@@ -17,11 +17,11 @@ const apiError   = ref('')
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
-function capitalise(str: string) {
+function capitalise(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 }
 
-function amenityIcon(label: string) {
+function amenityIcon(label) {
   const l = label.toLowerCase()
   if (l.includes('wifi') || l.includes('wi-fi'))       return 'wifi'
   if (l.includes('pool'))                              return 'pool'
@@ -37,7 +37,7 @@ function amenityIcon(label: string) {
   return 'check_circle'
 }
 
-function normalise(r: Record<string, any>) {
+function normalise(r) {
   return {
     id:          r.id,
     name:        r.name,
@@ -46,7 +46,7 @@ function normalise(r: Record<string, any>) {
     price:       r.price_per_night,
     available:   r.is_available,
     image:       r.images?.[0] || null,
-    amenities:   (r.amenities || []).map((a: string) => ({ icon: amenityIcon(a), label: a })),
+    amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     description: r.description || '',
     orgName:     r.organization?.name || '',
   }
@@ -64,11 +64,11 @@ async function fetchRooms(p = page.value) {
   apiError.value   = ''
   page.value = p
   try {
-    const params: Record<string, string | number> = { page: p, page_size: PAGE_SIZE }
+    const params = { page: p, page_size: PAGE_SIZE }
     const q = searchQuery.value.trim()
     if (q) params.org_name = q
     if (filterType.value !== 'All') params.type = filterType.value.toLowerCase()
-    const { data } = await publicApi.get('/guest/rooms', { params })
+    const { data } = await api.get('/guest/rooms', { params })
     const list = data.data ?? data
     rooms.value = list.map(normalise)
     total.value = data.total ?? rooms.value.length
@@ -76,14 +76,14 @@ async function fetchRooms(p = page.value) {
       const maxPrice = Math.max(...rooms.value.map(r => r.price))
       filterMaxPrice.value = Math.ceil(maxPrice / 100) * 100
     }
-  } catch (err: any) {
-    apiError.value = err?.response?.data?.error?.message || 'Unable to load rooms. Please try again.'
+  } catch (err) {
+    apiError.value = err.response?.data?.error?.message || 'Unable to load rooms. Please try again.'
   } finally {
     apiLoading.value = false
   }
 }
 
-let searchDebounce: ReturnType<typeof setTimeout> | null = null
+let searchDebounce = null
 watch(searchQuery, () => {
   clearTimeout(searchDebounce)
   searchDebounce = setTimeout(() => fetchRooms(1), 400)
@@ -270,56 +270,94 @@ function resetFilters() {
       </div>
     </aside>
 
-        <!-- u{2500}u{2500} Right: Results u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500}u{2500} -->
-    <section class="flex-1 flex flex-col">
-      <div class="flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4">
+    <!-- â”€â”€ Right: Results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <section class=”flex-1 flex flex-col”>
+      <!-- Header row -->
+      <div class=”flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4”>
         <div>
-          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">Available Lodges</h1>
-          <p class="font-sans text-sm text-(--color-on-surface-variant)">
+          <h1 class=”font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)”>Available Lodges</h1>
+          <p class=”font-sans text-sm text-(--color-on-surface-variant)”>
             Showing {{ resultLabel }} in Southern Africa
           </p>
         </div>
       </div>
-      <div class="flex-1 min-h-[600px] flex flex-col">
-        <div v-if="apiLoading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div v-for="n in 4" :key="n" class="rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse">
-            <div class="h-64 bg-(--color-surface-container-high)" />
-            <div class="p-6 space-y-3">
-              <div class="h-4 bg-(--color-surface-container-high) rounded w-[66%]" />
-              <div class="h-3 bg-(--color-surface-container-high) rounded w-[50%]" />
+
+      <!-- Content area with fixed min height -->
+      <div class=”flex-1 min-h-[600px] flex flex-col”>
+        <!-- Loading skeleton -->
+        <div v-if=”apiLoading” class=”grid grid-cols-1 md:grid-cols-2 gap-8”>
+          <div
+            v-for=”n in 4”
+            :key=”n”
+            class=”rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse”
+          >
+            <div class=”h-64 bg-(--color-surface-container-high)” />
+            <div class=”p-6 space-y-3”>
+              <div class=”h-4 bg-(--color-surface-container-high) rounded w-[66%]” />
+              <div class=”h-3 bg-(--color-surface-container-high) rounded w-[50%]” />
             </div>
           </div>
         </div>
-        <div v-else-if="apiError" class="flex-1 flex flex-col items-center justify-center py-24 text-center">
-          <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
-          <p class="font-serif text-xl text-(--color-on-surface) mb-2">Something went wrong</p>
-          <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ apiError }}</p>
+
+        <!-- API error -->
+        <div v-else-if=”apiError” class=”flex-1 flex flex-col items-center justify-center py-24 text-center”>
+          <span class=”material-symbols-outlined text-4xl text-(--color-error) block mb-4”>error</span>
+          <p class=”font-serif text-xl text-(--color-on-surface) mb-2”>Something went wrong</p>
+          <p class=”font-sans text-sm text-(--color-on-surface-variant)”>{{ apiError }}</p>
         </div>
+
         <template v-else>
-          <div v-if="filtered.length" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <!-- Room grid -->
+          <div v-if=”filtered.length” class=”grid grid-cols-1 md:grid-cols-2 gap-8”>
             <RoomCard
-              v-for="(room, i) in filtered"
-              :key="room.id"
-              :room="room"
-              :index="i"
+              v-for=”(room, i) in filtered”
+              :key=”room.id”
+              :room=”room”
+              :index=”i”
             />
           </div>
-          <div v-else class="flex-1 flex flex-col items-center justify-center py-24 text-center">
-            <span class="material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4">search_off</span>
-            <p class="font-serif text-xl text-(--color-on-surface) mb-2">No lodges match your filters</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Try adjusting the type, capacity, or price range.</p>
-            <button class="font-sans text-sm text-(--color-primary) hover:underline" @click="resetFilters">Clear all filters</button>
+
+          <!-- Empty state -->
+          <div v-else class=”flex-1 flex flex-col items-center justify-center py-24 text-center”>
+            <span class=”material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4”>search_off</span>
+            <p class=”font-serif text-xl text-(--color-on-surface) mb-2”>No lodges match your filters</p>
+            <p class=”font-sans text-sm text-(--color-on-surface-variant) mb-6”>Try adjusting the type, capacity, or price range.</p>
+            <button
+              class=”font-sans text-sm text-(--color-primary) hover:underline”
+              @click=”resetFilters”
+            >
+              Clear all filters
+            </button>
+          </div>
+
+          <!-- Pagination -->
+          <div class=”flex items-center justify-center gap-2 mt-10 mb-2”>
+            <button
+              :disabled=”page <= 1 || apiLoading”
+              class=”w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors”
+              @click=”fetchRooms(page - 1)”
+            >
+              <span class=”material-symbols-outlined text-base”>chevron_left</span>
+            </button>
+
+            <button
+              v-for=”p in totalPages” :key=”p”
+              :class=”pageClass(p)”
+              class=”w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors”
+              @click=”fetchRooms(p)”
+            >
+              {{ p }}
+            </button>
+
+            <button
+              :disabled=”page >= totalPages || apiLoading”
+              class=”w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors”
+              @click=”fetchRooms(page + 1)”
+            >
+              <span class=”material-symbols-outlined text-base”>chevron_right</span>
+            </button>
           </div>
         </template>
-        <div class="flex items-center justify-center gap-2 mt-10 mb-2">
-          <button :disabled="page <= 1 || apiLoading" class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors" @click="fetchRooms(page - 1)">
-            <span class="material-symbols-outlined text-base">chevron_left</span>
-          </button>
-          <button v-for="p in totalPages" :key="p" :class="pageClass(p)" class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors" @click="fetchRooms(p)">{{ p }}</button>
-          <button :disabled="page >= totalPages || apiLoading" class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors" @click="fetchRooms(page + 1)">
-            <span class="material-symbols-outlined text-base">chevron_right</span>
-          </button>
-        </div>
       </div>
     </section>
 

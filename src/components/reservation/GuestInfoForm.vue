@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
@@ -89,7 +89,7 @@ const COUNTRIES = [
         v-model="booking.guestInfo.phone"
         label="Phone Number"
         type="tel"
-        placeholder="+260 00 000 0000"
+        placeholder="+260 90 000 0000"
         required
         autocomplete="tel"
         :error="errors.phone"
@@ -149,7 +149,8 @@ const COUNTRIES = [
       <BaseInput
         v-model="booking.guestInfo.passportId"
         label="ID / Passport Number"
-        placeholder="Optional"
+        placeholder="123456/78/9"
+        required
       />
     </div>
   </section>

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { AcceptableValue } from "reka-ui"
 import type { HTMLAttributes } from "vue"
 import { reactiveOmit, useVModel } from "@vueuse/core"
@@ -40,7 +40,7 @@ const delegatedProps = reactiveOmit(props, "class")
       <slot />
     </select>
     <span
-      class="material-symbols-outlined text-(--color-on-muted) pointer-events-none absolute top-1/2 right-3.5 text-base -translate-y-1/2 opacity-50 select-none"
+      class="material-symbols-outlined text-(--color-on-muted) pointer-events-none absolute top-[50%] right-3.5 text-base -translate-y-1/2 opacity-50 select-none"
       aria-hidden="true"
       data-slot="native-select-icon"
     >expand_more</span>

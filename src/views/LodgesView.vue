@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useLodges } from '@/composables/useRooms'
@@ -42,17 +42,17 @@ const filtered = computed(() => lodges.value)
           <template v-if="!loading">
             {{ filtered.length }} {{ filtered.length === 1 ? 'lodge' : 'lodges' }} available
           </template>
-          <template v-else>Loading lodges…</template>
+          <template v-else>Loading lodgesâ€¦</template>
         </p>
       </div>
 
       <!-- Search -->
       <div class="relative w-full md:w-72">
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-outline) text-base">search</span>
+        <span class="material-symbols-outlined absolute left-3 top-[50%] -translate-y-1/2 text-(--color-outline) text-base">search</span>
         <input
           v-model="search"
           type="text"
-          placeholder="Search by name or location…"
+          placeholder="Search by name or locationâ€¦"
           class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-4 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20"
         />
       </div>
@@ -79,8 +79,8 @@ const filtered = computed(() => lodges.value)
         >
           <div class="h-52 bg-(--color-surface-container-highest)" />
           <div class="p-5 space-y-3">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded w-3/4" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-1/2" />
+            <div class="h-4 bg-(--color-surface-container-highest) rounded w-[75%]" />
+            <div class="h-3 bg-(--color-surface-container-highest) rounded w-[50%]" />
             <div class="h-3 bg-(--color-surface-container-highest) rounded w-full" />
           </div>
         </div>

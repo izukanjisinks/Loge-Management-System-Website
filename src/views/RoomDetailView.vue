@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookingStore }   from '@/stores/booking'
@@ -146,7 +146,7 @@ function reserve() {
       <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
       <div class="hidden md:block md:col-span-2 rounded-xl bg-(--color-surface-container-high)" />
     </div>
-    <div class="h-8 bg-(--color-surface-container-high) rounded w-1/3 mb-4" />
+    <div class="h-8 bg-(--color-surface-container-high) rounded w-[33%] mb-4" />
     <div class="h-24 bg-(--color-surface-container-high) rounded" />
   </div>
 
@@ -178,13 +178,13 @@ function reserve() {
           <!-- Nav arrows when multiple images -->
           <template v-if="images.length > 1">
             <button
-              class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+              class="absolute left-4 top-[50%] -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
               @click.stop="activeImg = (activeImg - 1 + images.length) % images.length"
             >
               <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <button
-              class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+              class="absolute right-4 top-[50%] -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
               @click.stop="activeImg = (activeImg + 1) % images.length"
             >
               <span class="material-symbols-outlined">chevron_right</span>

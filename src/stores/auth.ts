@@ -1,35 +1,35 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/lib/api'
+import type { GuestUser } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user  = ref(JSON.parse(localStorage.getItem('user') || 'null'))
-  const token = ref(localStorage.getItem('token') || null)
+  const user  = ref<GuestUser | null>(JSON.parse(localStorage.getItem('user') || 'null'))
+  const token = ref<string | null>(localStorage.getItem('token') || null)
 
   const isAuthenticated = computed(() => !!token.value)
 
-  function _persist(t, u) {
+  function _persist(t: string, u: GuestUser) {
     token.value = t
     user.value  = u
     localStorage.setItem('token', t)
     localStorage.setItem('user', JSON.stringify(u))
   }
 
-  // Normalise the user object from the API into the shape the UI expects.
-  // The API returns full_name; the UI uses firstName / lastName / name.
-  function _normaliseUser(apiUser) {
-    const parts     = (apiUser.full_name || '').trim().split(' ')
+  function _normaliseUser(apiUser: Record<string, unknown>): GuestUser {
+    const fullName  = (apiUser.full_name as string) || ''
+    const parts     = fullName.trim().split(' ')
     const firstName = parts[0] || ''
     const lastName  = parts.slice(1).join(' ') || ''
-    return { ...apiUser, firstName, lastName, name: apiUser.full_name }
+    return { ...apiUser, firstName, lastName, name: fullName } as GuestUser
   }
 
-  async function login(email, password) {
+  async function login(email: string, password: string) {
     const { data } = await api.post('/guest/auth/login', { email, password })
     _persist(data.token, _normaliseUser(data.user ?? data.guest))
   }
 
-  async function register(payload) {
+  async function register(payload: Record<string, string>) {
     const { data } = await api.post('/guest/auth/register', payload)
     _persist(data.token, _normaliseUser(data.user ?? data.guest))
   }

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -134,7 +134,7 @@ async function submitReset() {
             />
             <button
               type="button"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-on-surface-variant) hover:text-(--color-on-surface) transition-colors"
+              class="absolute right-3 top-[50%] -translate-y-1/2 text-(--color-on-surface-variant) hover:text-(--color-on-surface) transition-colors"
               :aria-label="showPass ? 'Hide password' : 'Show password'"
               @click="showPass = !showPass"
             >

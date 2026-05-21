@@ -1,22 +1,30 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-const TAX_RATE = 0.12
+interface GuestInfo {
+  firstName:   string
+  lastName:    string
+  email:       string
+  phone:       string
+  nationality: string
+  passportId:  string
+}
 
 export const useBookingStore = defineStore('booking', () => {
-  const roomId           = ref(null)
+  const roomId           = ref<string | null>(null)
+  const roomName         = ref('')
   const roomType         = ref('')
+  const roomCapacity     = ref(0)
+  const lodgeName        = ref('')
   const baseRatePerNight = ref(0)
   const checkIn          = ref('')
   const checkOut         = ref('')
   const guestCount       = ref(1)
-  // mealPlanId: UUID of the chosen meal plan (sent to API)
-  const mealPlanId       = ref(null)
-  // mealPlanName / mealPlanRate: for display in summary
+  const mealPlanId       = ref<string | null>(null)
   const mealPlanName     = ref('Room Only')
-  const mealPlanRate     = ref(0)   // price_per_person_per_night
+  const mealPlanRate     = ref(0)
   const specialRequests  = ref('')
-  const guestInfo        = ref({
+  const guestInfo        = ref<GuestInfo>({
     firstName:   '',
     lastName:    '',
     email:       '',
@@ -27,32 +35,28 @@ export const useBookingStore = defineStore('booking', () => {
 
   const nightCount = computed(() => {
     if (!checkIn.value || !checkOut.value) return 0
-    const diff = new Date(checkOut.value) - new Date(checkIn.value)
+    const diff = new Date(checkOut.value).getTime() - new Date(checkIn.value).getTime()
     return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
   })
 
-  const baseTotal = computed(() => nightCount.value * baseRatePerNight.value)
+  const baseTotal  = computed(() => nightCount.value * baseRatePerNight.value)
+  const mealCost   = computed(() => mealPlanRate.value * guestCount.value * nightCount.value)
+  const grandTotal = computed(() => baseTotal.value + mealCost.value)
 
-  const mealCost = computed(
-    () => mealPlanRate.value * guestCount.value * nightCount.value
-  )
-
-  const taxes = computed(() => (baseTotal.value + mealCost.value) * TAX_RATE)
-
-  const grandTotal = computed(() => baseTotal.value + mealCost.value + taxes.value)
-
-  function setRoom(id, type, rate) {
+  function setRoom(id: string, name: string, type: string, rate: number, capacity = 0) {
     roomId.value           = id
+    roomName.value         = name
     roomType.value         = type
     baseRatePerNight.value = rate
+    roomCapacity.value     = capacity
   }
 
-  function setDates(ci, co) {
+  function setDates(ci: string, co: string) {
     checkIn.value  = ci
     checkOut.value = co
   }
 
-  function setMealPlan(id, name, rate) {
+  function setMealPlan(id: string | null, name: string, rate: number) {
     mealPlanId.value   = id
     mealPlanName.value = name
     mealPlanRate.value = rate
@@ -60,7 +64,10 @@ export const useBookingStore = defineStore('booking', () => {
 
   function reset() {
     roomId.value           = null
+    roomName.value         = ''
     roomType.value         = ''
+    roomCapacity.value     = 0
+    lodgeName.value        = ''
     baseRatePerNight.value = 0
     checkIn.value          = ''
     checkOut.value         = ''
@@ -73,11 +80,11 @@ export const useBookingStore = defineStore('booking', () => {
   }
 
   return {
-    roomId, roomType, baseRatePerNight,
+    roomId, roomName, roomType, roomCapacity, lodgeName, baseRatePerNight,
     checkIn, checkOut, guestCount,
     mealPlanId, mealPlanName, mealPlanRate,
     specialRequests, guestInfo,
-    nightCount, baseTotal, mealCost, taxes, grandTotal,
+    nightCount, baseTotal, mealCost, grandTotal,
     setRoom, setDates, setMealPlan, reset,
   }
 })

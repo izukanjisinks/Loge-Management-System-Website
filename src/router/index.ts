@@ -46,7 +46,7 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior(_to, _from, savedPosition) {
     if (savedPosition) return savedPosition
     return { top: 0, behavior: 'smooth' }
   },
@@ -55,12 +55,10 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
 
-  // Unauthenticated user hitting a protected route → send to login
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
-  // Already-authenticated user hitting login/register → send home
   if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
     return { name: 'home' }
   }

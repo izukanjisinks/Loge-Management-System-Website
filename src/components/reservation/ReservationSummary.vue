@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { useBookingStore } from '@/stores/booking'
 
 const booking = useBookingStore()
@@ -11,13 +11,13 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
 ]
 
-function roomImage(id) {
+function roomImage(id: string | null | undefined): string {
   if (!id) return FALLBACK_IMAGES[0]
   const hash = String(id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
   return FALLBACK_IMAGES[hash % FALLBACK_IMAGES.length]
 }
 
-function formatDate(d) {
+function formatDate(d: string | null | undefined): string | null {
   if (!d) return null
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -35,8 +35,8 @@ function formatDate(d) {
         class="w-full h-full object-cover"
       />
       <div class="absolute bottom-0 left-0 w-full p-4 bg-linear-to-t from-(--color-deep-obsidian)/80 to-transparent">
-        <p class="text-white font-sans font-semibold text-sm">{{ booking.roomType || 'Selected Room' }}</p>
-        <p class="text-white/80 font-sans text-xs">Mwakwanda Lodge</p>
+        <p class="text-white font-sans font-semibold text-sm">{{ booking.roomName || booking.roomType || 'Selected Room' }}</p>
+        <p class="text-white/80 font-sans text-xs">{{ booking.lodgeName }}</p>
       </div>
     </div>
 
@@ -79,10 +79,6 @@ function formatDate(d) {
           <span>{{ booking.mealPlanName }}</span>
           <span>K{{ Number((booking.mealCost ?? 0).toFixed(0)).toLocaleString() }}</span>
         </div>
-        <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-          <span>Conservation Levy (12%)</span>
-          <span>K{{ Number((booking.taxes ?? 0).toFixed(0)).toLocaleString() }}</span>
-        </div>
       </div>
 
       <!-- Total -->
@@ -93,7 +89,6 @@ function formatDate(d) {
             K{{ Number((booking.grandTotal ?? 0).toFixed(0)).toLocaleString() }}
           </p>
         </div>
-        <span class="font-sans text-xs text-(--color-on-surface-variant) italic mb-1">Inclusive of all taxes</span>
       </div>
     </template>
     <template v-else>

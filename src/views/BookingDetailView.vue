@@ -1,15 +1,16 @@
-﻿<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReservationsStore } from '@/stores/reservations'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import api from '@/lib/api'
+import type { NormalisedBooking } from '@/types'
 
 const route        = useRoute()
 const router       = useRouter()
 const reservations = useReservationsStore()
 
-const booking    = ref(null)
+const booking    = ref<NormalisedBooking | null>(null)
 const roomImages = ref([])
 const activeImg  = ref(0)
 const loading    = ref(false)
@@ -30,6 +31,7 @@ onMounted(async () => {
       id:              data.id,
       roomId:          data.room_id,
       roomName:        data.room_name,
+      lodgeName:       data.lodge_name,
       clientName:      data.client_name,
       mealPlanName:    data.meal_plan_name,
       checkIn:         data.check_in,
@@ -44,8 +46,14 @@ onMounted(async () => {
       createdAt:       data.created_at,
     }
     try {
-      const { data: room } = await api.get(`/rooms/${data.room_id}`)
+      const { data: room } = await api.get(`/guest/rooms/${data.room_id}`)
       roomImages.value = room.images ?? []
+      if (room.org_id) {
+        try {
+          const { data: lodge } = await api.get(`/guest/lodges/${room.org_id}`)
+          booking.value!.lodgeName = lodge.name
+        } catch { /* lodge name stays empty */ }
+      }
     } catch {
       roomImages.value = []
     }
@@ -98,6 +106,7 @@ async function cancel() {
         <div>
           <span class="text-(--color-primary) font-sans text-sm font-semibold tracking-widest uppercase mb-2 block">Reservation</span>
           <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">{{ booking.roomName }}</h1>
+          <p v-if="booking.lodgeName" class="font-sans text-sm text-(--color-on-surface-variant) mt-1">{{ booking.lodgeName }}</p>
         </div>
         <StatusBadge :status="booking.status" />
       </div>
@@ -114,14 +123,14 @@ async function cancel() {
             </Transition>
             <button
               v-if="roomImages.length > 1"
-              class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+              class="absolute left-4 top-[50%] -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
               @click="activeImg = (activeImg - 1 + roomImages.length) % roomImages.length"
             >
               <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <button
               v-if="roomImages.length > 1"
-              class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+              class="absolute right-4 top-[50%] -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
               @click="activeImg = (activeImg + 1) % roomImages.length"
             >
               <span class="material-symbols-outlined">chevron_right</span>

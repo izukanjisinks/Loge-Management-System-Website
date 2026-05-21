@@ -1,4 +1,31 @@
-export const lodges = [
+interface Suite {
+  id: number
+  name: string
+  size: string
+  view: string
+  sleeps: string
+  amenities: string[]
+  price: number
+  image: string
+}
+
+interface StaticLodge {
+  id: number
+  name: string
+  tagline: string
+  location: string
+  region: string
+  type: string
+  rating: number
+  reviews: number
+  priceFrom: number
+  images: string[]
+  description: string
+  amenities: { icon: string; label: string }[]
+  suites: Suite[]
+}
+
+export const lodges: StaticLodge[] = [
   {
     id: 1,
     name: 'Mwakwanda Plains Lodge',
@@ -27,36 +54,9 @@ export const lodges = [
       { icon: 'photo_camera', label: 'Game Drives' },
     ],
     suites: [
-      {
-        id: 101,
-        name: 'Bushveld Executive Suite',
-        size: '65m²',
-        view: 'Garden View',
-        sleeps: '2 Adults',
-        amenities: ['Private Deck', 'Mini Bar'],
-        price: 850,
-        image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-      },
-      {
-        id: 102,
-        name: 'Panorama Master Suite',
-        size: '120m²',
-        view: 'Panoramic River View',
-        sleeps: '2 Adults, 1 Child',
-        amenities: ['Infinity Pool', 'Fireplace'],
-        price: 1450,
-        image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80',
-      },
-      {
-        id: 103,
-        name: 'Family Bush Villa',
-        size: '180m²',
-        view: 'Bush View',
-        sleeps: '4 Adults',
-        amenities: ['Private Pool', 'Kitchen', 'Fireplace'],
-        price: 2100,
-        image: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=400&q=80',
-      },
+      { id: 101, name: 'Bushveld Executive Suite', size: '65m²', view: 'Garden View', sleeps: '2 Adults', amenities: ['Private Deck', 'Mini Bar'], price: 850, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80' },
+      { id: 102, name: 'Panorama Master Suite', size: '120m²', view: 'Panoramic River View', sleeps: '2 Adults, 1 Child', amenities: ['Infinity Pool', 'Fireplace'], price: 1450, image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80' },
+      { id: 103, name: 'Family Bush Villa', size: '180m²', view: 'Bush View', sleeps: '4 Adults', amenities: ['Private Pool', 'Kitchen', 'Fireplace'], price: 2100, image: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=400&q=80' },
     ],
   },
   {
@@ -75,7 +75,7 @@ export const lodges = [
       'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&q=80',
       'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&q=80',
     ],
-    description: 'Nestled within the cool embrace of the Nyanga Mountains, The Mist Highlands is a sanctuary of calm and contemplation. Stone cottages blend into the hillside, offering sweeping views over ancient forests and cascading waterfalls. Each morning greets you with soft mist rolling through the valleys — a reminder that some luxuries cannot be manufactured.',
+    description: 'Nestled within the cool embrace of the Nyanga Mountains, The Mist Highlands is a sanctuary of calm and contemplation. Stone cottages blend into the hillside, offering sweeping views over ancient forests and cascading waterfalls.',
     amenities: [
       { icon: 'fireplace', label: 'Stone Fireplaces' },
       { icon: 'spa', label: 'Mountain Spa' },
@@ -85,26 +85,8 @@ export const lodges = [
       { icon: 'local_bar', label: 'Whisky Lounge' },
     ],
     suites: [
-      {
-        id: 201,
-        name: 'Highland Stone Cottage',
-        size: '55m²',
-        view: 'Forest View',
-        sleeps: '2 Adults',
-        amenities: ['Fireplace', 'Private Terrace'],
-        price: 620,
-        image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-      },
-      {
-        id: 202,
-        name: 'Summit Villa',
-        size: '140m²',
-        view: 'Panoramic Mountain View',
-        sleeps: '4 Adults',
-        amenities: ['Private Pool', 'Fireplace', 'Kitchen'],
-        price: 1280,
-        image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80',
-      },
+      { id: 201, name: 'Highland Stone Cottage', size: '55m²', view: 'Forest View', sleeps: '2 Adults', amenities: ['Fireplace', 'Private Terrace'], price: 620, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80' },
+      { id: 202, name: 'Summit Villa', size: '140m²', view: 'Panoramic Mountain View', sleeps: '4 Adults', amenities: ['Private Pool', 'Fireplace', 'Kitchen'], price: 1280, image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80' },
     ],
   },
   {
@@ -123,7 +105,7 @@ export const lodges = [
       'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&q=80',
       'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
     ],
-    description: 'Set on a private island in the Bazaruto Archipelago, Coastal Sanctuary redefines barefoot luxury. Overwater villas reach out towards the turquoise shallows, where dugongs and manta rays glide beneath the surface. This is one of the last truly unspoiled stretches of the East African coast — protected, pristine, and profoundly peaceful.',
+    description: 'Set on a private island in the Bazaruto Archipelago, Coastal Sanctuary redefines barefoot luxury. Overwater villas reach out towards the turquoise shallows, where dugongs and manta rays glide beneath the surface.',
     amenities: [
       { icon: 'pool', label: 'Ocean Pool' },
       { icon: 'scuba_diving', label: 'Diving Centre' },
@@ -133,26 +115,8 @@ export const lodges = [
       { icon: 'wifi', label: 'WiFi' },
     ],
     suites: [
-      {
-        id: 301,
-        name: 'Beachfront Chalet',
-        size: '70m²',
-        view: 'Direct Ocean View',
-        sleeps: '2 Adults',
-        amenities: ['Private Beach', 'Mini Bar'],
-        price: 950,
-        image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-      },
-      {
-        id: 302,
-        name: 'Overwater Villa',
-        size: '160m²',
-        view: 'Lagoon View',
-        sleeps: '2 Adults',
-        amenities: ['Glass Floor', 'Plunge Pool', 'Butler'],
-        price: 2400,
-        image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80',
-      },
+      { id: 301, name: 'Beachfront Chalet', size: '70m²', view: 'Direct Ocean View', sleeps: '2 Adults', amenities: ['Private Beach', 'Mini Bar'], price: 950, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80' },
+      { id: 302, name: 'Overwater Villa', size: '160m²', view: 'Lagoon View', sleeps: '2 Adults', amenities: ['Glass Floor', 'Plunge Pool', 'Butler'], price: 2400, image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80' },
     ],
   },
   {
@@ -171,7 +135,7 @@ export const lodges = [
       'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80',
       'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&q=80',
     ],
-    description: 'Carved into the escarpment of the Great Rift Valley, The Crimson Ridge commands views that stretch endlessly across the valley floor. The architecture honours the burnt-red geology of the landscape — earth, stone, and glass in perfect tension. Flamingo-fringed lakes shimmer far below, while the silence at altitude is absolute.',
+    description: 'Carved into the escarpment of the Great Rift Valley, The Crimson Ridge commands views that stretch endlessly across the valley floor.',
     amenities: [
       { icon: 'pool', label: 'Infinity Edge Pool' },
       { icon: 'restaurant', label: 'Cliff-top Dining' },
@@ -181,26 +145,8 @@ export const lodges = [
       { icon: 'local_bar', label: 'Sundowner Bar' },
     ],
     suites: [
-      {
-        id: 401,
-        name: 'Rift View Suite',
-        size: '80m²',
-        view: 'Full Valley View',
-        sleeps: '2 Adults',
-        amenities: ['Private Deck', 'Outdoor Shower'],
-        price: 1450,
-        image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-      },
-      {
-        id: 402,
-        name: 'Edge Villa',
-        size: '200m²',
-        view: 'Panoramic Rift View',
-        sleeps: '4 Adults',
-        amenities: ['Private Pool', 'Firepit', 'Butler'],
-        price: 3200,
-        image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80',
-      },
+      { id: 401, name: 'Rift View Suite', size: '80m²', view: 'Full Valley View', sleeps: '2 Adults', amenities: ['Private Deck', 'Outdoor Shower'], price: 1450, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80' },
+      { id: 402, name: 'Edge Villa', size: '200m²', view: 'Panoramic Rift View', sleeps: '4 Adults', amenities: ['Private Pool', 'Firepit', 'Butler'], price: 3200, image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80' },
     ],
   },
   {
@@ -219,7 +165,7 @@ export const lodges = [
       'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&q=80',
       'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&q=80',
     ],
-    description: 'Savannah Oasis sits in the heart of the Serengeti migration corridor, offering front-row access to one of nature\'s greatest spectacles. Luxury canvas tents are positioned around a natural water hole, where wildlife arrives daily on their ancient rhythms. The camp itself is entirely solar-powered and built on a zero-footprint ethic — luxury that gives more than it takes.',
+    description: "Savannah Oasis sits in the heart of the Serengeti migration corridor, offering front-row access to one of nature's greatest spectacles.",
     amenities: [
       { icon: 'pool', label: 'Plunge Pool' },
       { icon: 'restaurant', label: 'Open-fire Dining' },
@@ -229,26 +175,8 @@ export const lodges = [
       { icon: 'bolt', label: 'Solar Powered' },
     ],
     suites: [
-      {
-        id: 501,
-        name: 'Classic Safari Tent',
-        size: '45m²',
-        view: 'Waterhole View',
-        sleeps: '2 Adults',
-        amenities: ['En-suite Bathroom', 'Veranda'],
-        price: 1200,
-        image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-      },
-      {
-        id: 502,
-        name: 'Family Safari Tent',
-        size: '90m²',
-        view: 'Plains View',
-        sleeps: '2 Adults, 2 Children',
-        amenities: ['Living Area', 'Veranda', 'Mini Bar'],
-        price: 1950,
-        image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80',
-      },
+      { id: 501, name: 'Classic Safari Tent', size: '45m²', view: 'Waterhole View', sleeps: '2 Adults', amenities: ['En-suite Bathroom', 'Veranda'], price: 1200, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80' },
+      { id: 502, name: 'Family Safari Tent', size: '90m²', view: 'Plains View', sleeps: '2 Adults, 2 Children', amenities: ['Living Area', 'Veranda', 'Mini Bar'], price: 1950, image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80' },
     ],
   },
   {
@@ -267,7 +195,7 @@ export const lodges = [
       'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=800&q=80',
       'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80',
     ],
-    description: 'Accessible only by light aircraft, Okavango Delta Camp occupies an exclusive private concession within one of Africa\'s most extraordinary ecosystems. The inland delta — a UNESCO World Heritage Site — floods seasonally, creating a labyrinth of channels, islands, and lagoons teeming with wildlife. Explore by mokoro, on foot, or by boat with expert trackers who read the water like a map.',
+    description: "Accessible only by light aircraft, Okavango Delta Camp occupies an exclusive private concession within one of Africa's most extraordinary ecosystems.",
     amenities: [
       { icon: 'pool', label: 'Delta-view Pool' },
       { icon: 'restaurant', label: 'Waterside Dining' },
@@ -277,26 +205,8 @@ export const lodges = [
       { icon: 'wifi', label: 'WiFi' },
     ],
     suites: [
-      {
-        id: 601,
-        name: 'Lagoon Suite',
-        size: '75m²',
-        view: 'Lagoon View',
-        sleeps: '2 Adults',
-        amenities: ['Private Deck', 'Outdoor Shower', 'Mini Bar'],
-        price: 1800,
-        image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-      },
-      {
-        id: 602,
-        name: 'Owner\'s Villa',
-        size: '220m²',
-        view: 'Panoramic Delta View',
-        sleeps: '4 Adults',
-        amenities: ['Private Pool', 'Butler', 'Kitchen', 'Firepit'],
-        price: 4500,
-        image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80',
-      },
+      { id: 601, name: 'Lagoon Suite', size: '75m²', view: 'Lagoon View', sleeps: '2 Adults', amenities: ['Private Deck', 'Outdoor Shower', 'Mini Bar'], price: 1800, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80' },
+      { id: 602, name: "Owner's Villa", size: '220m²', view: 'Panoramic Delta View', sleeps: '4 Adults', amenities: ['Private Pool', 'Butler', 'Kitchen', 'Firepit'], price: 4500, image: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=400&q=80' },
     ],
   },
 ]

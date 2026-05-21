@@ -1,17 +1,17 @@
-import { onMounted, onUnmounted } from 'vue'
+import { type Ref, onMounted, onUnmounted } from 'vue'
 
-export function useScrollReveal(root = null) {
-  let intersectionObserver
-  let mutationObserver
+export function useScrollReveal(root: Ref<HTMLElement | null> | null = null) {
+  let intersectionObserver: IntersectionObserver
+  let mutationObserver: MutationObserver
 
-  function observe(el) {
+  function observe(el: Element) {
     if (!el.classList.contains('visible')) {
       intersectionObserver.observe(el)
     }
   }
 
   onMounted(() => {
-    const target = root?.value ?? document
+    const target: Document | HTMLElement = root?.value ?? document
 
     intersectionObserver = new IntersectionObserver(
       (entries) => {
@@ -25,21 +25,20 @@ export function useScrollReveal(root = null) {
       { threshold: 0.12 }
     )
 
-    // Observe elements already in the DOM
     target.querySelectorAll('.reveal').forEach(observe)
 
-    // Watch for new .reveal elements added after async data loads
     mutationObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType !== 1) return
-          if (node.classList?.contains('reveal')) observe(node)
-          node.querySelectorAll?.('.reveal').forEach(observe)
+          const el = node as HTMLElement
+          if (el.classList?.contains('reveal')) observe(el)
+          el.querySelectorAll?.('.reveal').forEach(observe)
         })
       })
     })
 
-    mutationObserver.observe(target === document ? document.body : target, {
+    mutationObserver.observe(target === document ? document.body : target as HTMLElement, {
       childList: true,
       subtree: true,
     })

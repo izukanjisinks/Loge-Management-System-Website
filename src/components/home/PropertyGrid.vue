@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { RouterLink } from 'vue-router'
 
 defineProps({
@@ -108,7 +108,7 @@ defineProps({
       class="md:col-span-8 group cursor-pointer bg-(--color-savannah-mist) rounded-2xl overflow-hidden flex flex-col md:flex-row reveal"
       style="transition-delay: 200ms"
     >
-      <div class="md:w-1/2 h-64 md:h-full">
+      <div class="md:w-[50%] h-64 md:h-full">
         <img
           :src="rooms[3].image"
           :alt="rooms[3].name"
@@ -116,7 +116,7 @@ defineProps({
           loading="lazy"
         />
       </div>
-      <div class="md:w-1/2 p-10 flex flex-col justify-center">
+      <div class="md:w-[50%] p-10 flex flex-col justify-center">
         <span class="text-(--color-clay-earth) font-sans text-sm font-semibold tracking-[0.05em] mb-2">New Opening</span>
         <h3 class="font-serif text-2xl text-(--color-on-surface) mb-4">{{ rooms[3].name }}</h3>
         <p class="font-sans text-base text-(--color-on-surface-variant) mb-6 leading-relaxed">

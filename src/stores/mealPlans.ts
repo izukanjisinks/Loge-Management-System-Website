@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { MealPlan } from '@/types'
 
 export const useMealPlansStore = defineStore('mealPlans', () => {
-  const plans   = ref([])
+  const plans   = ref<MealPlan[]>([])
   const loading = ref(false)
 
   async function fetchAll() {

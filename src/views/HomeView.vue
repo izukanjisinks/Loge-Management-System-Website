@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { useScrollReveal } from '@/composables/useScrollReveal'
 import HeroSection   from '@/components/home/HeroSection.vue'
 import PropertyGrid  from '@/components/home/PropertyGrid.vue'

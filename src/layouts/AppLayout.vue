@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup lang="ts">
 import { useRoute } from 'vue-router'
 import AppNavbar from '@/components/layout/AppNavbar.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'

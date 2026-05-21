@@ -17,9 +17,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    const url          = err.config?.url || ''
+    const url            = err.config?.url || ''
     const isAuthEndpoint = url.includes('/auth/')
-    const hadToken     = !!localStorage.getItem('token')
+    const hadToken       = !!localStorage.getItem('token')
     if (err.response?.status === 401 && !isAuthEndpoint && hadToken) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
@@ -28,5 +28,11 @@ api.interceptors.response.use(
     return Promise.reject(err)
   }
 )
+
+// Public client — no auth header, for endpoints that are open to guests
+export const publicApi = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api/v1',
+  headers: { 'Content-Type': 'application/json' },
+})
 
 export default api
