@@ -1,7 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLodges, useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
+import { useLodgesStore } from '@/stores/lodges'
+import { useBookingStore } from '@/stores/booking'
+import { useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
@@ -9,20 +11,31 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 const route = useRoute()
 const router = useRouter()
 
-const lodgeId = route.params.id
+const lodgeId     = route.params.id
+const lodgesStore = useLodgesStore()
+const booking     = useBookingStore()
 
-// Fetch lodge info from the list (no single-lodge endpoint available)
-const { lodges, loading: lodgeLoading, error: lodgeError, fetchLodges } = useLodges()
-const lodge = computed(() => lodges.value.find(l => l.id === lodgeId))
+const lodgeLoading = computed(() => lodgesStore.loading)
+const lodgeError   = computed(() => lodgesStore.error)
+const lodge        = computed(() => lodgesStore.lodges.find(l => l.id === lodgeId))
+const branches     = computed(() => lodgesStore.branchesFor(lodgeId))
 
-// GET /api/v1/rooms is public — no auth required
 const { rooms, total: roomsTotal, page: roomsPage, totalPages: roomsTotalPages, loading: roomsLoading, error: roomsError, fetchRooms } = useRooms()
 
-const searched    = ref(false)
-const dateFilters = ref({})
+const searched      = ref(false)
+const dateFilters   = ref({})
+const filterBranch  = ref('')
+
+watch(filterBranch, () => {
+  const params = { org_id: lodgeId, ...dateFilters.value }
+  if (filterBranch.value) params.branch_id = filterBranch.value
+  fetchRooms(params)
+})
 
 async function goToPage(p) {
-  await fetchRooms({ org_id: lodgeId, page: p, ...dateFilters.value })
+  const params = { org_id: lodgeId, page: p, ...dateFilters.value }
+  if (filterBranch.value) params.branch_id = filterBranch.value
+  await fetchRooms(params)
 }
 
 const todayDate    = today(getLocalTimeZone())
@@ -62,7 +75,7 @@ const nights = computed(() => {
 })
 
 onMounted(async () => {
-  await fetchLodges({ page_size: 100 })
+  await lodgesStore.fetchLodges()
   fetchRooms({ org_id: lodgeId })
 })
 
@@ -74,23 +87,25 @@ const COVERS = [
 ]
 
 function lodgeCover(i) {
-  return lodge.value?.logo_url ?? COVERS[i % COVERS.length]
+  return lodge.value?.logoUrl ?? COVERS[i % COVERS.length]
 }
 
 async function checkAvailability() {
   if (nights.value === 0) return
   searched.value = false
   dateFilters.value = { check_in: checkIn.value, check_out: checkOut.value }
-  await fetchRooms({ org_id: lodgeId, ...dateFilters.value })
+  const params = { org_id: lodgeId, ...dateFilters.value }
+  if (filterBranch.value) params.branch_id = filterBranch.value
+  await fetchRooms(params)
   searched.value = true
 }
 
-function reserve(roomId) {
-  router.push({
-    name: 'reservation',
-    params: { roomId },
-    query: { check_in: checkIn.value, check_out: checkOut.value },
-  })
+function reserve(room) {
+  const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
+  booking.setRoom(room.id, cap(room.type), parseFloat(room.price_per_night) || 0, lodgeId)
+  if (checkIn.value)  booking.checkIn  = checkIn.value
+  if (checkOut.value) booking.checkOut = checkOut.value
+  router.push({ name: 'reservation', params: { roomId: room.id } })
 }
 </script>
 
@@ -153,6 +168,18 @@ function reserve(roomId) {
       </p>
 
       <div class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
+        <!-- Branch selector -->
+        <div v-if="branches.length > 1" class="flex-1 flex flex-col gap-1">
+          <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
+          <select
+            v-model="filterBranch"
+            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all cursor-pointer"
+          >
+            <option value="">All Branches</option>
+            <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+          </select>
+        </div>
+
         <!-- Check-in -->
         <div class="flex-1 flex flex-col gap-1">
           <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in</label>
@@ -217,13 +244,13 @@ function reserve(roomId) {
       </div>
 
       <!-- Rooms error -->
-      <div v-if="roomsError" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
+      <div v-if="roomsError && !roomsLoading" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
         <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
         <p class="font-sans text-sm text-(--color-on-error-container)">{{ roomsError }}</p>
       </div>
 
-      <!-- Rooms skeleton -->
-      <div v-else-if="roomsLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+      <!-- Rooms skeleton (first load only) -->
+      <div v-if="roomsLoading && !rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
         <div v-for="i in 3" :key="i"
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
           <div class="h-44 bg-(--color-surface-container-highest)"></div>
@@ -235,7 +262,15 @@ function reserve(roomId) {
       </div>
 
       <!-- Room cards -->
-      <div v-else-if="rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+      <div v-else-if="rooms.length" class="relative mb-16">
+        <!-- Re-fetch overlay spinner -->
+        <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0" enter-to-class="opacity-100"
+          leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+          <div v-if="roomsLoading" class="absolute inset-0 z-10 bg-(--color-background) flex items-center justify-center rounded-2xl">
+            <span class="material-symbols-outlined text-4xl text-(--color-primary) animate-spin">progress_activity</span>
+          </div>
+        </Transition>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div v-for="room in rooms" :key="room.id"
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col">
           <div class="relative h-44 overflow-hidden">
@@ -281,14 +316,15 @@ function reserve(roomId) {
 
             <button :disabled="!room.is_available" class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all
                      bg-(--color-primary) text-white hover:bg-(--color-clay-earth)
-                     disabled:opacity-40 disabled:cursor-not-allowed" @click="reserve(room.id)">
+                     disabled:opacity-40 disabled:cursor-not-allowed" @click="reserve(room)">
               {{ room.is_available ? 'Reserve' : 'Unavailable' }}
             </button>
           </div>
         </div>
+        </div>
       </div>
 
-      <div v-else
+      <div v-else-if="!roomsLoading"
         class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-8">
         <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">{{ searched ? 'event_busy' : 'bed' }}</span>
         <p class="font-serif text-xl text-(--color-on-surface)">{{ searched ? 'No rooms available' : 'No rooms listed' }}</p>

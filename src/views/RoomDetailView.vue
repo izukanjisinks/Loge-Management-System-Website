@@ -53,6 +53,7 @@ function normalise(r) {
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     bookedDates: r.booked_dates ?? [],
     orgName:     r.organization?.name || '',
+    orgId:       r.organization?.id   || null,
   }
 }
 
@@ -125,7 +126,7 @@ const dateError = computed(() => {
 
 function reserve() {
   if (!checkIn.value || !checkOut.value || dateError.value) return
-  booking.setRoom(room.value.id, room.value.type, room.value.price)
+  booking.setRoom(room.value.id, room.value.type, room.value.price, room.value.orgId)
   booking.setDates(checkIn.value, checkOut.value)
   booking.setMealPlan(null, 'Room Only', 0)
   booking.guestCount = guestCount.value

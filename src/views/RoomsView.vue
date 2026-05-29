@@ -2,11 +2,13 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScrollReveal } from '@/composables/useScrollReveal'
+import { useLodgesStore } from '@/stores/lodges'
 import RoomCard from '@/components/rooms/RoomCard.vue'
 import api from '@/lib/api'
 
 useScrollReveal()
-const route = useRoute()
+const route       = useRoute()
+const lodgesStore = useLodgesStore()
 
 const rooms      = ref([])
 const total      = ref(0)
@@ -52,12 +54,22 @@ function normalise(r) {
   }
 }
 
-const searchQuery       = ref('')
+const filterLodge       = ref('')   // lodge id or ''
+const filterBranch      = ref('')   // branch id or ''
 const filterType        = ref('All')
-const filterOrg         = ref('All')
 const filterCapacity    = ref(1)
 const filterMaxPrice    = ref(1000)
 const showAvailableOnly = ref(false)
+
+const availableBranches = computed(() =>
+  filterLodge.value ? lodgesStore.branchesFor(filterLodge.value) : []
+)
+
+watch(filterLodge, () => {
+  filterBranch.value = ''
+  fetchRooms(1)
+})
+watch(filterBranch, () => fetchRooms(1))
 
 async function fetchRooms(p = page.value) {
   apiLoading.value = true
@@ -65,15 +77,15 @@ async function fetchRooms(p = page.value) {
   page.value = p
   try {
     const params = { page: p, page_size: PAGE_SIZE }
-    const q = searchQuery.value.trim()
-    if (q) params.org_name = q
-    if (filterType.value !== 'All') params.type = filterType.value.toLowerCase()
+    if (filterLodge.value)              params.org_id    = filterLodge.value
+    if (filterBranch.value)             params.branch_id = filterBranch.value
+    if (filterType.value !== 'All')     params.type      = filterType.value.toLowerCase()
     const { data } = await api.get('/guest/rooms', { params })
     const list = data.data ?? data
     rooms.value = list.map(normalise)
     total.value = data.total ?? rooms.value.length
     if (rooms.value.length && filterMaxPrice.value === 1000) {
-      const maxPrice = Math.max(...rooms.value.map(r => r.price))
+      const maxPrice = Math.max(...rooms.value.map(r => parseFloat(r.price) || 0))
       filterMaxPrice.value = Math.ceil(maxPrice / 100) * 100
     }
   } catch (err) {
@@ -83,18 +95,14 @@ async function fetchRooms(p = page.value) {
   }
 }
 
-let searchDebounce = null
-watch(searchQuery, () => {
-  clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(() => fetchRooms(1), 400)
-})
-
 watch(filterType, () => fetchRooms(1))
 
-onMounted(() => fetchRooms(1))
+onMounted(() => {
+  lodgesStore.fetchLodges()
+  fetchRooms(1)
+})
 
 const TYPES = computed(() => ['All', ...new Set(rooms.value.map(r => r.type))])
-const ORGS  = computed(() => [...new Set(rooms.value.map(r => r.orgName).filter(Boolean))])
 
 const priceSliderMax = computed(() => {
   if (!rooms.value.length) return 1000
@@ -110,7 +118,6 @@ watch(
 const filtered = computed(() =>
   rooms.value.filter(r => {
     if (filterType.value !== 'All' && r.type !== filterType.value) return false
-    if (filterOrg.value  !== 'All' && r.orgName !== filterOrg.value) return false
     if (r.capacity < filterCapacity.value) return false
     if (r.price > filterMaxPrice.value)    return false
     if (showAvailableOnly.value && !r.available) return false
@@ -123,9 +130,9 @@ const resultLabel = computed(() =>
 )
 
 function resetFilters() {
-  searchQuery.value       = ''
+  filterLodge.value       = ''
+  filterBranch.value      = ''
   filterType.value        = 'All'
-  filterOrg.value         = 'All'
   filterCapacity.value    = 1
   filterMaxPrice.value    = priceSliderMax.value
   showAvailableOnly.value = false
@@ -141,20 +148,28 @@ function resetFilters() {
       <div class="sticky top-28 flex flex-col gap-8">
         <h2 class="font-serif text-2xl text-(--color-on-surface)">Filters</h2>
 
-        <!-- Search -->
+        <!-- Lodge filter -->
         <div class="flex flex-col gap-2">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Search by lodge</span>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-on-surface-variant) text-[18px]">search</span>
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Lodge or hotel name..."
-              class="w-full bg-(--color-savannah-mist) border-none rounded-lg pl-10 pr-3 py-2.5
-                     font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant)
-                     focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all"
-            />
-          </div>
+          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Lodge</span>
+          <select
+            v-model="filterLodge"
+            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all cursor-pointer"
+          >
+            <option value="">All Lodges</option>
+            <option v-for="l in lodgesStore.lodges" :key="l.id" :value="l.id">{{ l.name }}</option>
+          </select>
+        </div>
+
+        <!-- Branch filter -->
+        <div v-if="availableBranches.length" class="flex flex-col gap-2">
+          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Branch</span>
+          <select
+            v-model="filterBranch"
+            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all cursor-pointer"
+          >
+            <option value="">All Branches</option>
+            <option v-for="b in availableBranches" :key="b.id" :value="b.id">{{ b.name }}</option>
+          </select>
         </div>
 
         <div class="h-px bg-(--color-outline-variant)"></div>
@@ -227,35 +242,6 @@ function resetFilters() {
             Available only
           </span>
         </label>
-
-        <!-- Lodge filter -->
-        <div v-if="ORGS.length" class="flex flex-col gap-3">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Lodge</span>
-          <div class="flex flex-col gap-2">
-            <label class="flex items-center gap-3 cursor-pointer group">
-              <input
-                v-model="filterOrg"
-                value="All"
-                type="radio"
-                class="w-4 h-4 rounded-full border-(--color-outline) text-(--color-primary) focus:ring-(--color-primary)"
-              />
-              <span class="font-sans text-sm text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">All Lodges</span>
-            </label>
-            <label
-              v-for="org in ORGS"
-              :key="org"
-              class="flex items-center gap-3 cursor-pointer group"
-            >
-              <input
-                v-model="filterOrg"
-                :value="org"
-                type="radio"
-                class="w-4 h-4 rounded-full border-(--color-outline) text-(--color-primary) focus:ring-(--color-primary)"
-              />
-              <span class="font-sans text-sm text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ org }}</span>
-            </label>
-          </div>
-        </div>
 
         <button
           class="w-full mt-2 bg-(--color-surface-container-high) text-(--color-on-surface-variant) py-3 rounded-lg font-sans text-sm font-semibold tracking-[0.05em] hover:bg-(--color-surface-container-highest) transition-colors"

@@ -5,6 +5,7 @@ const TAX_RATE = 0.12
 
 export const useBookingStore = defineStore('booking', () => {
   const roomId           = ref(null)
+  const lodgeId          = ref(null)
   const roomType         = ref('')
   const baseRatePerNight = ref(0)
   const checkIn          = ref('')
@@ -41,8 +42,9 @@ export const useBookingStore = defineStore('booking', () => {
 
   const grandTotal = computed(() => baseTotal.value + mealCost.value + taxes.value)
 
-  function setRoom(id, type, rate) {
+  function setRoom(id, type, rate, orgId = null) {
     roomId.value           = id
+    lodgeId.value          = orgId
     roomType.value         = type
     baseRatePerNight.value = rate
   }
@@ -60,6 +62,7 @@ export const useBookingStore = defineStore('booking', () => {
 
   function reset() {
     roomId.value           = null
+    lodgeId.value          = null
     roomType.value         = ''
     baseRatePerNight.value = 0
     checkIn.value          = ''
@@ -73,7 +76,7 @@ export const useBookingStore = defineStore('booking', () => {
   }
 
   return {
-    roomId, roomType, baseRatePerNight,
+    roomId, lodgeId, roomType, baseRatePerNight,
     checkIn, checkOut, guestCount,
     mealPlanId, mealPlanName, mealPlanRate,
     specialRequests, guestInfo,

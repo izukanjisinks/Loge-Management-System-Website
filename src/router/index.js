@@ -10,7 +10,6 @@ const routes = [
       { path: 'about', name: 'about', component: () => import('@/views/AboutView.vue') },
       { path: 'lodges', name: 'lodges', component: () => import('@/views/LodgesView.vue') },
       { path: 'lodges/:id', name: 'lodge-detail', component: () => import('@/views/LodgeDetailView.vue') },
-      { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
       { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
       {
         path: 'reserve/:roomId',

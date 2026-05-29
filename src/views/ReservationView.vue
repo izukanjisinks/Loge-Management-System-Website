@@ -66,7 +66,11 @@ function validate() {
 }
 
 function goBack() {
-  router.push({ name: 'rooms' })
+  if (booking.lodgeId) {
+    router.push({ name: 'lodge-detail', params: { id: booking.lodgeId } })
+  } else {
+    router.push({ name: 'lodges' })
+  }
 }
 
 function goToConfirmation() {
