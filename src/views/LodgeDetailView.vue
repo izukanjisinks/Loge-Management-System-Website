@@ -102,7 +102,7 @@ async function checkAvailability() {
 
 function reserve(room) {
   const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
-  booking.setRoom(room.id, cap(room.type), parseFloat(room.price_per_night) || 0, lodgeId)
+  booking.setRoom(room.id, cap(room.type), parseFloat(room.price_per_night) || 0, lodgeId, lodge.value?.name ?? '')
   if (checkIn.value)  booking.checkIn  = checkIn.value
   if (checkOut.value) booking.checkOut = checkOut.value
   router.push({ name: 'reservation', params: { roomId: room.id } })

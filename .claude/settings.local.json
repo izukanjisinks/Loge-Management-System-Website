@@ -6,7 +6,14 @@
       "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/calendar/**)",
       "Read(//c/development/Lodge-Management-System-Backoffice/src/components/ui/range-calendar/**)",
       "Bash(npm --version)",
-      "Bash(Test-Path \"c:\\\\Users\\\\SYNC\\\\Documents\\\\GitHub\\\\Loge-Management-System-Website\\\\node_modules\")"
+      "Bash(Test-Path \"c:\\\\Users\\\\SYNC\\\\Documents\\\\GitHub\\\\Loge-Management-System-Website\\\\node_modules\")",
+      "Read(//c/development/Lodge-Management-System-Backoffice/**)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/lib/**)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/services/**)",
+      "Bash(node -e \"require\\('./node_modules/firebase/package.json'\\)\")",
+      "Bash(npm install *)",
+      "Bash(cd \"C:\\\\development\\\\Lodge-Management-System\" && find . -type f -name \"*.go\" | grep -i route)",
+      "Read(//c/development/Lodge-Management-System/**)"
     ]
   }
 }

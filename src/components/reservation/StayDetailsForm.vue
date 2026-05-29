@@ -74,7 +74,7 @@ const dateError = computed(() => {
 </script>
 
 <template>
-  <section class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist) shadow-sm">
+  <section class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist)">
     <h2 class="font-serif text-2xl mb-6 flex items-center gap-3">
       <span class="material-symbols-outlined text-(--color-primary)">calendar_month</span>
       Stay Details

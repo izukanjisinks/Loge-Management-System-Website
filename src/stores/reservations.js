@@ -60,19 +60,45 @@ export const useReservationsStore = defineStore('reservations', () => {
     await fetchAll()
   }
 
-  // payload shape:
-  // { roomId, checkIn, checkOut, guestCount, mealPlanId, specialRequests }
   async function create(payload) {
-    const body = {
-      room_id:          payload.roomId,
-      check_in:         new Date(payload.checkIn).toISOString(),
-      check_out:        new Date(payload.checkOut).toISOString(),
-      guests:           payload.guestCount,
-      special_requests: payload.specialRequests || undefined,
-    }
-    if (payload.mealPlanId) body.meal_plan_id = payload.mealPlanId
+    let body
 
-    const { data } = await api.post('/guest/bookings', body)
+    if (payload.bookingType === 'corporate') {
+      body = {
+        client: {
+          company_name:       payload.client.companyName,
+          contact_person:     payload.client.contactPerson,
+          email:              payload.client.email,
+          phone:              payload.client.phone,
+          company_reg_number: payload.client.regNumber,
+          industry:           payload.client.industry || undefined,
+        },
+        documents: payload.documents?.length ? payload.documents : undefined,
+        guests: payload.guests.map(g => ({
+          full_name:  g.fullName,
+          email:      g.email      || undefined,
+          phone:      g.phone      || undefined,
+          id_number:  g.idNumber   || undefined,
+          room_id:    g.roomId     || payload.roomId,
+          check_in:   g.checkIn    || payload.checkIn,
+          check_out:  g.checkOut   || payload.checkOut,
+        })),
+      }
+    } else {
+      body = {
+        room_id:            payload.roomId,
+        check_in:           payload.checkIn,
+        check_out:          payload.checkOut,
+        guests:             payload.guestCount,
+        special_requests:   payload.specialRequests || undefined,
+        id_passport_number: payload.client.passportId || undefined,
+      }
+      if (payload.mealPlanId) body.meal_plan_id = payload.mealPlanId
+    }
+
+    if (!payload.roomId) throw new Error('No room selected')
+    const endpoint = payload.bookingType === 'corporate' ? '/guest/bookings/corporate' : '/guest/bookings'
+    const { data } = await api.post(endpoint, body)
     return data
   }
 

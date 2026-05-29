@@ -126,7 +126,7 @@ const dateError = computed(() => {
 
 function reserve() {
   if (!checkIn.value || !checkOut.value || dateError.value) return
-  booking.setRoom(room.value.id, room.value.type, room.value.price, room.value.orgId)
+  booking.setRoom(room.value.id, room.value.type, room.value.price, room.value.orgId, room.value.orgName)
   booking.setDates(checkIn.value, checkOut.value)
   booking.setMealPlan(null, 'Room Only', 0)
   booking.guestCount = guestCount.value
