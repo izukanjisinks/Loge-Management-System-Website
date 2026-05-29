@@ -63,7 +63,7 @@ export function useRoom() {
     loading.value = true
     error.value   = null
     try {
-      const { data } = await api.get(`/rooms/${id}`)
+      const { data } = await api.get(`/guest/rooms/${id}`)
       room.value = data
     } catch {
       error.value = 'Room not found.'

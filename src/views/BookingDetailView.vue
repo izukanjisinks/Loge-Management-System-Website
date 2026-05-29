@@ -44,7 +44,7 @@ onMounted(async () => {
       createdAt:       data.created_at,
     }
     try {
-      const { data: room } = await api.get(`/rooms/${data.room_id}`)
+      const { data: room } = await api.get(`/guest/rooms/${data.room_id}`)
       roomImages.value = room.images ?? []
     } catch {
       roomImages.value = []
