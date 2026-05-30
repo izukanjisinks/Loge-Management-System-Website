@@ -168,7 +168,7 @@ function reserve(room) {
       </p>
 
       <div class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
-        <!-- Branch selector -->
+        <!-- Branch  selector -->
         <div v-if="branches.length > 1" class="flex-1 flex flex-col gap-1">
           <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
           <select
