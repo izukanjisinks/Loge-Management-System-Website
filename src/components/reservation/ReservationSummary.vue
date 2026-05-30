@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useBookingStore } from '@/stores/booking'
+import { PDFDownloadLink } from '@ceereals/vue-pdf'
+import BookingInvoiceDocument from '@/components/reservation/BookingInvoiceDocument.vue'
 
 const booking = useBookingStore()
 
@@ -24,83 +26,129 @@ function formatDate(d: string | null | undefined): string | null {
 </script>
 
 <template>
-  <div class="sticky top-28 bg-(--color-surface-container) p-6 rounded-xl border border-(--color-outline-variant)/30">
-    <h3 class="font-serif text-2xl mb-6">Booking Summary</h3>
+  <div class="sticky top-24 bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
 
     <!-- Room image -->
-    <div class="relative rounded-lg overflow-hidden mb-6 h-48">
+    <div class="relative h-48">
       <img
         :src="roomImage(booking.roomId)"
         :alt="booking.roomType || 'Your room'"
         class="w-full h-full object-cover"
       />
-      <div class="absolute bottom-0 left-0 w-full p-4 bg-linear-to-t from-(--color-deep-obsidian)/80 to-transparent">
-        <p class="text-white font-sans font-semibold text-sm">{{ booking.roomName || booking.roomType || 'Selected Room' }}</p>
-        <p class="text-white/80 font-sans text-xs">{{ booking.lodgeName }}</p>
+      <div class="absolute inset-0 bg-linear-to-t from-black/60 to-transparent"></div>
+      <div class="absolute bottom-4 left-4 text-white">
+        <h3 class="font-serif text-lg font-semibold leading-tight">{{ booking.roomType || 'Selected Room' }}</h3>
+        <p class="font-sans text-xs opacity-80">{{ booking.lodgeName || 'Mwakwanda Lodge' }}</p>
       </div>
     </div>
 
-    <!-- Stay details -->
-    <div class="space-y-4 border-b border-(--color-outline-variant) pb-6">
-      <div class="flex justify-between items-start">
-        <div class="flex gap-2">
-          <span class="material-symbols-outlined text-(--color-on-surface-variant)">calendar_month</span>
+    <div class="p-6 space-y-6">
+
+      <!-- Dates & guests -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-(--color-primary) text-xl">calendar_today</span>
           <div>
-            <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Dates</p>
-            <p class="font-sans text-xs text-(--color-on-surface-variant)">
-              <template v-if="booking.checkIn && booking.checkOut">
-                {{ formatDate(booking.checkIn) }} &rarr; {{ formatDate(booking.checkOut) }}
-                ({{ booking.nightCount }} nights)
+            <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-outline)">Dates</p>
+            <template v-if="booking.checkIn && booking.checkOut">
+              <p class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                {{ formatDate(booking.checkIn) }} — {{ formatDate(booking.checkOut) }}
+              </p>
+              <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }}</p>
+            </template>
+            <p v-else class="font-sans text-sm text-(--color-outline)">Not selected</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-(--color-primary) text-xl">person_search</span>
+          <div>
+            <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-outline)">Guests</p>
+            <p class="font-sans text-sm font-semibold text-(--color-on-surface)">
+              <template v-if="booking.bookingType === 'corporate'">
+                {{ booking.corporateGuests.length }} {{ booking.corporateGuests.length === 1 ? 'Employee' : 'Employees' }}
               </template>
-              <template v-else>Not selected</template>
+              <template v-else>
+                {{ booking.guestCount }} {{ booking.guestCount === 1 ? 'Adult' : 'Adults' }}
+              </template>
             </p>
           </div>
         </div>
       </div>
-      <div class="flex gap-2">
-        <span class="material-symbols-outlined text-(--color-on-surface-variant)">group</span>
-        <div>
-          <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Guests</p>
-          <p class="font-sans text-xs text-(--color-on-surface-variant)">
-            {{ booking.guestCount }} {{ booking.guestCount === 1 ? 'Adult' : 'Adults' }}
-          </p>
-        </div>
-      </div>
-    </div>
 
-    <!-- Price breakdown -->
-    <template v-if="booking.nightCount > 0">
-      <div class="py-6 space-y-3">
-        <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-          <span>{{ booking.nightCount }} nights × K{{ Number((booking.baseRatePerNight ?? 0).toFixed(0)).toLocaleString() }}</span>
-          <span>K{{ Number((booking.baseTotal ?? 0).toFixed(0)).toLocaleString() }}</span>
-        </div>
-        <div v-if="booking.mealCost > 0" class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-          <span>{{ booking.mealPlanName }}</span>
-          <span>K{{ Number((booking.mealCost ?? 0).toFixed(0)).toLocaleString() }}</span>
-        </div>
-      </div>
+      <!-- Cost breakdown -->
+      <template v-if="booking.nightCount > 0">
+        <div class="border-t border-(--color-outline-variant) pt-6 space-y-3">
+          <h4 class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant)">Cost Breakdown</h4>
 
-      <!-- Total -->
-      <div class="pt-4 border-t border-primary/20 flex justify-between items-end">
-        <div>
-          <p class="font-sans text-xs font-semibold tracking-wider uppercase text-(--color-on-surface-variant)">Total Payable</p>
-          <p class="font-serif text-[32px] font-semibold leading-10 text-(--color-primary)">
-            K{{ Number((booking.grandTotal ?? 0).toFixed(0)).toLocaleString() }}
-          </p>
-        </div>
-      </div>
-    </template>
-    <template v-else>
-      <p class="py-6 font-sans text-sm text-(--color-on-surface-variant) italic">Select dates to see pricing.</p>
-    </template>
+          <div class="flex justify-between font-sans text-sm text-(--color-on-surface)">
+            <span>{{ booking.nightCount }} nights × K{{ Number((booking.baseRatePerNight ?? 0).toFixed(0)).toLocaleString() }}</span>
+            <span class="font-semibold">K{{ Number((booking.baseTotal ?? 0).toFixed(0)).toLocaleString() }}</span>
+          </div>
 
-    <!-- Guarantee -->
-    <div class="mt-8 p-4 bg-(--color-tertiary-fixed) rounded-lg flex gap-3">
-      <span class="material-symbols-outlined text-(--color-tertiary)">shield</span>
-      <p class="font-sans text-xs text-(--color-on-tertiary-fixed-variant) leading-tight">
-        Best rate guaranteed. Your booking is protected by our flexible 48h cancellation policy.
-      </p>
+          <div v-if="booking.mealCost > 0" class="flex justify-between font-sans text-sm text-(--color-on-surface)">
+            <span>{{ booking.mealPlanName }}</span>
+            <span class="font-semibold">K{{ Number((booking.mealCost ?? 0).toFixed(0)).toLocaleString() }}</span>
+          </div>
+
+          <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
+            <span>Taxes (12%)</span>
+            <span class="font-semibold">K{{ Number((booking.taxes ?? 0).toFixed(0)).toLocaleString() }}</span>
+          </div>
+
+          <div class="pt-4 border-t-2 border-(--color-primary) flex justify-between items-end">
+            <span class="font-sans text-xs font-bold uppercase tracking-widest text-(--color-primary)">Total Payable</span>
+            <span class="font-serif text-3xl font-semibold text-(--color-primary)">
+              K{{ Number((booking.grandTotal ?? 0).toFixed(0)).toLocaleString() }}
+            </span>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="border-t border-(--color-outline-variant) pt-6">
+          <p class="font-sans text-sm text-(--color-on-surface-variant) italic">Select dates to see pricing.</p>
+        </div>
+      </template>
+
+      <!-- Download Invoice -->
+      <PDFDownloadLink
+        v-if="booking.nightCount > 0"
+        :file-name="`Mwakwanda-Booking-${booking.roomType || 'Invoice'}.pdf`"
+      >
+        <template #default>
+          <BookingInvoiceDocument :booking="{
+            bookingType:      booking.bookingType,
+            lodgeName:        booking.lodgeName,
+            roomType:         booking.roomType,
+            checkIn:          booking.checkIn,
+            checkOut:         booking.checkOut,
+            nightCount:       booking.nightCount,
+            guestCount:       booking.guestCount,
+            baseRatePerNight: booking.baseRatePerNight,
+            baseTotal:        booking.baseTotal,
+            mealPlanName:     booking.mealPlanName,
+            mealCost:         booking.mealCost,
+            taxes:            booking.taxes,
+            grandTotal:       booking.grandTotal,
+            specialRequests:  booking.specialRequests,
+            guestInfo:        { ...booking.guestInfo },
+            corporateClient:  { ...booking.corporateClient },
+            corporateGuests:  booking.corporateGuests.map(g => ({ ...g })),
+          }" />
+        </template>
+        <template #label="{ blob }">
+          <button
+            type="button"
+            class="w-full h-12 flex items-center justify-center gap-2 border border-(--color-primary) text-(--color-primary) rounded-lg font-sans text-sm font-semibold hover:bg-(--color-surface-container-low) transition-all"
+          >
+            <span class="material-symbols-outlined text-base" :class="!blob ? 'animate-spin' : ''">
+              {{ !blob ? 'progress_activity' : 'download' }}
+            </span>
+            {{ !blob ? 'Generating…' : 'Download Invoice' }}
+          </button>
+        </template>
+      </PDFDownloadLink>
+
     </div>
   </div>
 </template>

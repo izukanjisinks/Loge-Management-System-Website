@@ -29,8 +29,9 @@ interface RoomDetail {
   description: string
   images: string[]
   amenities: { icon: string; label: string }[]
+  bookedDates: string[]
   orgName: string
-  orgId: string
+  orgId: string | null
 }
 
 // ── Room data ──────────────────────────────────────────────────────────────────
@@ -51,10 +52,11 @@ function normalise(r: Record<string, any>): RoomDetail {
     bed: r.bed_type || '',
     location: r.location || '',
     description: r.description || '',
-    images: r.images?.length ? r.images : [],
-    amenities: (r.amenities || []).map((a: string) => ({ icon: amenityIcon(a), label: a })),
-    orgName: '',
-    orgId: r.org_id || '',
+    images:      r.images?.length ? r.images : [],
+    amenities:   (r.amenities || []).map((a: string) => ({ icon: amenityIcon(a), label: a })),
+    bookedDates: r.booked_dates ?? [],
+    orgName:     r.organization?.name || '',
+    orgId:       r.organization?.id   || null,
   }
 }
 
@@ -167,7 +169,7 @@ async function checkAvailability() {
 // ── Reserve ────────────────────────────────────────────────────────────────────
 function reserve() {
   if (!room.value || !checkIn.value || !checkOut.value || !isAvail.value) return
-  booking.setRoom(room.value.id, room.value.type, room.value.price)
+  booking.setRoom(room.value.id, room.value.type, room.value.price, room.value.orgId, room.value.orgName)
   booking.setDates(checkIn.value, checkOut.value)
   booking.setMealPlan(null, 'Room Only', 0)
   booking.guestCount = guestCount.value
@@ -183,13 +185,13 @@ function reserve() {
   <!-- Loading -->
   <div v-if="apiLoading" class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 animate-pulse">
     <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 mb-8">
-      <div class="md:col-span-2 md:row-span-2 rounded-xl bg-(--color-surface-container-high)" />
-      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
-      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)" />
-      <div class="hidden md:block md:col-span-2 rounded-xl bg-(--color-surface-container-high)" />
+      <div class="md:col-span-2 md:row-span-2 rounded-xl bg-(--color-surface-container-high)"></div>
+      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)"></div>
+      <div class="hidden md:block rounded-xl bg-(--color-surface-container-high)"></div>
+      <div class="hidden md:block md:col-span-2 rounded-xl bg-(--color-surface-container-high)"></div>
     </div>
-    <div class="h-8 bg-(--color-surface-container-high) rounded w-[33%] mb-4" />
-    <div class="h-24 bg-(--color-surface-container-high) rounded" />
+    <div class="h-8 bg-(--color-surface-container-high) rounded max-w-xs mb-4"></div>
+    <div class="h-24 bg-(--color-surface-container-high) rounded"></div>
   </div>
 
   <!-- Error -->

@@ -13,7 +13,14 @@
       "PowerShell(npx vite build 2>&1)",
       "Bash(python -c ' *)",
       "Bash(node -e ' *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/**)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/lib/**)",
+      "Read(//c/development/Lodge-Management-System-Backoffice/src/services/**)",
+      "Bash(node -e \"require\\('./node_modules/firebase/package.json'\\)\")",
+      "Bash(npm install *)",
+      "Bash(cd \"C:\\\\development\\\\Lodge-Management-System\" && find . -type f -name \"*.go\" | grep -i route)",
+      "Read(//c/development/Lodge-Management-System/**)"
     ]
   }
 }

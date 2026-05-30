@@ -12,7 +12,7 @@ const search     = ref('')
 
 async function load(p = 1) {
   page.value = p
-  const params = { page: p, page_size: PAGE_SIZE }
+  const params: Record<string, string | number> = { page: p, page_size: PAGE_SIZE }
   if (search.value.trim()) params.search = search.value.trim()
   await fetchLodges(params)
 }
@@ -42,7 +42,7 @@ const filtered = computed(() => lodges.value)
           <template v-if="!loading">
             {{ filtered.length }} {{ filtered.length === 1 ? 'lodge' : 'lodges' }} available
           </template>
-          <template v-else>Loading lodgesâ€¦</template>
+          <template v-else>Loading lodges…</template>
         </p>
       </div>
 
@@ -52,8 +52,8 @@ const filtered = computed(() => lodges.value)
         <input
           v-model="search"
           type="text"
-          placeholder="Search by name or locationâ€¦"
-          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-4 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20"
+          placeholder="Search by name or location…"
+          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-4 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)"
         />
       </div>
     </div>
@@ -77,11 +77,11 @@ const filtered = computed(() => lodges.value)
           :key="i"
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse"
         >
-          <div class="h-52 bg-(--color-surface-container-highest)" />
+          <div class="h-52 bg-(--color-surface-container-highest)"></div>
           <div class="p-5 space-y-3">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded w-[75%]" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-[50%]" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-full" />
+            <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-56"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-40"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded w-full"></div>
           </div>
         </div>
       </div>
@@ -102,7 +102,7 @@ const filtered = computed(() => lodges.value)
       <!-- Lodge cards -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <RouterLink
-          v-for="(lodge, idx) in filtered"
+          v-for="lodge in filtered"
           :key="lodge.id"
           :to="`/lodges/${lodge.id}`"
           class="group flex flex-col bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
@@ -123,26 +123,12 @@ const filtered = computed(() => lodges.value)
               <span class="font-serif text-sm text-(--color-on-surface-variant)">{{ lodge.name }}</span>
             </div>
             <template v-if="lodge.logo_url">
-              <div class="absolute inset-0 bg-linear-to-t from-black/55 to-transparent" />
-              <!-- Active badge -->
-              <div class="absolute top-3 right-3">
-                <span class="bg-emerald-500/90 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  Active
-                </span>
-              </div>
+              <div class="absolute inset-0 bg-linear-to-t from-black/55 to-transparent"></div>
               <!-- Lodge name overlay -->
               <div class="absolute bottom-3 left-4 right-4">
                 <h3 class="font-serif text-xl font-semibold text-white leading-tight group-hover:text-(--color-inverse-primary) transition-colors">
                   {{ lodge.name }}
                 </h3>
-              </div>
-            </template>
-            <template v-else>
-              <!-- Active badge over placeholder -->
-              <div class="absolute top-3 right-3">
-                <span class="bg-emerald-500/90 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                  Active
-                </span>
               </div>
             </template>
           </div>

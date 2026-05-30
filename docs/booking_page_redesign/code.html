@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mwakwanda | Guest Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#60433a",
+                        "secondary-container": "#ffc391",
+                        "inverse-on-surface": "#ffede4",
+                        "surface-bright": "#fff8f5",
+                        "secondary": "#81542c",
+                        "tertiary-container": "#7a5a50",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#2c160e",
+                        "surface-container-low": "#fff1ea",
+                        "on-tertiary-container": "#ffd4c7",
+                        "on-primary-container": "#ffd5c3",
+                        "primary-fixed": "#ffdbcc",
+                        "secondary-fixed": "#ffdcc2",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#3f2c20",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#8d4e2e",
+                        "on-secondary-fixed": "#2e1500",
+                        "on-surface": "#28180d",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#e7bdb1",
+                        "on-error-container": "#93000a",
+                        "surface": "#fff8f5",
+                        "on-primary-fixed": "#351000",
+                        "on-primary-fixed-variant": "#703719",
+                        "outline": "#86736b",
+                        "inverse-primary": "#ffb694",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#5d4037",
+                        "on-primary": "#ffffff",
+                        "primary": "#743a1c",
+                        "on-surface-variant": "#53433d",
+                        "surface-dim": "#f2d4c2",
+                        "on-background": "#28180d",
+                        "tertiary-fixed": "#ffdbd0",
+                        "on-secondary-fixed-variant": "#663d17",
+                        "surface-container-high": "#ffe3d2",
+                        "surface-container": "#ffeade",
+                        "background": "#fff8f5",
+                        "surface-container-highest": "#fbddca",
+                        "surface-variant": "#fbddca",
+                        "primary-fixed-dim": "#ffb694",
+                        "on-secondary-container": "#7a4e26",
+                        "primary-container": "#915131",
+                        "outline-variant": "#d8c2b9",
+                        "secondary-fixed-dim": "#f6bb8a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-gap": "48px",
+                        "container-max": "1200px",
+                        "base": "8px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Manrope"],
+                        "headline-lg-mobile": ["Manrope"],
+                        "display-lg": ["Manrope"],
+                        "label-sm": ["Manrope"],
+                        "label-md": ["Manrope"],
+                        "body-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "body-lg": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #fff8f5; color: #28180d; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d8c2b9; border-radius: 10px; }
+        .tab-active { border-bottom: 3px solid #743a1c; color: #743a1c; font-weight: 700; }
+        .input-filled { background-color: #F2EAE1; border-bottom: 2px solid #d8c2b9; transition: border-color 0.2s; }
+        .input-filled:focus { border-color: #743a1c; outline: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-body-md overflow-x-hidden">
+<!-- TopAppBar Shell -->
+<header class="bg-surface sticky top-0 z-50 border-b border-outline-variant">
+<div class="flex justify-between items-center h-16 px-margin-mobile md:px-gutter max-w-container-max mx-auto w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-headline-lg" data-icon="holiday_village">holiday_village</span>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">Mwakwanda</h1>
+</div>
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">Sign Out</button>
+</div>
+</header>
+<main class="max-w-container-max mx-auto px-margin-mobile pb-32">
+<!-- NavigationDrawer / Stepper Shell -->
+<nav class="flex justify-center items-center py-8 gap-8 w-full max-w-2xl mx-auto">
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined text-primary" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-label-md text-label-md hidden md:inline">Selection</span>
+</div>
+<div class="h-[2px] w-8 bg-outline-variant"></div>
+<div class="flex items-center gap-2 text-primary font-bold">
+<span class="material-symbols-outlined" data-icon="counter_2">counter_2</span>
+<span class="font-label-md text-label-md">Guest Details</span>
+</div>
+<div class="h-[2px] w-8 bg-outline-variant"></div>
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined" data-icon="counter_3">counter_3</span>
+<span class="font-label-md text-label-md hidden md:inline">Confirmation</span>
+</div>
+</nav>
+<!-- Booking Type Tabs -->
+<div class="flex justify-center mb-8">
+<div class="flex bg-surface-container-high rounded-full p-1 w-full max-w-md">
+<button class="flex-1 py-3 px-6 rounded-full font-label-md text-label-md transition-all bg-primary-container text-white shadow-sm" id="tab-individual" onclick="switchFlow('individual')">Individual</button>
+<button class="flex-1 py-3 px-6 rounded-full font-label-md text-label-md transition-all text-on-surface-variant" id="tab-corporate" onclick="switchFlow('corporate')">Corporate</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Left Column: Forms -->
+<div class="lg:col-span-8 space-y-gutter">
+<!-- Individual Flow -->
+<div class="space-y-gutter" id="flow-individual">
+<!-- Primary Guest Details -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="person">person</span>
+<h2 class="font-headline-md text-headline-md">Primary Guest Details</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">FIRST NAME *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="Izukanji" type="text"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">LAST NAME *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="Sinkolongo" type="text"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">EMAIL ADDRESS *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="izukanji@example.com" type="email"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">PHONE NUMBER *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="+260 00 000 0000" type="tel"/>
+</div>
+</div>
+</section>
+<!-- Stay Details -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="calendar_month">calendar_month</span>
+<h2 class="font-headline-md text-headline-md">Stay Details</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">ROOM TYPE</label>
+<div class="relative">
+<input class="w-full h-14 px-4 pr-12 rounded-lg bg-surface-container-low border-none cursor-not-allowed text-on-surface-variant font-medium" disabled="" type="text" value="Double Suite"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline" data-icon="lock">lock</span>
+</div>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">GUESTS</label>
+<div class="flex items-center justify-between h-14 px-4 rounded-lg bg-surface-container-low">
+<button class="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center text-primary hover:bg-surface-container transition-colors">—</button>
+<span class="font-label-md">1 Adult</span>
+<button class="w-8 h-8 rounded-full border border-outline-variant flex items-center justify-center text-primary hover:bg-surface-container transition-colors">+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Corporate Flow (Hidden by Default) -->
+<div class="hidden space-y-gutter" id="flow-corporate">
+<!-- Company Details -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="business">business</span>
+<h2 class="font-headline-md text-headline-md">Company Details</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">COMPANY NAME *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="Acme Corporation Ltd" type="text"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">REGISTRATION NUMBER *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="PACRA-12345678" type="text"/>
+</div>
+</div>
+</section>
+<!-- Head of Department -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="badge">badge</span>
+<h2 class="font-headline-md text-headline-md">HOD Contact Details</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">NAME *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="John Doe" type="text"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">WORK EMAIL *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="j.doe@acme.com" type="email"/>
+</div>
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface-variant">WORK PHONE *</label>
+<input class="w-full h-14 px-4 rounded-lg input-filled" placeholder="+260..." type="tel"/>
+</div>
+</div>
+</section>
+<!-- Employee List -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="groups">groups</span>
+<h2 class="font-headline-md text-headline-md">Employee Guest List</h2>
+</div>
+<button class="text-primary font-label-md text-label-md flex items-center gap-1 hover:underline" onclick="addEmployee()">
+<span class="material-symbols-outlined" data-icon="add">add</span> Add Employee
+                            </button>
+</div>
+<div class="space-y-4" id="employee-container">
+<div class="flex gap-4 items-end p-4 bg-surface-container-low rounded-lg animate-in slide-in-from-top duration-300">
+<div class="flex-1 space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant">FULL NAME</label>
+<input class="w-full h-12 px-4 rounded-lg input-filled" type="text"/>
+</div>
+<div class="flex-1 space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant">PASSPORT / ID</label>
+<input class="w-full h-12 px-4 rounded-lg input-filled" type="text"/>
+</div>
+<button class="h-12 w-12 flex items-center justify-center text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Document Upload -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="attach_file">attach_file</span>
+<h2 class="font-headline-md text-headline-md">Organization Documents</h2>
+</div>
+<div class="border-2 border-dashed border-outline-variant rounded-xl p-8 text-center bg-surface-container-lowest hover:bg-surface-container-low transition-colors cursor-pointer group">
+<span class="material-symbols-outlined text-4xl text-outline mb-2 group-hover:text-primary transition-colors" data-icon="upload_file">upload_file</span>
+<p class="font-label-md text-label-md text-on-surface-variant">Click to upload or drag &amp; drop Tax Clearance or Certificate of Incorporation</p>
+<p class="text-[10px] text-outline mt-1 uppercase tracking-widest">Max size 5MB • PDF, JPG, PNG</p>
+</div>
+</section>
+</div>
+<!-- Additional Requests (Shared) -->
+<section class="bg-surface rounded-xl p-6 border border-outline-variant shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="notes">notes</span>
+<h2 class="font-headline-md text-headline-md">Additional Requests</h2>
+</div>
+<textarea class="w-full min-h-[120px] p-4 rounded-lg input-filled resize-none" placeholder="Dietary requirements, preferred arrival time, accessibility needs, or special occasions..."></textarea>
+<p class="text-label-sm text-outline mt-3 italic">We do our best to honour every request, though they cannot be guaranteed.</p>
+</section>
+</div>
+<!-- Right Column: Booking Summary & Costs -->
+<aside class="lg:col-span-4 h-fit">
+<div class="bg-surface rounded-xl border border-outline-variant shadow-lg sticky top-20 overflow-hidden">
+<div class="relative h-48">
+<img alt="Luxury safari lodge overlooking a pristine waterhole" class="w-full h-full object-cover" data-alt="A cinematic, wide-angle photograph of a premium African safari lodge architecture overlooking a calm waterhole at golden hour. The building features natural materials like wood, stone, and thatch, blending into the surrounding savanna landscape. The lighting is warm and ethereal, casting long shadows and highlighting the earthy textures of the lodge. The overall aesthetic is one of refined, high-end hospitality and serene luxury." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC21t5-bhTP074ShaygQMybFxngDNmViwitiDlGW_ddOBcjAm4aX5CWNyh08e6z2lDI46dj-S3X-y44nHDQqXzFbtPxKaLAhHRufJgkpMvstmvl-bKvscEzr4VNke0mmnUvm6fR-kJEyOpG7tT6FQR-Z4Sf4G4d7EPIDHBUsXdLGYpTRnExP9aRGFnrlL1bOFwbChHpZWDY48vK6eATbJz06MC6o4ztc1yzXE1t7QkMXHxvUzj3v06-5luyGet4lpRTqsMZt5pG9iY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-4 left-4 text-white">
+<h3 class="font-headline-md text-headline-md leading-tight">Double Suite</h3>
+<p class="text-label-sm opacity-90">Mwakwanda Boutique Lodge</p>
+</div>
+</div>
+<div class="p-6 space-y-6">
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="calendar_today">calendar_today</span>
+<div>
+<p class="text-label-sm text-outline uppercase tracking-wider">Dates</p>
+<p class="font-label-md text-label-md">Oct 24 - Oct 27, 2024</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="person_search">person_search</span>
+<div>
+<p class="text-label-sm text-outline uppercase tracking-wider">Guests</p>
+<p class="font-label-md text-label-md" id="summary-guests">1 Adult</p>
+</div>
+</div>
+</div>
+<div class="border-t border-outline-variant pt-6 space-y-3">
+<h4 class="font-label-md text-label-md text-on-surface-variant">Cost Breakdown</h4>
+<div class="flex justify-between text-label-md">
+<span>3 Nights x $250.00</span>
+<span class="font-bold">$750.00</span>
+</div>
+<div class="flex justify-between text-label-md">
+<span>Service Fee</span>
+<span class="font-bold">$45.00</span>
+</div>
+<div class="flex justify-between text-label-md text-on-surface-variant">
+<span>Taxes (16%)</span>
+<span class="font-bold">$120.00</span>
+</div>
+<div class="hidden flex justify-between text-label-md text-primary font-medium" id="corporate-tax-row">
+<span>Corporate Discount (5%)</span>
+<span class="font-bold">-$37.50</span>
+</div>
+<div class="pt-4 border-t-2 border-primary flex justify-between items-end">
+<span class="font-label-md text-label-md text-primary font-bold uppercase tracking-widest">Total Payable</span>
+<span class="font-headline-lg text-headline-lg text-primary" id="total-price">$915.00</span>
+</div>
+</div>
+<div class="space-y-3">
+<button class="w-full bg-primary h-14 rounded-lg text-white font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-surface-tint active:scale-95 transition-all shadow-md">
+                                Review &amp; Confirm
+                            </button>
+<button class="w-full border-1.5 border-primary h-14 rounded-lg text-primary font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-surface-container-low transition-all" id="btn-invoice">
+<span class="material-symbols-outlined" data-icon="download">download</span> Download Invoice
+                            </button>
+</div>
+<div class="bg-surface-container-high/50 p-4 rounded-lg flex gap-3 items-start">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="verified_user" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<p class="text-label-sm text-on-surface-variant leading-tight">Best rate guaranteed. Your booking is protected by our flexible 48h cancellation policy.</p>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer Shell -->
+<footer class="bg-surface-container-low border-t border-outline-variant mt-12">
+<div class="w-full py-base px-margin-mobile flex flex-col md:flex-row justify-between items-center gap-4 max-w-container-max mx-auto">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-2xl" data-icon="holiday_village">holiday_village</span>
+<span class="font-headline-md text-headline-md text-secondary">Mwakwanda</span>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Mwakwanda Hospitality Group. All rights reserved.</p>
+<div class="flex gap-6">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:underline" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:underline" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:underline" href="#">Cancellation</a>
+</div>
+</div>
+</footer>
+<!-- Mobile Bottom Navigation (Task-Focused: Suppressed) -->
+<script>
+        function switchFlow(flow) {
+            const indFlow = document.getElementById('flow-individual');
+            const corpFlow = document.getElementById('flow-corporate');
+            const indTab = document.getElementById('tab-individual');
+            const corpTab = document.getElementById('tab-corporate');
+            const corpRow = document.getElementById('corporate-tax-row');
+            const totalPrice = document.getElementById('total-price');
+
+            if (flow === 'corporate') {
+                indFlow.classList.add('hidden');
+                corpFlow.classList.remove('hidden');
+                corpTab.classList.add('bg-primary-container', 'text-white', 'shadow-sm');
+                corpTab.classList.remove('text-on-surface-variant');
+                indTab.classList.remove('bg-primary-container', 'text-white', 'shadow-sm');
+                indTab.classList.add('text-on-surface-variant');
+                corpRow.classList.remove('hidden');
+                totalPrice.textContent = '$877.50';
+            } else {
+                indFlow.classList.remove('hidden');
+                corpFlow.classList.add('hidden');
+                indTab.classList.add('bg-primary-container', 'text-white', 'shadow-sm');
+                indTab.classList.remove('text-on-surface-variant');
+                corpTab.classList.remove('bg-primary-container', 'text-white', 'shadow-sm');
+                corpTab.classList.add('text-on-surface-variant');
+                corpRow.classList.add('hidden');
+                totalPrice.textContent = '$915.00';
+            }
+        }
+
+        function addEmployee() {
+            const container = document.getElementById('employee-container');
+            const div = document.createElement('div');
+            div.className = "flex gap-4 items-end p-4 bg-surface-container-low rounded-lg animate-in slide-in-from-top duration-300";
+            div.innerHTML = `
+                <div class="flex-1 space-y-1">
+                    <label class="font-label-sm text-label-sm text-on-surface-variant">FULL NAME</label>
+                    <input type="text" class="w-full h-12 px-4 rounded-lg input-filled">
+                </div>
+                <div class="flex-1 space-y-1">
+                    <label class="font-label-sm text-label-sm text-on-surface-variant">PASSPORT / ID</label>
+                    <input type="text" class="w-full h-12 px-4 rounded-lg input-filled">
+                </div>
+                <button onclick="this.parentElement.remove()" class="h-12 w-12 flex items-center justify-center text-outline hover:text-error transition-colors">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        // Simple feedback for action
+        document.getElementById('btn-invoice').addEventListener('click', function() {
+            this.innerHTML = `<span class="material-symbols-outlined animate-spin" data-icon="progress_activity">progress_activity</span> Generating...`;
+            setTimeout(() => {
+                this.innerHTML = `<span class="material-symbols-outlined" data-icon="check">check</span> Ready to Download`;
+            }, 1500);
+        });
+    </script>
+</body></html>

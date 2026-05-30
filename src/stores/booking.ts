@@ -10,21 +10,33 @@ interface GuestInfo {
   passportId:  string
 }
 
+const TAX_RATE = 0.12
+
 export const useBookingStore = defineStore('booking', () => {
+  // ── Shared ────────────────────────────────────────────────────────────
+  const bookingType = ref('individual') // 'individual' | 'corporate'
+
+  // ── Room ──────────────────────────────────────────────────────────────
   const roomId           = ref<string | null>(null)
-  const roomName         = ref('')
+  const lodgeId          = ref<string | null>(null)
+  const lodgeName        = ref('')
   const roomType         = ref('')
   const roomCapacity     = ref(0)
-  const lodgeName        = ref('')
   const baseRatePerNight = ref(0)
-  const checkIn          = ref('')
-  const checkOut         = ref('')
-  const guestCount       = ref(1)
-  const mealPlanId       = ref<string | null>(null)
-  const mealPlanName     = ref('Room Only')
-  const mealPlanRate     = ref(0)
-  const specialRequests  = ref('')
-  const guestInfo        = ref<GuestInfo>({
+
+  // ── Dates / guests ────────────────────────────────────────────────────
+  const checkIn         = ref('')
+  const checkOut        = ref('')
+  const guestCount      = ref(1)
+  const specialRequests = ref('')
+
+  // ── Meal plan ─────────────────────────────────────────────────────────
+  const mealPlanId   = ref<string | null>(null)
+  const mealPlanName = ref('Room Only')
+  const mealPlanRate = ref(0)
+
+  // ── Individual guest info ─────────────────────────────────────────────
+  const guestInfo = ref<GuestInfo>({
     firstName:   '',
     lastName:    '',
     email:       '',
@@ -33,6 +45,22 @@ export const useBookingStore = defineStore('booking', () => {
     passportId:  '',
   })
 
+  // ── Corporate client info ─────────────────────────────────────────────
+  const corporateClient = ref({
+    companyName:   '',
+    contactPerson: '',
+    email:         '',
+    phone:         '',
+    regNumber:     '',
+    industry:      '',
+  })
+
+  // ── Corporate employee guests ─────────────────────────────────────────
+  const corporateGuests = ref([
+    { fullName: '', email: '', phone: '', idNumber: '', roomId: '', checkIn: '', checkOut: '' },
+  ])
+
+  // ── Computed ──────────────────────────────────────────────────────────
   const nightCount = computed(() => {
     if (!checkIn.value || !checkOut.value) return 0
     const diff = new Date(checkOut.value).getTime() - new Date(checkIn.value).getTime()
@@ -41,14 +69,16 @@ export const useBookingStore = defineStore('booking', () => {
 
   const baseTotal  = computed(() => nightCount.value * baseRatePerNight.value)
   const mealCost   = computed(() => mealPlanRate.value * guestCount.value * nightCount.value)
-  const grandTotal = computed(() => baseTotal.value + mealCost.value)
+  const taxes      = computed(() => (baseTotal.value + mealCost.value) * TAX_RATE)
+  const grandTotal = computed(() => baseTotal.value + mealCost.value + taxes.value)
 
-  function setRoom(id: string, name: string, type: string, rate: number, capacity = 0) {
+  // ── Actions ───────────────────────────────────────────────────────────
+  function setRoom(id: string, type: string, rate: number, orgId: string | null = null, orgName = '') {
     roomId.value           = id
-    roomName.value         = name
+    lodgeId.value          = orgId
+    lodgeName.value        = orgName
     roomType.value         = type
     baseRatePerNight.value = rate
-    roomCapacity.value     = capacity
   }
 
   function setDates(ci: string, co: string) {
@@ -62,12 +92,24 @@ export const useBookingStore = defineStore('booking', () => {
     mealPlanRate.value = rate
   }
 
+  function addCorporateGuest() {
+    corporateGuests.value.push({
+      fullName: '', email: '', phone: '', idNumber: '',
+      roomId: roomId.value ?? '', checkIn: checkIn.value, checkOut: checkOut.value,
+    })
+  }
+
+  function removeCorporateGuest(index: number) {
+    if (corporateGuests.value.length > 1) corporateGuests.value.splice(index, 1)
+  }
+
   function reset() {
+    bookingType.value      = 'individual'
     roomId.value           = null
-    roomName.value         = ''
+    lodgeId.value          = null
+    lodgeName.value        = ''
     roomType.value         = ''
     roomCapacity.value     = 0
-    lodgeName.value        = ''
     baseRatePerNight.value = 0
     checkIn.value          = ''
     checkOut.value         = ''
@@ -77,14 +119,19 @@ export const useBookingStore = defineStore('booking', () => {
     mealPlanRate.value     = 0
     specialRequests.value  = ''
     guestInfo.value        = { firstName: '', lastName: '', email: '', phone: '', nationality: '', passportId: '' }
+    corporateClient.value  = { companyName: '', contactPerson: '', email: '', phone: '', regNumber: '', industry: '' }
+    corporateGuests.value  = [{ fullName: '', email: '', phone: '', idNumber: '', roomId: '', checkIn: '', checkOut: '' }]
   }
 
   return {
-    roomId, roomName, roomType, roomCapacity, lodgeName, baseRatePerNight,
-    checkIn, checkOut, guestCount,
+    bookingType,
+    roomId, lodgeId, lodgeName, roomType, roomCapacity, baseRatePerNight,
+    checkIn, checkOut, guestCount, specialRequests,
     mealPlanId, mealPlanName, mealPlanRate,
-    specialRequests, guestInfo,
-    nightCount, baseTotal, mealCost, grandTotal,
-    setRoom, setDates, setMealPlan, reset,
+    guestInfo, corporateClient, corporateGuests,
+    nightCount, baseTotal, mealCost, taxes, grandTotal,
+    setRoom, setDates, setMealPlan,
+    addCorporateGuest, removeCorporateGuest,
+    reset,
   }
 })

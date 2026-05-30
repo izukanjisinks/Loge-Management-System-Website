@@ -124,7 +124,7 @@ const strengthColor = [
             class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 pr-10
                    font-sans text-sm text-(--color-on-surface)
                    placeholder:text-(--color-on-surface-variant)
-                   focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20 transition-all duration-200"
+                   focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all duration-200"
           />
           <button
             type="button"
@@ -171,7 +171,7 @@ const strengthColor = [
             class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 pr-10
                    font-sans text-sm text-(--color-on-surface)
                    placeholder:text-(--color-on-surface-variant)
-                   focus:outline-none focus:ring-2 focus:ring-(--color-primary)/20 transition-all duration-200"
+                   focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all duration-200"
           />
           <button
             type="button"

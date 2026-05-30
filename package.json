@@ -8,10 +8,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ceereals/vue-pdf": "^0.3.1",
     "@internationalized/date": "^3.12.1",
     "@vueuse/core": "^14.3.0",
     "axios": "^1.13.6",
     "clsx": "^2.1.1",
+    "firebase": "^12.14.0",
     "pinia": "^3.0.4",
     "reka-ui": "^2.9.7",
     "tailwind-merge": "^3.6.0",

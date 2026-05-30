@@ -37,7 +37,7 @@ import { RouterLink } from 'vue-router'
           <RouterLink to="/bookings"
             class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
             Corporate Booking</RouterLink>
-          <RouterLink to="/rooms"
+          <RouterLink to="/lodges"
             class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
             Partner Lodges</RouterLink>
           <!-- <a href="#"                class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Concierge</a> -->

@@ -28,7 +28,7 @@ const features = [
           :key="f.icon"
           class="flex flex-col items-center reveal"
         >
-          <div class="w-16 h-16 rounded-full bg-(--color-primary-container)/20 flex items-center justify-center mb-6">
+          <div class="w-16 h-16 rounded-full bg-(--color-primary-container) flex items-center justify-center mb-6">
             <span class="material-symbols-outlined text-(--color-primary-fixed-dim) text-3xl">{{ f.icon }}</span>
           </div>
           <h4 class="font-serif text-2xl mb-3">{{ f.title }}</h4>

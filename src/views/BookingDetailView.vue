@@ -222,7 +222,7 @@ async function cancel() {
               <span v-else>Cancel Reservation</span>
             </button>
             <RouterLink
-              to="/rooms"
+              to="/lodges"
               class="w-full text-center bg-(--color-primary) text-white py-3 rounded-lg font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-all"
             >
               Browse Lodges

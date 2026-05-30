@@ -1,9 +1,9 @@
-check_in<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useLodges, useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
-import { publicApi } from '@/lib/api'
-import type { Room } from '@/types'
+import { useLodgesStore } from '@/stores/lodges'
+import { useBookingStore } from '@/stores/booking'
+import { useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
@@ -11,39 +11,37 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 const route = useRoute()
 const router = useRouter()
 
-const lodgeId = route.params.id
+const lodgeId     = route.params.id
+const lodgesStore = useLodgesStore()
+const booking     = useBookingStore()
 
-// Fetch lodge info from the list (no single-lodge endpoint available)
-const { lodges, loading: lodgeLoading, error: lodgeError, fetchLodges } = useLodges()
-const lodge = computed(() => lodges.value.find((l: { id: string }) => l.id === lodgeId))
+const lodgeLoading = computed(() => lodgesStore.loading)
+const lodgeError   = computed(() => lodgesStore.error)
+const lodge        = computed(() => lodgesStore.lodges.find((l: any) => l.id === lodgeId))
+const branches     = computed(() => lodgesStore.branchesFor(lodgeId as string))
 
-// GET /api/v1/rooms is public no auth required
 const { rooms, page: roomsPage, totalPages: roomsTotalPages, loading: roomsLoading, error: roomsError, fetchRooms } = useRooms()
 
 const searched     = ref(false)
-const availableIds = ref<Set<string>>(new Set())
-const checkLoading = ref(false)
-const checkError   = ref<string | null>(null)
+const dateFilters  = ref<Record<string, string>>({})
+const filterBranch = ref('')
+
+watch(filterBranch, () => {
+  const params: Record<string, string | number> = { org_id: lodgeId as string, ...dateFilters.value }
+  if (filterBranch.value) params.branch_id = filterBranch.value
+  fetchRooms(params)
+})
 
 async function goToPage(p: number) {
-  await fetchRooms({ org_id: lodgeId, page: p })
+  const params: Record<string, string | number> = { org_id: lodgeId as string, page: p, ...dateFilters.value }
+  if (filterBranch.value) params.branch_id = filterBranch.value
+  await fetchRooms(params)
 }
 
 function roomPageClass(p: number): string {
   return p === roomsPage.value
     ? 'bg-(--color-primary) text-white border-transparent'
     : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'
-}
-
-function isAvailableForDates(roomId: string): boolean {
-  return availableIds.value.has(roomId)
-}
-
-function reserveLabel(roomId: string): string {
-  if (nights.value === 0) return 'Select dates to reserve'
-  if (!searched.value) return 'Check availability first'
-  if (!isAvailableForDates(roomId)) return 'Unavailable'
-  return 'Reserve'
 }
 
 const todayDate    = today(getLocalTimeZone())
@@ -64,12 +62,12 @@ function formatDisplay(iso: string): string | null {
 
 const checkInValue = computed({
   get: () => checkIn.value ? parseDate(checkIn.value) : undefined,
-  set: (v) => { checkIn.value = toIso(v); checkInOpen.value = false },
+  set: (v) => { checkIn.value = toIso(v as any); checkInOpen.value = false },
 })
 
 const checkOutValue = computed({
   get: () => checkOut.value ? parseDate(checkOut.value) : undefined,
-  set: (v) => { checkOut.value = toIso(v); checkOutOpen.value = false },
+  set: (v) => { checkOut.value = toIso(v as any); checkOutOpen.value = false },
 })
 
 const checkOutMin = computed(() =>
@@ -83,8 +81,8 @@ const nights = computed(() => {
 })
 
 onMounted(async () => {
-  await fetchLodges({ page_size: 100 })
-  fetchRooms({ org_id: lodgeId })
+  await lodgesStore.fetchLodges()
+  fetchRooms({ org_id: lodgeId as string })
 })
 
 const COVERS = [
@@ -95,53 +93,34 @@ const COVERS = [
 ]
 
 function lodgeCover(i: number) {
-  return lodge.value?.logo_url ?? COVERS[i % COVERS.length]
+  return (lodge.value as any)?.logo_url ?? COVERS[i % COVERS.length]
 }
 
 async function checkAvailability() {
   if (nights.value === 0) return
-  checkLoading.value = true
-  checkError.value   = null
-  searched.value     = false
-  availableIds.value = new Set()
-  try {
-    const { data } = await publicApi.get('/guest/rooms', {
-      params: { org_id: lodgeId, check_in: checkIn.value, check_out: checkOut.value, page_size: 100 },
-    })
-    const list: Room[] = Array.isArray(data) ? data : (data.data ?? [])
-    availableIds.value = new Set(list.map(r => r.id))
-    searched.value = true
-  } catch {
-    checkError.value = 'Failed to check availability. Please try again.'
-  } finally {
-    checkLoading.value = false
-  }
+  searched.value = false
+  dateFilters.value = { check_in: checkIn.value, check_out: checkOut.value }
+  const params: Record<string, string | number> = { org_id: lodgeId as string, ...dateFilters.value }
+  if (filterBranch.value) params.branch_id = filterBranch.value
+  await fetchRooms(params)
+  searched.value = true
 }
 
-function reserve(room: Room) {
-  router.push({
-    name: 'reservation',
-    params: { roomId: room.id },
-    query: {
-      check_in:      checkIn.value,
-      check_out:     checkOut.value,
-      lodge_id:      lodgeId as string,
-      lodge_name:    lodge.value?.name ?? '',
-      room_name:     room.name,
-      room_type:     room.type,
-      room_capacity: String(room.capacity),
-      room_price:    String(room.price_per_night),
-    },
-  })
+function reserve(room: any) {
+  const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
+  booking.setRoom(room.id, cap(room.type), parseFloat(room.price_per_night) || 0, lodgeId as string, (lodge.value as any)?.name ?? '')
+  if (checkIn.value)  booking.checkIn  = checkIn.value
+  if (checkOut.value) booking.checkOut = checkOut.value
+  router.push({ name: 'reservation', params: { roomId: room.id } })
 }
 </script>
 
 <template>
   <!-- Loading -->
   <div v-if="lodgeLoading" class="max-w-[1280px] mx-auto px-5 md:px-16 py-10 animate-pulse space-y-6">
-    <div class="h-72 bg-(--color-surface-container-highest) rounded-2xl" />
-    <div class="h-8 bg-(--color-surface-container-highest) rounded w-[33%]" />
-    <div class="h-4 bg-(--color-surface-container-highest) rounded w-[25%]" />
+    <div class="h-72 bg-(--color-surface-container-highest) rounded-2xl"></div>
+    <div class="h-8 bg-(--color-surface-container-highest) rounded max-w-xs"></div>
+    <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
   </div>
 
   <!-- Error / not found -->
@@ -156,18 +135,18 @@ function reserve(room: Room) {
 
     <!-- Hero banner -->
     <section class="relative h-64 md:h-80 overflow-hidden">
-      <img :src="lodgeCover(0)" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent" />
+      <img :src="lodgeCover(0)" :alt="(lodge as any).name" class="absolute inset-0 w-full h-full object-cover" />
+      <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent"></div>
       <div class="relative z-10 h-full flex flex-col justify-end px-5 md:px-16 pb-10 max-w-[1280px] mx-auto">
         <RouterLink to="/explore"
           class="flex items-center gap-1 font-sans text-sm text-white/70 hover:text-white mb-4 transition-colors w-fit">
           <span class="material-symbols-outlined text-base">arrow_back</span>
           All lodges
         </RouterLink>
-        <h1 class="font-serif text-3xl md:text-4xl font-semibold text-white">{{ lodge.name }}</h1>
-        <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-white/80 mt-2">
+        <h1 class="font-serif text-3xl md:text-4xl font-semibold text-white">{{ (lodge as any).name }}</h1>
+        <p v-if="(lodge as any).address" class="flex items-center gap-1.5 font-sans text-sm text-white/80 mt-2">
           <span class="material-symbols-outlined text-base">location_on</span>
-          {{ lodge.address }}
+          {{ (lodge as any).address }}
         </p>
       </div>
     </section>
@@ -175,13 +154,13 @@ function reserve(room: Room) {
     <!-- Lodge info strip -->
     <div class="bg-(--color-surface) border-b border-(--color-outline-variant)">
       <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-5 flex flex-wrap gap-6">
-        <div v-if="lodge.email" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant)">
+        <div v-if="(lodge as any).email" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant)">
           <span class="material-symbols-outlined text-base text-(--color-primary)">mail</span>
-          {{ lodge.email }}
+          {{ (lodge as any).email }}
         </div>
-        <div v-if="lodge.phone" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant)">
+        <div v-if="(lodge as any).phone" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant)">
           <span class="material-symbols-outlined text-base text-(--color-primary)">phone</span>
-          {{ lodge.phone }}
+          {{ (lodge as any).phone }}
         </div>
       </div>
     </div>
@@ -190,10 +169,22 @@ function reserve(room: Room) {
     <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-5">
       <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface) mb-2">Check Availability</h2>
       <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">
-        Pick your dates to see which rooms are free at {{ lodge.name }}.
+        Pick your dates to see which rooms are free at {{ (lodge as any).name }}.
       </p>
 
       <div class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
+        <!-- Branch selector -->
+        <div v-if="branches.length > 1" class="flex-1 flex flex-col gap-1">
+          <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
+          <select
+            v-model="filterBranch"
+            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all cursor-pointer"
+          >
+            <option value="">All Branches</option>
+            <option v-for="b in branches" :key="(b as any).id" :value="(b as any).id">{{ (b as any).name }}</option>
+          </select>
+        </div>
+
         <!-- Check-in -->
         <div class="flex-1 flex flex-col gap-1">
           <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in</label>
@@ -233,15 +224,14 @@ function reserve(room: Room) {
         <div class="flex items-end">
           <div class="flex flex-col items-start gap-1">
             <button
-              :disabled="nights === 0 || checkLoading"
+              :disabled="nights === 0 || roomsLoading"
               class="w-full sm:w-auto px-7 py-2.5 bg-(--color-primary) text-white rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center gap-2 disabled:opacity-50"
               @click="checkAvailability"
             >
-              <span v-if="checkLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              <span v-if="roomsLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span v-else class="material-symbols-outlined text-base">search</span>
-              {{ checkLoading ? 'Checking...' : `Check${nights > 0 ? ` (${nights} night${nights !== 1 ? 's' : ''})` : ''}` }}
+              {{ roomsLoading ? 'Checking...' : `Check${nights > 0 ? ` (${nights} night${nights !== 1 ? 's' : ''})` : ''}` }}
             </button>
-            <p v-if="checkError" class="font-sans text-xs text-(--color-error)">{{ checkError }}</p>
           </div>
         </div>
       </div>
@@ -251,10 +241,9 @@ function reserve(room: Room) {
     <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-12">
       <div class="flex items-baseline justify-between mb-8">
         <div>
-          <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface)">Rooms at {{ lodge.name }}</h2>
+          <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface)">Rooms at {{ (lodge as any).name }}</h2>
           <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
             <template v-if="roomsLoading">Loading rooms...</template>
-            <template v-else-if="checkLoading">Checking availability for your dates...</template>
             <template v-else-if="searched">{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} &ndash; availability shown below</template>
             <template v-else>{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} at this lodge</template>
           </p>
@@ -262,90 +251,94 @@ function reserve(room: Room) {
       </div>
 
       <!-- Rooms error -->
-      <div v-if="roomsError" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
+      <div v-if="roomsError && !roomsLoading" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
         <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
         <p class="font-sans text-sm text-(--color-on-error-container)">{{ roomsError }}</p>
       </div>
 
-      <!-- Rooms skeleton -->
-      <div v-else-if="roomsLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+      <!-- Rooms skeleton (first load only) -->
+      <div v-if="roomsLoading && !rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
         <div v-for="i in 3" :key="i"
           class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
-          <div class="h-44 bg-(--color-surface-container-highest)" />
+          <div class="h-44 bg-(--color-surface-container-highest)"></div>
           <div class="p-4 space-y-2">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded w-[75%]" />
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-[50%]" />
+            <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
           </div>
         </div>
       </div>
 
       <!-- Room cards -->
-      <div v-else-if="rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-        <div v-for="room in rooms" :key="room.id"
-          class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col">
-          <div class="relative h-44 overflow-hidden">
-            <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
-            <span v-if="searched && isAvailableForDates(room.id)"
-              class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/90">
-              Available
-            </span>
-            <span v-else-if="searched"
-              class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/90">
-              Unavailable
-            </span>
-            <span
-              class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
-              {{ room.type }}
-            </span>
+      <div v-else-if="rooms.length" class="relative mb-16">
+        <!-- Re-fetch overlay spinner -->
+        <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0" enter-to-class="opacity-100"
+          leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+          <div v-if="roomsLoading" class="absolute inset-0 z-10 bg-(--color-background) flex items-center justify-center rounded-2xl">
+            <span class="material-symbols-outlined text-4xl text-(--color-primary) animate-spin">progress_activity</span>
           </div>
-
-          <div class="p-5 flex flex-col flex-1">
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <h3 class="font-serif text-lg text-(--color-on-surface)">{{ room.name }}</h3>
-              <div class="text-right shrink-0">
-                <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString()
-                  }}
-                </p>
-                <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
-              </div>
-            </div>
-
-            <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
-              <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
-              Sleeps {{ room.capacity }}
-            </p>
-
-            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
-              {{ room.description || 'A comfortable and well-appointed room.' }}
-            </p>
-
-            <div class="flex flex-wrap gap-1 mb-4">
-              <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
-                class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
-                <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
-                {{ a }}
+        </Transition>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="room in rooms" :key="(room as any).id"
+            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col">
+            <div class="relative h-44 overflow-hidden">
+              <img :src="roomImage(room as any)" :alt="(room as any).name" class="w-full h-full object-cover" />
+              <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
+              <span
+                :class="(room as any).is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
+                class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+                {{ (room as any).is_available ? 'Available' : 'Unavailable' }}
+              </span>
+              <span
+                class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
+                {{ (room as any).type }}
               </span>
             </div>
 
-            <button
-              :disabled="!(searched && isAvailableForDates(room.id))"
-              class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all bg-(--color-primary) text-white hover:bg-(--color-clay-earth) disabled:opacity-40 disabled:cursor-not-allowed"
-              @click="reserve(room)"
-            >
-              {{ reserveLabel(room.id) }}
-            </button>
-            <RouterLink
-              :to="`/rooms/${room.id}`"
-              class="w-full mt-2 py-2.5 rounded-full font-sans text-sm font-semibold text-center border-2 border-(--color-primary) text-(--color-primary) hover:bg-(--color-primary) hover:text-white transition-all"
-            >
-              View Details
-            </RouterLink>
+            <div class="p-5 flex flex-col flex-1">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h3 class="font-serif text-lg text-(--color-on-surface)">{{ (room as any).name }}</h3>
+                <div class="text-right shrink-0">
+                  <p class="font-serif text-lg text-(--color-primary)">K{{ Number((room as any).price_per_night).toLocaleString() }}</p>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
+                </div>
+              </div>
+
+              <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
+                <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
+                Sleeps {{ (room as any).capacity }}
+              </p>
+
+              <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
+                {{ (room as any).description || 'A comfortable and well-appointed room.' }}
+              </p>
+
+              <div class="flex flex-wrap gap-1 mb-4">
+                <span v-for="a in ((room as any).amenities ?? []).slice(0, 3)" :key="a"
+                  class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
+                  {{ a }}
+                </span>
+              </div>
+
+              <button
+                :disabled="!(room as any).is_available"
+                class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all bg-(--color-primary) text-white hover:bg-(--color-clay-earth) disabled:opacity-40 disabled:cursor-not-allowed"
+                @click="reserve(room)"
+              >
+                {{ (room as any).is_available ? 'Reserve' : 'Unavailable' }}
+              </button>
+              <RouterLink
+                :to="`/rooms/${(room as any).id}`"
+                class="w-full mt-2 py-2.5 rounded-full font-sans text-sm font-semibold text-center border-2 border-(--color-primary) text-(--color-primary) hover:bg-(--color-primary) hover:text-white transition-all"
+              >
+                View Details
+              </RouterLink>
+            </div>
           </div>
         </div>
       </div>
 
-      <div v-else
+      <div v-else-if="!roomsLoading"
         class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-8">
         <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">bed</span>
         <p class="font-serif text-xl text-(--color-on-surface)">No rooms listed</p>
