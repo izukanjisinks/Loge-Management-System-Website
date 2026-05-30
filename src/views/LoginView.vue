@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import BaseInput  from '@/components/ui/BaseInput.vue'
@@ -9,6 +9,12 @@ import api from '@/lib/api'
 const router = useRouter()
 const route  = useRoute()
 const auth   = useAuthStore()
+
+const redirectNotice = computed(() => {
+  if (route.query.reason === 'session') return 'Your session has expired. Please sign in to continue.'
+  if (route.query.reason === 'auth')    return 'Please sign in to access that page.'
+  return null
+})
 
 // ── Login state ───────────────────────────────────────────────────────
 const email       = ref('')
@@ -90,6 +96,16 @@ async function submitReset() {
 
     <!-- ── Login form ─────────────────────────────────────────────── -->
     <template v-if="mode === 'login'">
+      <Transition enter-active-class="transition duration-300" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0">
+        <div
+          v-if="redirectNotice"
+          class="flex items-start gap-2.5 p-3.5 rounded-lg bg-(--color-secondary-container) text-(--color-on-secondary-container) mb-6"
+        >
+          <span class="material-symbols-outlined text-base shrink-0 mt-0.5">info</span>
+          <p class="font-sans text-sm leading-snug">{{ redirectNotice }}</p>
+        </div>
+      </Transition>
+
       <div class="mb-8">
         <p class="font-sans text-xs font-semibold tracking-[0.22em] uppercase text-(--color-primary) mb-2">
           Welcome back

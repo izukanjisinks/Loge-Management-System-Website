@@ -159,7 +159,7 @@ function reserve(room: Room) {
       <img :src="lodgeCover(0)" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
       <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent" />
       <div class="relative z-10 h-full flex flex-col justify-end px-5 md:px-16 pb-10 max-w-[1280px] mx-auto">
-        <RouterLink to="/lodges"
+        <RouterLink to="/explore"
           class="flex items-center gap-1 font-sans text-sm text-white/70 hover:text-white mb-4 transition-colors w-fit">
           <span class="material-symbols-outlined text-base">arrow_back</span>
           All lodges
@@ -335,6 +335,12 @@ function reserve(room: Room) {
             >
               {{ reserveLabel(room.id) }}
             </button>
+            <RouterLink
+              :to="`/rooms/${room.id}`"
+              class="w-full mt-2 py-2.5 rounded-full font-sans text-sm font-semibold text-center border-2 border-(--color-primary) text-(--color-primary) hover:bg-(--color-primary) hover:text-white transition-all"
+            >
+              View Details
+            </RouterLink>
           </div>
         </div>
       </div>

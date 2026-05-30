@@ -8,6 +8,7 @@ const router   = useRouter()
 const menuOpen = ref(false)
 
 function handleLogout() {
+  if (!confirm('Are you sure you want to sign out?')) return
   auth.logout()
   router.push({ name: 'home' })
 }
@@ -26,7 +27,7 @@ function handleLogout() {
       <!-- Desktop nav links -->
       <div class="hidden md:flex gap-6 items-center">
         <RouterLink
-          to="/lodges"
+          to="/explore"
           class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
           active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
         >
@@ -92,7 +93,7 @@ function handleLogout() {
         class="md:hidden bg-(--color-surface) px-5 pb-6 pt-2 flex flex-col gap-4 border-t border-(--color-outline-variant)"
         @click="menuOpen = false"
       >
-        <RouterLink to="/lodges"   class="font-sans text-sm text-(--color-on-surface-variant) py-2">Explore</RouterLink>
+        <RouterLink to="/explore"  class="font-sans text-sm text-(--color-on-surface-variant) py-2">Explore</RouterLink>
         <RouterLink to="/bookings" class="font-sans text-sm text-(--color-on-surface-variant) py-2">Reservations</RouterLink>
         <RouterLink to="/about"    class="font-sans text-sm text-(--color-on-surface-variant) py-2">About</RouterLink>
         <template v-if="auth.isAuthenticated">

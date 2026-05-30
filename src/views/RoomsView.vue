@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+
 import { useRoute } from 'vue-router'
 import { useScrollReveal } from '@/composables/useScrollReveal'
 import RoomCard from '@/components/rooms/RoomCard.vue'
@@ -317,6 +318,14 @@ function resetFilters() {
           </button>
           <button v-for="p in totalPages" :key="p" :class="pageClass(p)" class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors" @click="fetchRooms(p)">{{ p }}</button>
           <button :disabled="page >= totalPages || apiLoading" class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors" @click="fetchRooms(page + 1)">
+            <span class="material-symbols-outlined text-base">chevron_right</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</template>rface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors" @click="fetchRooms(page + 1)">
             <span class="material-symbols-outlined text-base">chevron_right</span>
           </button>
         </div>

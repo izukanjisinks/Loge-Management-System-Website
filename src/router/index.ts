@@ -8,6 +8,7 @@ const routes = [
     children: [
       { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
       { path: 'about', name: 'about', component: () => import('@/views/AboutView.vue') },
+      { path: 'explore', name: 'explore', component: () => import('@/views/ExploreView.vue') },
       { path: 'lodges', name: 'lodges', component: () => import('@/views/LodgesView.vue') },
       { path: 'lodges/:id', name: 'lodge-detail', component: () => import('@/views/LodgeDetailView.vue') },
       { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
@@ -56,7 +57,7 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    return { name: 'login', query: { redirect: to.fullPath, reason: 'auth' } }
   }
 
   if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
