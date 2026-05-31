@@ -13,7 +13,8 @@ export const useLodgesStore = defineStore('lodges', () => {
     error.value   = null
     try {
       const { data } = await api.get('/guest/lodges', { params: { page: 1, page_size: 100 } })
-      lodges.value = (data.data ?? data).map(l => ({
+      const raw = data.data ?? data
+      lodges.value = raw.map(l => ({
         id:       l.id,
         name:     l.name,
         logoUrl:  l.logo_url     || null,
@@ -21,8 +22,11 @@ export const useLodgesStore = defineStore('lodges', () => {
         email:    l.email        || null,
         phone:    l.phone        || null,
         branches: (l.branches ?? []).map(b => ({
-          id:   b.id,
-          name: b.name,
+          id:         b.id,
+          name:       b.name,
+          restaurant: b.restaurant  ?? true,
+          conference: b.conference_room ?? b.conference ?? true,
+          parking:    b.parking     ?? true,
         })),
       }))
     } catch {
@@ -33,8 +37,28 @@ export const useLodgesStore = defineStore('lodges', () => {
   }
 
   function branchesFor(lodgeId) {
-    return lodges.value.find(l => l.id === lodgeId)?.branches ?? []
+    return lodges.value.find(l => String(l.id) === String(lodgeId))?.branches ?? []
   }
 
-  return { lodges, loading, error, fetchLodges, branchesFor }
+  async function fetchLodgeDetail(lodgeId) {
+    try {
+      const { data } = await api.get(`/guest/lodges/${lodgeId}`)
+      const payload = data.data ?? data
+      const lodge = lodges.value.find(l => String(l.id) === String(lodgeId))
+      if (lodge) {
+        const rawBranches = payload.branches ?? data.branches ?? []
+        lodge.branches = rawBranches.map(b => ({
+          id:         b.id,
+          name:       b.name,
+          restaurant: b.restaurant      ?? true,
+          conference: b.conference_room ?? b.conference ?? true,
+          parking:    b.parking         ?? true,
+        }))
+      }
+    } catch {
+      // silently ignore — branch selector just won't appear
+    }
+  }
+
+  return { lodges, loading, error, fetchLodges, branchesFor, fetchLodgeDetail }
 })

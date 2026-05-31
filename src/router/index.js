@@ -10,6 +10,12 @@ const routes = [
       { path: 'about', name: 'about', component: () => import('@/views/AboutView.vue') },
       { path: 'lodges', name: 'lodges', component: () => import('@/views/LodgesView.vue') },
       { path: 'lodges/:id', name: 'lodge-detail', component: () => import('@/views/LodgeDetailView.vue') },
+      {
+        path: 'lodges/:id/corporate',
+        name: 'corporate-booking',
+        component: () => import('@/views/CorporateBookingView.vue'),
+        meta: { requiresAuth: true },
+      },
       { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
       {
         path: 'reserve/:roomId',

@@ -76,6 +76,7 @@ const nights = computed(() => {
 
 onMounted(async () => {
   await lodgesStore.fetchLodges()
+  lodgesStore.fetchLodgeDetail(lodgeId)
   fetchRooms({ org_id: lodgeId })
 })
 
@@ -169,7 +170,7 @@ function reserve(room) {
 
       <div class="flex flex-col sm:flex-row gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-6">
         <!-- Branch  selector -->
-        <div v-if="branches.length > 1" class="flex-1 flex flex-col gap-1">
+        <div v-if="branches.length >1" class="flex-1 flex flex-col gap-1">
           <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
           <select
             v-model="filterBranch"
@@ -227,6 +228,40 @@ function reserve(room) {
             {{ roomsLoading ? 'Checking…' : `Check${nights > 0 ? ` (${nights} night${nights !== 1 ? 's' : ''})` : ''}` }}
           </button>
         </div>
+      </div>
+    </section>
+
+    <!-- ── Corporate Booking CTA ────────────────────────────────────── -->
+    <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+        <div class="flex items-start gap-4">
+          <span class="material-symbols-outlined text-2xl text-(--color-primary) mt-0.5 shrink-0">business_center</span>
+          <div>
+            <h3 class="font-serif text-lg text-(--color-on-surface)">Corporate &amp; Group Bookings</h3>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-0.5">Book accommodation, meals, and conference rooms for your team in one request.</p>
+            <p v-if="branches.length > 1 && !filterBranch" class="font-sans text-xs text-(--color-error) font-semibold mt-1.5 flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">warning</span>
+              A branch must be selected before making a corporate booking.
+            </p>
+            <p v-if="branches.length > 1 && filterBranch" class="font-sans text-xs text-(--color-primary) font-semibold mt-1.5 flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">location_on</span>
+              {{ branches.find(b => b.id === filterBranch)?.name }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Disabled state when branch not selected -->
+        <span v-if="branches.length > 1 && !filterBranch"
+          class="shrink-0 flex items-center gap-2 px-6 py-2.5 bg-(--color-outline-variant) text-(--color-on-surface-variant) font-sans text-sm font-semibold rounded-full whitespace-nowrap cursor-not-allowed opacity-60"
+          title="Select a branch first">
+          <span class="material-symbols-outlined text-base">lock</span>
+          Corporate Booking
+        </span>
+        <RouterLink v-else :to="{ name: 'corporate-booking', params: { id: lodgeId }, query: filterBranch ? { branchId: filterBranch } : {} }"
+          class="shrink-0 flex items-center gap-2 px-6 py-2.5 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors whitespace-nowrap">
+          <span class="material-symbols-outlined text-base">arrow_forward</span>
+          Corporate Booking
+        </RouterLink>
       </div>
     </section>
 
