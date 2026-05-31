@@ -34,9 +34,6 @@ const accomDocFiles = ref([])
 const mealsDocFiles = ref([])
 const confDocFiles = ref([])
 
-// Keep legacy alias so existing template references still work
-const docFiles = accomDocFiles
-
 function pickDocsFor(bucket) {
   return (e) => {
     const allowed = ['application/pdf', 'image/jpeg', 'image/png']
@@ -52,9 +49,6 @@ function pickDocsFor(bucket) {
 
 function removeDocFrom(bucket, i) { bucket.value.splice(i, 1) }
 
-// Keep legacy shims so existing accommodation template still compiles
-function onDocPick(e) { pickDocsFor(accomDocFiles)(e) }
-function removeDoc(i) { removeDocFrom(accomDocFiles, i) }
 
 async function uploadBucket(bucket) {
   const pending = bucket.value.filter(d => d.file && !d.url && !d.error)
@@ -68,7 +62,7 @@ async function uploadBucket(bucket) {
 }
 
 // ── Branch menu ─────────────────────────────────────────────────────────
-const menu        = ref([])   // [{ id, name, category, price, description }]
+const menu = ref([])   // [{ id, name, category, price, description }]
 const menuLoading = ref(false)
 
 async function fetchMenu(branchId) {
@@ -79,10 +73,10 @@ async function fetchMenu(branchId) {
     if (lodgeId) params.org_id = lodgeId
     const { data } = await api.get('/guest/menus', { params })
     menu.value = (data.data ?? data).map(item => ({
-      id:          item.id,
-      name:        item.name,
-      category:    item.category    || '',
-      price:       parseFloat(item.price) || 0,
+      id: item.id,
+      name: item.name,
+      category: item.category || '',
+      price: parseFloat(item.price) || 0,
       description: item.description || '',
     }))
   } catch {
@@ -127,18 +121,18 @@ function removeMealItem(guest, j) { guest.mealItems.splice(j, 1) }
 // ── Constants ────────────────────────────────────────────────────────────
 const ALL_TABS = [
   { key: 'accommodation', label: 'Accommodation', icon: 'bed' },
-  { key: 'meals',         label: 'Meals',          icon: 'restaurant' },
-  { key: 'conference',    label: 'Conference Room', icon: 'meeting_room' },
+  { key: 'meals', label: 'Meals', icon: 'restaurant' },
+  { key: 'conference', label: 'Conference Room', icon: 'meeting_room' },
 ]
 const TABS = computed(() => ALL_TABS.filter(t => {
-  if (t.key === 'meals')      return branchHasRestaurant.value
+  if (t.key === 'meals') return branchHasRestaurant.value
   if (t.key === 'conference') return branchHasConference.value
   return true
 }))
 const MEAL_PLANS = [
   { value: 'breakfast', label: 'Breakfast Only' },
-  { value: 'breakfast', label: 'Lunch Only' },
-  { value: 'breakfast', label: 'Dinner Only' },
+  { value: 'lunch', label: 'Lunch Only' },
+  { value: 'dinner', label: 'Dinner Only' },
   { value: 'half_board', label: 'Half Board (B&D)' },
   { value: 'full_board', label: 'Full Board (B, L & D)' },
 ]
@@ -273,9 +267,9 @@ watch(() => cb.branchId, (id) => fetchMenu(id))
 // When branch capabilities change, disable unsupported services and
 // redirect activeTab if it's no longer available
 watch([branchHasRestaurant, branchHasConference], ([hasRestaurant, hasConference]) => {
-  cb.meals.enabled      = hasRestaurant
+  cb.meals.enabled = hasRestaurant
   cb.conference.enabled = hasConference
-  if (activeTab.value === 'meals' && !hasRestaurant)      activeTab.value = 'accommodation'
+  if (activeTab.value === 'meals' && !hasRestaurant) activeTab.value = 'accommodation'
   if (activeTab.value === 'conference' && !hasConference) activeTab.value = 'accommodation'
 })
 
@@ -358,7 +352,7 @@ function guestNights(g) {
           <span v-if="step > i + 1" class="material-symbols-outlined"
             style="font-variation-settings: 'FILL' 1">check_circle</span>
           <span v-else class="material-symbols-outlined">{{ s.active ? 'radio_button_checked' : 'radio_button_unchecked'
-          }}</span>
+            }}</span>
           <span class="font-sans text-sm font-semibold">{{ s.label }}</span>
         </div>
         <div v-if="i < stepDefs.length - 1" class="h-px w-10 bg-(--color-outline-variant)"></div>
@@ -415,17 +409,17 @@ function guestNights(g) {
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.companyName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName
-                }}</span>
+                  }}</span>
               </div>
               <div class="flex flex-col gap-1">
                 <label
                   class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN
                   <span class="text-(--color-error)">*</span></label>
-                <input v-model="cb.company.regNumber" type="text" placeholder="1234567890"
+                <input v-model="cb.company.regNumber" type="text" placeholder="e.g. 1234567890"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.regNumber ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.regNumber" class="font-sans text-xs text-(--color-error)">{{ errors.regNumber
-                }}</span>
+                  }}</span>
               </div>
               <div class="flex flex-col gap-1">
                 <label
@@ -435,7 +429,7 @@ function guestNights(g) {
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.contactPerson ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.contactPerson" class="font-sans text-xs text-(--color-error)">{{ errors.contactPerson
-                }}</span>
+                  }}</span>
               </div>
               <div class="flex flex-col gap-1">
                 <label
@@ -635,7 +629,7 @@ function guestNights(g) {
                     :class="errors.authoriserName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                   <span v-if="errors.authoriserName" class="font-sans text-xs text-(--color-error)">{{
                     errors.authoriserName
-                    }}</span>
+                  }}</span>
                 </div>
                 <div class="flex flex-col gap-1">
                   <label
@@ -669,16 +663,21 @@ function guestNights(g) {
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
-                  <input v-model="cb.accommodation.authoriser.glCode" type="text" placeholder="e.g. GL-4200"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1 md:col-span-2">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Center <span class="text-(--color-error)">*</span></label>
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost
+                    Center <span class="text-(--color-error)">*</span></label>
                   <input v-model="cb.accommodation.costCenter" type="text" placeholder="e.g. 12345678"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                     :class="errors.costCenter ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                  <span v-if="errors.costCenter" class="font-sans text-xs text-(--color-error)">{{ errors.costCenter }}</span>
+                  <span v-if="errors.costCenter" class="font-sans text-xs text-(--color-error)">{{ errors.costCenter
+                    }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL
+                    Code</label>
+                  <input v-model="cb.accommodation.authoriser.glCode" type="text" placeholder="e.g. 12345678"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>
             </section>
@@ -692,7 +691,7 @@ function guestNights(g) {
               </div>
               <label
                 class="block border-2 border-dashed border-(--color-outline-variant) rounded-xl p-8 text-center hover:bg-(--color-surface-container-low) transition-colors cursor-pointer group">
-                <input type="file" class="hidden" multiple accept=".pdf,.jpg,.jpeg,.png" @change="onDocPick" />
+                <input type="file" class="hidden" multiple accept=".pdf,.jpg,.jpeg,.png" @change="pickDocsFor(accomDocFiles)($event)" />
                 <span
                   class="material-symbols-outlined text-4xl text-(--color-outline) mb-2 block group-hover:text-(--color-primary) transition-colors">upload_file</span>
                 <p class="font-sans text-sm font-semibold text-(--color-on-surface-variant)">Click to upload or drag
@@ -702,8 +701,8 @@ function guestNights(g) {
                 <p class="font-sans text-xs text-(--color-outline) mt-1 uppercase tracking-widest">Max 5MB · PDF, JPG,
                   PNG</p>
               </label>
-              <div v-if="docFiles.length" class="mt-4 space-y-3">
-                <div v-for="(doc, i) in docFiles" :key="i"
+              <div v-if="accomDocFiles.length" class="mt-4 space-y-3">
+                <div v-for="(doc, i) in accomDocFiles" :key="i"
                   class="flex items-center gap-3 p-3 bg-(--color-surface-container-low) rounded-lg">
                   <span class="material-symbols-outlined shrink-0"
                     :class="doc.error ? 'text-(--color-error)' : doc.url ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'"
@@ -721,7 +720,7 @@ function guestNights(g) {
                   </div>
                   <button type="button"
                     class="text-(--color-outline) hover:text-(--color-error) transition-colors shrink-0"
-                    @click="removeDoc(i)">
+                    @click="removeDocFrom(accomDocFiles, i)">
                     <span class="material-symbols-outlined text-base">close</span>
                   </button>
                 </div>
@@ -729,11 +728,11 @@ function guestNights(g) {
             </section>
 
             <!-- Additional Requests -->
-            <section class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist)">
-              <h2 class="font-serif text-2xl mb-6 flex items-center gap-3">
+            <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+              <div class="flex items-center gap-2 mb-5">
                 <span class="material-symbols-outlined text-(--color-primary)">notes</span>
-                Additional Requests
-              </h2>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Requests</h2>
+              </div>
               <textarea v-model="cb.accommodation.notes" rows="4"
                 placeholder="Dietary requirements, preferred arrival time, accessibility needs, or special occasions"
                 class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
@@ -827,22 +826,30 @@ function guestNights(g) {
                   <!-- Guest info row -->
                   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                      <label
+                        class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full
+                        Name <span class="text-(--color-error)">*</span></label>
                       <input v-model="guest.fullName" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                         :class="errors[`mealsGuest_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`mealsGuest_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`mealsGuest_${i}_name`] }}</span>
+                      <span v-if="errors[`mealsGuest_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{
+                        errors[`mealsGuest_${i}_name`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
-                      <input v-model="guest.email" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      <label
+                        class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <input v-model="guest.email" type="email"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID <span class="text-(--color-error)">*</span></label>
+                      <label
+                        class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport
+                        / ID <span class="text-(--color-error)">*</span></label>
                       <input v-model="guest.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                         :class="errors[`mealsGuest_${i}_idNumber`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`mealsGuest_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{ errors[`mealsGuest_${i}_idNumber`] }}</span>
+                      <span v-if="errors[`mealsGuest_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{
+                        errors[`mealsGuest_${i}_idNumber`] }}</span>
                     </div>
                     <button type="button" :disabled="cb.meals.guests.length === 1"
                       class="h-10 w-10 flex items-center justify-center text-(--color-outline) hover:text-(--color-error) transition-colors disabled:opacity-30 ml-auto"
@@ -852,9 +859,11 @@ function guestNights(g) {
                   </div>
 
                   <!-- Meal items (optional) — only shown when menu is available -->
-                  <div v-if="menu.length || menuLoading" class="border-t border-(--color-outline-variant) pt-4 space-y-3">
+                  <div v-if="menu.length || menuLoading"
+                    class="border-t border-(--color-outline-variant) pt-4 space-y-3">
                     <div class="flex items-center justify-between">
-                      <p class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) flex items-center gap-1">
+                      <p
+                        class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) flex items-center gap-1">
                         <span class="material-symbols-outlined text-sm text-(--color-primary)">restaurant_menu</span>
                         Meal Items
                         <span class="normal-case font-normal text-(--color-outline) ml-1">— optional</span>
@@ -862,8 +871,10 @@ function guestNights(g) {
                     </div>
 
                     <!-- Loading -->
-                    <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
-                      <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
+                    <p v-if="menuLoading"
+                      class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
+                      <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading
+                      menu…
                     </p>
 
                     <!-- Already-added items -->
@@ -871,16 +882,22 @@ function guestNights(g) {
                       <div v-for="(item, j) in guest.mealItems" :key="j"
                         class="flex items-center gap-3 px-3 py-2 bg-(--color-surface-container-lowest) rounded-lg">
                         <div class="flex-1 min-w-0">
-                          <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ item.name }}</p>
-                          <p v-if="item.price" class="font-sans text-xs text-(--color-on-surface-variant)">K{{ item.price.toLocaleString() }} × {{ item.quantity }}</p>
+                          <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ item.name }}
+                          </p>
+                          <p v-if="item.price" class="font-sans text-xs text-(--color-on-surface-variant)">K{{
+                            item.price.toLocaleString() }} × {{ item.quantity }}</p>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
-                          <button type="button" class="w-6 h-6 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors text-xs font-bold disabled:opacity-30"
+                          <button type="button"
+                            class="w-6 h-6 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors text-xs font-bold disabled:opacity-30"
                             :disabled="item.quantity <= 1" @click="item.quantity--">−</button>
                           <span class="font-sans text-sm font-semibold w-5 text-center">{{ item.quantity }}</span>
-                          <button type="button" class="w-6 h-6 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors text-xs font-bold"
+                          <button type="button"
+                            class="w-6 h-6 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors text-xs font-bold"
                             @click="item.quantity++">+</button>
-                          <button type="button" class="ml-1 text-(--color-outline) hover:text-(--color-error) transition-colors" @click="removeMealItem(guest, j)">
+                          <button type="button"
+                            class="ml-1 text-(--color-outline) hover:text-(--color-error) transition-colors"
+                            @click="removeMealItem(guest, j)">
                             <span class="material-symbols-outlined text-base">close</span>
                           </button>
                         </div>
@@ -890,7 +907,8 @@ function guestNights(g) {
                     <!-- Add item row -->
                     <div v-if="menu.length" class="flex gap-2 items-end">
                       <div class="flex-1 flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Item</label>
+                        <label
+                          class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Item</label>
                         <select v-model="getMealStaging(i).menuItemId"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                           <option value="">— Select item —</option>
@@ -902,7 +920,8 @@ function guestNights(g) {
                         </select>
                       </div>
                       <div class="w-20 flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Qty</label>
+                        <label
+                          class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Qty</label>
                         <input v-model.number="getMealStaging(i).quantity" type="number" min="1"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                       </div>
@@ -961,21 +980,27 @@ function guestNights(g) {
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
                   <input v-model="cb.meals.authoriser.department" type="text" placeholder="e.g. Finance, HR, Operations"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
-                  <input v-model="cb.meals.authoriser.glCode" type="text" placeholder="e.g. GL-4200"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1 md:col-span-2">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Center <span class="text-(--color-error)">*</span></label>
-                  <input v-model="cb.meals.costCenter" type="text" placeholder="e.g. CC-1042 / Operations"
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost
+                    Center <span class="text-(--color-error)">*</span></label>
+                  <input v-model="cb.meals.costCenter" type="text" placeholder="e.g. 12345678"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                     :class="errors.mealsCostCenter ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                  <span v-if="errors.mealsCostCenter" class="font-sans text-xs text-(--color-error)">{{ errors.mealsCostCenter }}</span>
+                  <span v-if="errors.mealsCostCenter" class="font-sans text-xs text-(--color-error)">{{
+                    errors.mealsCostCenter }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL
+                    Code</label>
+                  <input v-model="cb.meals.authoriser.glCode" type="text" placeholder="e.g. 12345678"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>
             </section>
@@ -1058,7 +1083,7 @@ function guestNights(g) {
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.confDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.confDate" class="font-sans text-xs text-(--color-error)">{{ errors.confDate
-                      }}</span>
+                    }}</span>
                   </div>
                   <div class="flex flex-col gap-1">
                     <label
@@ -1205,21 +1230,28 @@ function guestNights(g) {
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
-                  <input v-model="cb.conference.authoriser.department" type="text" placeholder="e.g. Finance, HR, Operations"
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
+                  <input v-model="cb.conference.authoriser.department" type="text"
+                    placeholder="e.g. Finance, HR, Operations"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
-                  <input v-model="cb.conference.authoriser.glCode" type="text" placeholder="e.g. GL-4200"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1 md:col-span-2">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Center <span class="text-(--color-error)">*</span></label>
-                  <input v-model="cb.conference.costCenter" type="text" placeholder="e.g. CC-1042 / Operations"
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost
+                    Center <span class="text-(--color-error)">*</span></label>
+                  <input v-model="cb.conference.costCenter" type="text" placeholder="e.g. 12345678"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                     :class="errors.confCostCenter ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                  <span v-if="errors.confCostCenter" class="font-sans text-xs text-(--color-error)">{{ errors.confCostCenter }}</span>
+                  <span v-if="errors.confCostCenter" class="font-sans text-xs text-(--color-error)">{{
+                    errors.confCostCenter }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label
+                    class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL
+                    Code</label>
+                  <input v-model="cb.conference.authoriser.glCode" type="text" placeholder="e.g. 12345678"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>
             </section>
@@ -1379,7 +1411,7 @@ function guestNights(g) {
             <p v-if="cb.accommodation.roomType || cb.accommodation.roomCount"
               class="font-sans text-xs text-(--color-on-surface-variant) mb-4">
               <span class="font-semibold text-(--color-on-surface) capitalize">{{ cb.accommodation.roomType || 'Any'
-                }}</span> room · {{ cb.accommodation.roomCount }} room{{ cb.accommodation.roomCount !== 1 ? 's' : '' }}
+              }}</span> room · {{ cb.accommodation.roomCount }} room{{ cb.accommodation.roomCount !== 1 ? 's' : '' }}
             </p>
 
             <div class="space-y-3 mb-5">
@@ -1394,7 +1426,7 @@ function guestNights(g) {
                       || 'No ID' }}</p>
                   </div>
                   <span class="font-sans text-xs text-(--color-primary) font-semibold shrink-0 ml-2">Guest {{ i + 1
-                  }}</span>
+                    }}</span>
                 </div>
                 <div class="flex gap-6 mt-2">
                   <div>
@@ -1434,8 +1466,18 @@ function guestNights(g) {
                   Authoriser Email</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.authoriser.email }}</dd>
               </div>
-              <div v-if="cb.accommodation.authoriser.glCode"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">GL Code</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.authoriser.glCode }}</dd></div>
-              <div v-if="cb.accommodation.costCenter"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Cost Center</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.costCenter }}</dd></div>
+              <div v-if="cb.accommodation.authoriser.glCode">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  GL Code</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.authoriser.glCode }}</dd>
+              </div>
+              <div v-if="cb.accommodation.costCenter">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Cost Center</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.costCenter }}</dd>
+              </div>
             </dl>
           </section>
 
@@ -1495,7 +1537,8 @@ function guestNights(g) {
                 class="flex items-center justify-between p-3 bg-(--color-surface-container-low) rounded-lg">
                 <div class="flex-1 min-w-0">
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ g.fullName }}</p>
-                  <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ g.email || '—' }} · {{ g.idNumber || 'No ID' }}</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ g.email || '—' }} · {{ g.idNumber ||
+                    'No ID' }}</p>
                   <div v-if="g.mealItems?.length" class="mt-1.5 flex flex-wrap gap-1">
                     <span v-for="item in g.mealItems" :key="item.menuItemId"
                       class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs text-(--color-on-surface)">
@@ -1503,7 +1546,8 @@ function guestNights(g) {
                     </span>
                   </div>
                 </div>
-                <span class="font-sans text-xs text-(--color-primary) font-semibold shrink-0">Attendee {{ i + 1 }}</span>
+                <span class="font-sans text-xs text-(--color-primary) font-semibold shrink-0">Attendee {{ i + 1
+                  }}</span>
               </div>
             </div>
             <dl v-if="cb.meals.authoriser.name"
@@ -1528,8 +1572,18 @@ function guestNights(g) {
                   Authoriser Email</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.authoriser.email }}</dd>
               </div>
-              <div v-if="cb.meals.authoriser.glCode"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">GL Code</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.authoriser.glCode }}</dd></div>
-              <div v-if="cb.meals.costCenter"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Cost Center</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.costCenter }}</dd></div>
+              <div v-if="cb.meals.authoriser.glCode">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  GL Code</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.authoriser.glCode }}</dd>
+              </div>
+              <div v-if="cb.meals.costCenter">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Cost Center</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.costCenter }}</dd>
+              </div>
             </dl>
           </section>
 
@@ -1617,8 +1671,18 @@ function guestNights(g) {
                   Authoriser Email</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.authoriser.email }}</dd>
               </div>
-              <div v-if="cb.conference.authoriser.glCode"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">GL Code</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.authoriser.glCode }}</dd></div>
-              <div v-if="cb.conference.costCenter"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Cost Center</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.costCenter }}</dd></div>
+              <div v-if="cb.conference.authoriser.glCode">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  GL Code</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.authoriser.glCode }}</dd>
+              </div>
+              <div v-if="cb.conference.costCenter">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Cost Center</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.costCenter }}</dd>
+              </div>
             </dl>
           </section>
 
