@@ -35,19 +35,29 @@ const mealsDocFiles = ref([])
 const confDocFiles = ref([])
 
 function pickDocsFor(bucket) {
-  return (e) => {
+  return async (e) => {
+    const arr = bucket?.value ?? bucket
     const allowed = ['application/pdf', 'image/jpeg', 'image/png']
     const maxMb = 5
+    const toUpload = []
     Array.from(e.target.files).forEach(f => {
-      if (!allowed.includes(f.type)) { bucket.value.push({ name: f.name, error: 'Only PDF, JPG, PNG allowed' }); return }
-      if (f.size > maxMb * 1024 * 1024) { bucket.value.push({ name: f.name, error: `Max ${maxMb}MB` }); return }
-      bucket.value.push({ file: f, name: f.name, progress: 0, url: null, error: null })
+      if (!allowed.includes(f.type)) { arr.push({ name: f.name, error: 'Only PDF, JPG, PNG allowed' }); return }
+      if (f.size > maxMb * 1024 * 1024) { arr.push({ name: f.name, error: `Max ${maxMb}MB` }); return }
+      arr.push({ file: f, name: f.name, progress: 0, url: null, error: null })
+      toUpload.push(arr[arr.length - 1])
     })
     e.target.value = ''
+    await Promise.all(toUpload.map(async entry => {
+      try { entry.url = await uploadBookingDocument(entry.file, p => { entry.progress = p }) }
+      catch { entry.error = 'Upload failed' }
+    }))
   }
 }
 
-function removeDocFrom(bucket, i) { bucket.value.splice(i, 1) }
+function removeDocFrom(bucket, i) {
+  const arr = bucket?.value ?? bucket
+  arr.splice(i, 1)
+}
 
 
 async function uploadBucket(bucket) {
@@ -66,19 +76,20 @@ const menu = ref([])   // [{ id, name, category, price, description }]
 const menuLoading = ref(false)
 
 async function fetchMenu(branchId) {
-  if (!branchId) { menu.value = []; return }
   menuLoading.value = true
   try {
-    const params = { branch_id: branchId }
-    if (lodgeId) params.org_id = lodgeId
-    const { data } = await api.get('/guest/menus', { params })
-    menu.value = (data.data ?? data).map(item => ({
-      id: item.id,
-      name: item.name,
-      category: item.category || '',
-      price: parseFloat(item.price) || 0,
-      description: item.description || '',
-    }))
+    const params = { org_id: lodgeId }
+    if (branchId) params.branch_id = branchId
+    const { data } = await api.get('/guest/menu', { params })
+    menu.value = (data.items?.data ?? [])
+      .filter(item => item.is_available)
+      .map(item => ({
+        id: item.id,
+        name: item.name,
+        category: item.category || '',
+        price: parseFloat(item.price) || 0,
+        description: item.description || '',
+      }))
   } catch {
     menu.value = []
   } finally {
@@ -120,9 +131,9 @@ function removeMealItem(guest, j) { guest.mealItems.splice(j, 1) }
 
 // ── Constants ────────────────────────────────────────────────────────────
 const ALL_TABS = [
-  { key: 'accommodation', label: 'Accommodation', icon: 'bed' },
-  { key: 'meals', label: 'Meals', icon: 'restaurant' },
-  { key: 'conference', label: 'Conference Room', icon: 'meeting_room' },
+  { key: 'accommodation', label: 'Accommodation', icon: 'bed', description: 'Room bookings for employees and corporate guests' },
+  { key: 'meals', label: 'Meals', icon: 'restaurant', description: 'Catered dining for teams, clients, and events' },
+  { key: 'conference', label: 'Conference Room', icon: 'meeting_room', description: 'Meeting and conference room reservations' },
 ]
 const TABS = computed(() => ALL_TABS.filter(t => {
   if (t.key === 'meals') return branchHasRestaurant.value
@@ -143,7 +154,10 @@ onMounted(async () => {
   lodgesStore.fetchLodgeDetail(lodgeId)
   if (lodge.value) cb.setLodge(lodgeId, lodge.value.name)
   if (route.query.branchId && !cb.branchId) cb.branchId = route.query.branchId
-  if (cb.branchId) fetchMenu(cb.branchId)
+  cb.accommodation.enabled = false
+  cb.meals.enabled = false
+  cb.conference.enabled = false
+  fetchMenu(cb.branchId)
   if (auth.user) {
     if (!cb.company.contactPerson && auth.user.firstName)
       cb.company.contactPerson = `${auth.user.firstName} ${auth.user.lastName ?? ''}`.trim()
@@ -151,6 +165,13 @@ onMounted(async () => {
       cb.company.email = auth.user.email
   }
 })
+
+function selectService(key) {
+  activeTab.value = key
+  cb.accommodation.enabled = key === 'accommodation'
+  cb.meals.enabled = key === 'meals'
+  cb.conference.enabled = key === 'conference'
+}
 
 // ── Validation ───────────────────────────────────────────────────────────
 function validate() {
@@ -163,9 +184,9 @@ function validate() {
   else if (!/\S+@\S+\.\S+/.test(c.email)) e.email = 'Enter a valid email'
   if (!c.phone) e.phone = 'Required'
 
-  if (branches.value.length > 1 && !cb.branchId) e.branchId = 'A specific branch must be selected for corporate bookings'
+  if (!activeTab.value) e.service = 'Please select a booking type above to continue'
 
-  if (!cb.hasAnyService) e.services = 'Enable at least one service tab'
+  if (branches.value.length > 1 && !cb.branchId) e.branchId = 'A specific branch must be selected for corporate bookings'
 
   const a = cb.accommodation
   if (a.enabled) {
@@ -214,15 +235,7 @@ function validate() {
 
 function goToConfirm() {
   if (!validate()) {
-    const first = Object.keys(errors.value)[0]
-    if (first === 'branchId') {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    } else if (first?.startsWith('guest_') || first === 'authoriserName' || first === 'authoriserEmail' || first === 'costCenter')
-      activeTab.value = 'accommodation'
-    else if (first?.startsWith('mealsGuest_') || first === 'mealsAuthoriserName' || first === 'mealsAuthoriserEmail' || first === 'mealsCostCenter')
-      activeTab.value = 'meals'
-    else if (first === 'confDate' || first === 'confStartTime' || first === 'confEndTime' || first?.startsWith('confGuest_') || first === 'confAuthoriserName' || first === 'confAuthoriserEmail' || first === 'confCostCenter')
-      activeTab.value = 'conference'
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
   step.value = 2
@@ -264,13 +277,9 @@ async function submit() {
 
 watch(() => cb.branchId, (id) => fetchMenu(id))
 
-// When branch capabilities change, disable unsupported services and
-// redirect activeTab if it's no longer available
 watch([branchHasRestaurant, branchHasConference], ([hasRestaurant, hasConference]) => {
-  cb.meals.enabled = hasRestaurant
-  cb.conference.enabled = hasConference
-  if (activeTab.value === 'meals' && !hasRestaurant) activeTab.value = 'accommodation'
-  if (activeTab.value === 'conference' && !hasConference) activeTab.value = 'accommodation'
+  if (activeTab.value === 'meals' && !hasRestaurant) selectService('')
+  if (activeTab.value === 'conference' && !hasConference) selectService('')
 })
 
 function goBack() {
@@ -367,32 +376,37 @@ function guestNights(g) {
         <!-- ══ STEP 1 ══ -->
         <template v-if="step === 1">
 
-          <!-- ── Tab bar at top ──────────────────────────────────────── -->
-          <div class="flex bg-(--color-surface-container-high) rounded-2xl p-1">
-            <button v-for="tab in TABS" :key="tab.key" type="button"
-              class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-sans text-sm font-semibold transition-all relative"
-              :class="activeTab === tab.key
-                ? 'bg-white shadow-sm text-(--color-primary)'
-                : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'" @click="activeTab = tab.key">
-              <span class="material-symbols-outlined text-base">{{ tab.icon }}</span>
-              <span class="hidden sm:inline">{{ tab.label }}</span>
-              <!-- Enabled dot -->
-              <span v-if="(tab.key === 'accommodation' && cb.accommodation.enabled) ||
-                (tab.key === 'meals' && cb.meals.enabled) ||
-                (tab.key === 'conference' && cb.conference.enabled)"
-                class="w-1.5 h-1.5 rounded-full bg-(--color-primary) ml-0.5"></span>
-            </button>
-          </div>
-
-          <!-- Services error -->
-          <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 -translate-y-1"
-            enter-to-class="opacity-100 translate-y-0">
-            <div v-if="errors.services"
-              class="flex items-center gap-2 p-4 rounded-lg bg-(--color-error-container) text-(--color-on-error-container)">
-              <span class="material-symbols-outlined text-base shrink-0">error</span>
-              <p class="font-sans text-sm">{{ errors.services }}</p>
+          <!-- ── Service Selection ──────────────────────────────────── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+            <h2 class="font-serif text-xl text-(--color-on-surface)">What would you like to book?</h2>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1 mb-5">Select one service per request. Each corporate booking is submitted separately.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button v-for="tab in TABS" :key="tab.key" type="button"
+                class="relative flex flex-col gap-3 p-5 rounded-xl border-2 text-left transition-all"
+                :class="activeTab === tab.key
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) bg-(--color-surface-container-low) hover:border-(--color-primary) hover:bg-(--color-surface-container)'"
+                @click="selectService(tab.key)">
+                <span v-if="activeTab === tab.key"
+                  class="absolute top-3 right-3 material-symbols-outlined text-lg text-(--color-primary)"
+                  style="font-variation-settings: 'FILL' 1">check_circle</span>
+                <span class="material-symbols-outlined text-3xl transition-colors"
+                  :class="activeTab === tab.key ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">{{ tab.icon }}</span>
+                <div>
+                  <p class="font-sans text-sm font-semibold"
+                    :class="activeTab === tab.key ? 'text-(--color-primary)' : 'text-(--color-on-surface)'">{{ tab.label }}</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-1 leading-relaxed">{{ tab.description }}</p>
+                </div>
+              </button>
             </div>
-          </Transition>
+            <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+              <div v-if="errors.service"
+                class="mt-4 flex items-center gap-2 p-3 rounded-lg bg-(--color-error-container) text-(--color-on-error-container)">
+                <span class="material-symbols-outlined text-base shrink-0">error</span>
+                <p class="font-sans text-sm">{{ errors.service }}</p>
+              </div>
+            </Transition>
+          </section>
 
           <!-- ── Company Details (always visible below tabs) ─────────── -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
@@ -483,8 +497,8 @@ function guestNights(g) {
             </div>
           </section>
 
-          <!-- ══ ACCOMMODATION TAB ══ -->
-          <div v-show="activeTab === 'accommodation'" class="space-y-6">
+          <!-- ══ ACCOMMODATION ══ -->
+          <div v-if="activeTab === 'accommodation'" class="space-y-6">
 
             <!-- Reason for Booking -->
             <section
@@ -742,8 +756,8 @@ function guestNights(g) {
 
           </div>
 
-          <!-- ══ MEALS TAB ══ -->
-          <div v-show="activeTab === 'meals' && branchHasRestaurant" class="space-y-6">
+          <!-- ══ MEALS ══ -->
+          <div v-if="activeTab === 'meals'" class="space-y-6">
 
             <!-- Reason for Booking -->
             <section
@@ -819,44 +833,58 @@ function guestNights(g) {
                   <span class="material-symbols-outlined text-base">add</span> Add Attendee
                 </button>
               </div>
-              <div class="space-y-4">
+              <div class="space-y-3">
                 <div v-for="(guest, i) in cb.meals.guests" :key="i"
-                  class="p-4 bg-(--color-surface-container-low) rounded-lg space-y-4">
+                  class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
 
-                  <!-- Guest info row -->
-                  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div class="flex flex-col gap-1">
-                      <label
-                        class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full
-                        Name <span class="text-(--color-error)">*</span></label>
-                      <input v-model="guest.fullName" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                        :class="errors[`mealsGuest_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`mealsGuest_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{
-                        errors[`mealsGuest_${i}_name`] }}</span>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                      <label
-                        class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
-                      <input v-model="guest.email" type="email"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                    </div>
-                    <div class="flex flex-col gap-1">
-                      <label
-                        class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport
-                        / ID <span class="text-(--color-error)">*</span></label>
-                      <input v-model="guest.idNumber" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                        :class="errors[`mealsGuest_${i}_idNumber`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`mealsGuest_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{
-                        errors[`mealsGuest_${i}_idNumber`] }}</span>
+                  <!-- Attendee header -->
+                  <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-(--color-primary) text-white font-sans text-xs font-bold shrink-0">
+                        {{ i + 1 }}
+                      </span>
+                      <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                        {{ guest.fullName || `Attendee ${i + 1}` }}
+                      </span>
                     </div>
                     <button type="button" :disabled="cb.meals.guests.length === 1"
-                      class="h-10 w-10 flex items-center justify-center text-(--color-outline) hover:text-(--color-error) transition-colors disabled:opacity-30 ml-auto"
+                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
                       @click="cb.removeMealsGuest(i)">
-                      <span class="material-symbols-outlined">delete</span>
+                      <span class="material-symbols-outlined text-base">delete</span>
                     </button>
                   </div>
+
+                  <!-- Attendee fields -->
+                  <div class="p-4 bg-(--color-surface-container-low) space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div class="flex flex-col gap-1">
+                        <label
+                          class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full
+                          Name <span class="text-(--color-error)">*</span></label>
+                        <input v-model="guest.fullName" type="text"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`mealsGuest_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`mealsGuest_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{
+                          errors[`mealsGuest_${i}_name`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label
+                          class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                        <input v-model="guest.email" type="email"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label
+                          class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport
+                          / ID <span class="text-(--color-error)">*</span></label>
+                        <input v-model="guest.idNumber" type="text"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`mealsGuest_${i}_idNumber`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`mealsGuest_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{
+                          errors[`mealsGuest_${i}_idNumber`] }}</span>
+                      </div>
+                    </div>
 
                   <!-- Meal items (optional) — only shown when menu is available -->
                   <div v-if="menu.length || menuLoading"
@@ -931,9 +959,9 @@ function guestNights(g) {
                         <span class="material-symbols-outlined text-sm">add</span> Add
                       </button>
                     </div>
-                  </div>
-
-                </div>
+                  </div><!-- /meal items -->
+                  </div><!-- /attendee fields -->
+                </div><!-- /attendee card -->
               </div>
             </section>
 
@@ -1051,8 +1079,8 @@ function guestNights(g) {
 
           </div>
 
-          <!-- ══ CONFERENCE TAB ══ -->
-          <div v-show="activeTab === 'conference' && branchHasConference" class="space-y-6">
+          <!-- ══ CONFERENCE ══ -->
+          <div v-if="activeTab === 'conference'" class="space-y-6">
 
             <!-- Reason for Booking -->
             <section
@@ -1390,7 +1418,7 @@ function guestNights(g) {
           </section>
 
           <!-- Accommodation summary -->
-          <section v-if="cb.accommodation.enabled"
+          <section v-if="activeTab === 'accommodation'"
             class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center justify-between mb-5">
               <h2 class="font-serif text-xl flex items-center gap-2 text-(--color-on-surface)">
@@ -1479,10 +1507,30 @@ function guestNights(g) {
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.costCenter }}</dd>
               </div>
             </dl>
+            <div v-if="accomDocFiles.filter(d => d.url).length"
+              class="mt-5 pt-4 border-t border-(--color-outline-variant)">
+              <p
+                class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-3">
+                Supporting Documents ({{ accomDocFiles.filter(d => d.url).length }})
+              </p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <a v-for="doc in accomDocFiles.filter(d => d.url)" :key="doc.url" :href="doc.url" target="_blank"
+                  rel="noopener"
+                  class="group flex flex-col items-center gap-2 p-3 rounded-lg border border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-low) transition-colors overflow-hidden">
+                  <img v-if="/\.(jpe?g|png)$/i.test(doc.name)" :src="doc.url" :alt="doc.name"
+                    class="w-full h-24 object-cover rounded-md" />
+                  <span v-else
+                    class="material-symbols-outlined text-4xl text-(--color-outline) group-hover:text-(--color-primary) transition-colors">picture_as_pdf</span>
+                  <p
+                    class="font-sans text-xs text-(--color-on-surface-variant) group-hover:text-(--color-primary) text-center truncate w-full transition-colors">
+                    {{ doc.name }}</p>
+                </a>
+              </div>
+            </div>
           </section>
 
           <!-- Meals summary -->
-          <section v-if="cb.meals.enabled"
+          <section v-if="activeTab === 'meals'"
             class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center justify-between mb-5">
               <h2 class="font-serif text-xl flex items-center gap-2 text-(--color-on-surface)">
@@ -1585,10 +1633,30 @@ function guestNights(g) {
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.costCenter }}</dd>
               </div>
             </dl>
+            <div v-if="mealsDocFiles.filter(d => d.url).length"
+              class="mt-5 pt-4 border-t border-(--color-outline-variant)">
+              <p
+                class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-3">
+                Supporting Documents ({{ mealsDocFiles.filter(d => d.url).length }})
+              </p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <a v-for="doc in mealsDocFiles.filter(d => d.url)" :key="doc.url" :href="doc.url" target="_blank"
+                  rel="noopener"
+                  class="group flex flex-col items-center gap-2 p-3 rounded-lg border border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-low) transition-colors overflow-hidden">
+                  <img v-if="/\.(jpe?g|png)$/i.test(doc.name)" :src="doc.url" :alt="doc.name"
+                    class="w-full h-24 object-cover rounded-md" />
+                  <span v-else
+                    class="material-symbols-outlined text-4xl text-(--color-outline) group-hover:text-(--color-primary) transition-colors">picture_as_pdf</span>
+                  <p
+                    class="font-sans text-xs text-(--color-on-surface-variant) group-hover:text-(--color-primary) text-center truncate w-full transition-colors">
+                    {{ doc.name }}</p>
+                </a>
+              </div>
+            </div>
           </section>
 
           <!-- Conference summary -->
-          <section v-if="cb.conference.enabled"
+          <section v-if="activeTab === 'conference'"
             class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center justify-between mb-5">
               <h2 class="font-serif text-xl flex items-center gap-2 text-(--color-on-surface)">
@@ -1684,6 +1752,26 @@ function guestNights(g) {
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.costCenter }}</dd>
               </div>
             </dl>
+            <div v-if="confDocFiles.filter(d => d.url).length"
+              class="mt-5 pt-4 border-t border-(--color-outline-variant)">
+              <p
+                class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-3">
+                Supporting Documents ({{ confDocFiles.filter(d => d.url).length }})
+              </p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <a v-for="doc in confDocFiles.filter(d => d.url)" :key="doc.url" :href="doc.url" target="_blank"
+                  rel="noopener"
+                  class="group flex flex-col items-center gap-2 p-3 rounded-lg border border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-low) transition-colors overflow-hidden">
+                  <img v-if="/\.(jpe?g|png)$/i.test(doc.name)" :src="doc.url" :alt="doc.name"
+                    class="w-full h-24 object-cover rounded-md" />
+                  <span v-else
+                    class="material-symbols-outlined text-4xl text-(--color-outline) group-hover:text-(--color-primary) transition-colors">picture_as_pdf</span>
+                  <p
+                    class="font-sans text-xs text-(--color-on-surface-variant) group-hover:text-(--color-primary) text-center truncate w-full transition-colors">
+                    {{ doc.name }}</p>
+                </a>
+              </div>
+            </div>
           </section>
 
           <!-- Submit error -->
@@ -1741,11 +1829,11 @@ function guestNights(g) {
               </div>
             </div>
 
-            <div v-if="cb.hasAnyService" class="space-y-3">
+            <div v-if="activeTab" class="space-y-3">
               <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant)">
                 Services
               </p>
-              <div v-if="cb.accommodation.enabled" class="flex items-start gap-3">
+              <div v-if="activeTab === 'accommodation'" class="flex items-start gap-3">
                 <span class="material-symbols-outlined text-(--color-primary) text-base mt-0.5">bed</span>
                 <div>
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Accommodation</p>
@@ -1755,7 +1843,7 @@ function guestNights(g) {
                       cb.accommodation.roomCount !== 1 ? 's' : '' }}</p>
                 </div>
               </div>
-              <div v-if="cb.meals.enabled" class="flex items-start gap-3">
+              <div v-if="activeTab === 'meals'" class="flex items-start gap-3">
                 <span class="material-symbols-outlined text-(--color-primary) text-base mt-0.5">restaurant</span>
                 <div>
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Meals</p>
@@ -1763,7 +1851,7 @@ function guestNights(g) {
                     cb.meals.planType)?.label}} · {{ cb.meals.pax }} pax</p>
                 </div>
               </div>
-              <div v-if="cb.conference.enabled" class="flex items-start gap-3">
+              <div v-if="activeTab === 'conference'" class="flex items-start gap-3">
                 <span class="material-symbols-outlined text-(--color-primary) text-base mt-0.5">meeting_room</span>
                 <div>
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Conference Room</p>
@@ -1775,8 +1863,8 @@ function guestNights(g) {
             </div>
 
             <div v-else class="py-4 text-center">
-              <span class="material-symbols-outlined text-2xl text-(--color-outline) block mb-1">add_circle</span>
-              <p class="font-sans text-xs text-(--color-on-surface-variant)">Enable services using the tabs above</p>
+              <span class="material-symbols-outlined text-2xl text-(--color-outline) block mb-1">touch_app</span>
+              <p class="font-sans text-xs text-(--color-on-surface-variant)">Select a service above to get started</p>
             </div>
           </div>
         </div>
