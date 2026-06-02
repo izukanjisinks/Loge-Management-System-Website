@@ -149,6 +149,116 @@ const MEAL_PLANS = [
 ]
 const EQUIPMENT = ['Projector', 'Whiteboard', 'PA System', 'Video Conferencing', 'Screen', 'Flipchart']
 
+const INDUSTRIES = [
+  'Agriculture & Forestry',
+  'Automotive',
+  'Aviation & Aerospace',
+  'Banking & Finance',
+  'Construction & Real Estate',
+  'Consulting & Professional Services',
+  'Education & Training',
+  'Energy & Utilities',
+  'Engineering',
+  'Entertainment & Media',
+  'Government & Public Sector',
+  'Healthcare & Pharmaceuticals',
+  'Hospitality & Tourism',
+  'Information Technology',
+  'Insurance',
+  'Legal Services',
+  'Logistics & Transport',
+  'Manufacturing',
+  'Mining & Quarrying',
+  'Non-Governmental Organizations',
+  'Retail & Wholesale Trade',
+  'Telecommunications',
+  'Other',
+]
+
+const COUNTRIES = [
+  'Zambia',
+  'Angola', 'Botswana', 'Burundi', 'Comoros', 'Democratic Republic of Congo',
+  'Djibouti', 'Eritrea', 'Eswatini', 'Ethiopia', 'Kenya', 'Lesotho', 'Madagascar',
+  'Malawi', 'Mauritius', 'Mozambique', 'Namibia', 'Rwanda', 'Seychelles', 'Somalia',
+  'South Africa', 'South Sudan', 'Tanzania', 'Uganda', 'Zimbabwe',
+  'Algeria', 'Benin', 'Burkina Faso', 'Cameroon', 'Cape Verde', 'Central African Republic',
+  'Chad', 'Côte d\'Ivoire', 'Egypt', 'Equatorial Guinea', 'Gabon', 'Gambia', 'Ghana',
+  'Guinea', 'Guinea-Bissau', 'Liberia', 'Libya', 'Mali', 'Mauritania', 'Morocco',
+  'Niger', 'Nigeria', 'Republic of Congo', 'São Tomé and Príncipe', 'Senegal',
+  'Sierra Leone', 'Sudan', 'Togo', 'Tunisia',
+  'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan', 'Brunei',
+  'Cambodia', 'China', 'Cyprus', 'Georgia', 'India', 'Indonesia', 'Iran', 'Iraq',
+  'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Lebanon',
+  'Malaysia', 'Maldives', 'Mongolia', 'Myanmar', 'Nepal', 'North Korea', 'Oman',
+  'Pakistan', 'Palestine', 'Philippines', 'Qatar', 'Saudi Arabia', 'Singapore',
+  'South Korea', 'Sri Lanka', 'Syria', 'Taiwan', 'Tajikistan', 'Thailand',
+  'Timor-Leste', 'Turkey', 'Turkmenistan', 'United Arab Emirates', 'Uzbekistan',
+  'Vietnam', 'Yemen',
+  'Albania', 'Andorra', 'Austria', 'Belarus', 'Belgium', 'Bosnia and Herzegovina',
+  'Bulgaria', 'Croatia', 'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'France',
+  'Germany', 'Greece', 'Hungary', 'Iceland', 'Ireland', 'Italy', 'Kosovo', 'Latvia',
+  'Liechtenstein', 'Lithuania', 'Luxembourg', 'Malta', 'Moldova', 'Monaco',
+  'Montenegro', 'Netherlands', 'North Macedonia', 'Norway', 'Poland', 'Portugal',
+  'Romania', 'Russia', 'San Marino', 'Serbia', 'Slovakia', 'Slovenia', 'Spain',
+  'Sweden', 'Switzerland', 'Ukraine', 'United Kingdom', 'Vatican City',
+  'Antigua and Barbuda', 'Bahamas', 'Barbados', 'Belize', 'Canada', 'Costa Rica',
+  'Cuba', 'Dominica', 'Dominican Republic', 'El Salvador', 'Grenada', 'Guatemala',
+  'Haiti', 'Honduras', 'Jamaica', 'Mexico', 'Nicaragua', 'Panama',
+  'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines',
+  'Trinidad and Tobago', 'United States of America',
+  'Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Guyana',
+  'Paraguay', 'Peru', 'Suriname', 'Uruguay', 'Venezuela',
+  'Australia', 'Fiji', 'Kiribati', 'Marshall Islands', 'Micronesia', 'Nauru',
+  'New Zealand', 'Palau', 'Papua New Guinea', 'Samoa', 'Solomon Islands', 'Tonga',
+  'Tuvalu', 'Vanuatu',
+]
+
+// ── Company search ───────────────────────────────────────────────────────
+const companySearchLoading = ref(false)
+const companyFound = ref(false)
+const companyNotFound = ref(false)
+
+async function onTpinBlur() {
+  const tpin = cb.company.regNumber?.trim()
+  if (!tpin || tpin.length < 3) return
+  companyFound.value = false
+  companyNotFound.value = false
+  companySearchLoading.value = true
+  try {
+    const { data } = await api.get('/guest/companies', { params: { tpin } })
+    const results = data.data ?? data
+    if (results.length > 0) {
+      fillCompanyFields(results[0])
+    } else {
+      companyNotFound.value = true
+    }
+  } catch {
+    companyNotFound.value = false
+  } finally {
+    companySearchLoading.value = false
+  }
+}
+
+function fillCompanyFields(company) {
+  cb.company.name     = company.name     || company.company_name || cb.company.name
+  cb.company.branch   = company.branch   || cb.company.branch
+  cb.company.email    = company.email    || cb.company.email
+  cb.company.phone    = company.phone    || cb.company.phone
+  cb.company.industry = company.industry || cb.company.industry
+  cb.company.address  = company.address  || cb.company.address
+  cb.company.city     = company.city     || cb.company.city
+  cb.company.country  = company.country  || cb.company.country
+  companyFound.value  = true
+}
+
+function clearCompanySelection() {
+  companyFound.value = false
+  companyNotFound.value = false
+  cb.company.name = ''; cb.company.regNumber = ''; cb.company.branch = ''
+  cb.company.email = ''; cb.company.phone = ''; cb.company.industry = ''
+  cb.company.address = ''; cb.company.city = ''; cb.company.country = ''
+}
+
 onMounted(async () => {
   await lodgesStore.fetchLodges()
   lodgesStore.fetchLodgeDetail(lodgeId)
@@ -158,11 +268,12 @@ onMounted(async () => {
   cb.meals.enabled = false
   cb.conference.enabled = false
   fetchMenu(cb.branchId)
+  fetchRoomTypes()
   if (auth.user) {
-    if (!cb.company.contactPerson && auth.user.firstName)
-      cb.company.contactPerson = `${auth.user.firstName} ${auth.user.lastName ?? ''}`.trim()
-    if (!cb.company.email && auth.user.email)
-      cb.company.email = auth.user.email
+    if (!cb.bookedBy.name && auth.user.firstName)
+      cb.bookedBy.name = `${auth.user.firstName} ${auth.user.lastName ?? ''}`.trim()
+    if (!cb.bookedBy.email && auth.user.email)
+      cb.bookedBy.email = auth.user.email
   }
 })
 
@@ -179,10 +290,11 @@ function validate() {
   const c = cb.company
   if (!c.name) e.companyName = 'Required'
   if (!c.regNumber) e.regNumber = 'Required'
-  if (!c.contactPerson) e.contactPerson = 'Required'
-  if (!c.email) e.email = 'Required'
-  else if (!/\S+@\S+\.\S+/.test(c.email)) e.email = 'Enter a valid email'
-  if (!c.phone) e.phone = 'Required'
+
+  const r = cb.bookedBy
+  if (!r.name) e.bookedByName = 'Required'
+  if (!r.email) e.bookedByEmail = 'Required'
+  else if (!/\S+@\S+\.\S+/.test(r.email)) e.bookedByEmail = 'Enter a valid email'
 
   if (!activeTab.value) e.service = 'Please select a booking type above to continue'
 
@@ -246,22 +358,22 @@ async function submit() {
   loading.value = true
   submitError.value = ''
   try {
-    if (cb.accommodation.enabled && accomDocFiles.value.some(d => d.file && !d.url)) {
+    if (activeTab.value === 'accommodation' && accomDocFiles.value.some(d => d.file && !d.url)) {
       const err = await uploadBucket(accomDocFiles)
       if (err) { submitError.value = err; return }
       cb.accommodation.documents = accomDocFiles.value.filter(d => d.url).map(d => d.url)
     }
-    if (cb.meals.enabled && mealsDocFiles.value.some(d => d.file && !d.url)) {
+    if (activeTab.value === 'meals' && mealsDocFiles.value.some(d => d.file && !d.url)) {
       const err = await uploadBucket(mealsDocFiles)
       if (err) { submitError.value = err; return }
       cb.meals.documents = mealsDocFiles.value.filter(d => d.url).map(d => d.url)
     }
-    if (cb.conference.enabled && confDocFiles.value.some(d => d.file && !d.url)) {
+    if (activeTab.value === 'conference' && confDocFiles.value.some(d => d.file && !d.url)) {
       const err = await uploadBucket(confDocFiles)
       if (err) { submitError.value = err; return }
       cb.conference.documents = confDocFiles.value.filter(d => d.url).map(d => d.url)
     }
-    await cb.submit()
+    await cb.submit(activeTab.value)
     success.value = true
     cb.reset()
     accomDocFiles.value = []
@@ -275,7 +387,22 @@ async function submit() {
   }
 }
 
-watch(() => cb.branchId, (id) => fetchMenu(id))
+// ── Lodge room types ─────────────────────────────────────────────────────
+const lodgeRoomTypes = ref([])
+
+async function fetchRoomTypes() {
+  try {
+    const params = { org_id: lodgeId, page_size: 100 }
+    if (cb.branchId) params.branch_id = cb.branchId
+    const { data } = await api.get('/guest/rooms', { params })
+    const rooms = data.data ?? data
+    lodgeRoomTypes.value = [...new Set(rooms.map(r => r.type).filter(Boolean))]
+  } catch {
+    lodgeRoomTypes.value = []
+  }
+}
+
+watch(() => cb.branchId, (id) => { fetchMenu(id); fetchRoomTypes() })
 
 watch([branchHasRestaurant, branchHasConference], ([hasRestaurant, hasConference]) => {
   if (activeTab.value === 'meals' && !hasRestaurant) selectService('')
@@ -415,6 +542,53 @@ function guestNights(g) {
               <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <!-- TPIN — primary lookup field -->
+              <div class="flex flex-col gap-1 md:col-span-2">
+                <label
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN
+                  <span class="text-(--color-error)">*</span></label>
+                <div class="relative">
+                  <input v-model="cb.company.regNumber" type="text" placeholder="Enter company TPIN to look up or create"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors pr-10"
+                    :class="errors.regNumber ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"
+                    @blur="onTpinBlur" />
+                  <span v-if="companySearchLoading"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-base text-(--color-on-surface-variant) animate-spin">
+                    progress_activity
+                  </span>
+                </div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Tab out of this field to search for the company</p>
+                <span v-if="errors.regNumber" class="font-sans text-xs text-(--color-error)">{{ errors.regNumber }}</span>
+              </div>
+
+              <!-- Company found banner -->
+              <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+                <div v-if="companyFound"
+                  class="md:col-span-2 flex items-center justify-between gap-3 p-3 rounded-lg bg-(--color-savannah-mist) border border-(--color-primary)">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0"
+                      style="font-variation-settings: 'FILL' 1">check_circle</span>
+                    <p class="font-sans text-sm text-(--color-on-surface)">Company found — details pre-filled. You may still edit any field.</p>
+                  </div>
+                  <button type="button" @click="clearCompanySelection"
+                    class="font-sans text-xs font-semibold text-(--color-primary) hover:underline shrink-0">Clear</button>
+                </div>
+              </Transition>
+
+              <!-- Company not found — prompt to fill in details -->
+              <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+                <div v-if="companyNotFound"
+                  class="md:col-span-2 flex items-start gap-3 p-3 rounded-lg bg-(--color-surface-container-low) border border-(--color-outline-variant)">
+                  <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) shrink-0 mt-0.5">domain_add</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">No company found with TPIN
+                      {{ cb.company.regNumber }}</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Fill in the company details below to register it.</p>
+                  </div>
+                </div>
+              </Transition>
+
+              <!-- Company Name (shown after TPIN lookup) -->
               <div class="flex flex-col gap-1">
                 <label
                   class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company
@@ -422,51 +596,41 @@ function guestNights(g) {
                 <input v-model="cb.company.name" type="text" placeholder="Acme Corporation Ltd"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.companyName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName
-                  }}</span>
+                <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName }}</span>
               </div>
               <div class="flex flex-col gap-1">
                 <label
-                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN
-                  <span class="text-(--color-error)">*</span></label>
-                <input v-model="cb.company.regNumber" type="text" placeholder="e.g. 1234567890"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                  :class="errors.regNumber ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.regNumber" class="font-sans text-xs text-(--color-error)">{{ errors.regNumber
-                  }}</span>
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company
+                  Email</label>
+                <input v-model="cb.company.email" type="email" placeholder="info@acme.com"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
                 <label
-                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Contact
-                  Person <span class="text-(--color-error)">*</span></label>
-                <input v-model="cb.company.contactPerson" type="text" placeholder="Jane Smith"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                  :class="errors.contactPerson ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.contactPerson" class="font-sans text-xs text-(--color-error)">{{ errors.contactPerson
-                  }}</span>
-              </div>
-              <div class="flex flex-col gap-1">
-                <label
-                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Work
-                  Email <span class="text-(--color-error)">*</span></label>
-                <input v-model="cb.company.email" type="email" placeholder="j.smith@acme.com"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                  :class="errors.email ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.email" class="font-sans text-xs text-(--color-error)">{{ errors.email }}</span>
-              </div>
-              <div class="flex flex-col gap-1">
-                <label
-                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone
-                  <span class="text-(--color-error)">*</span></label>
-                <input v-model="cb.company.phone" type="tel" placeholder="+260 97 000 0000"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                  :class="errors.phone ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.phone" class="font-sans text-xs text-(--color-error)">{{ errors.phone }}</span>
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company
+                  Phone</label>
+                <input v-model="cb.company.phone" type="tel" placeholder="+260 21 000 0000"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
                 <label
                   class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry</label>
-                <input v-model="cb.company.industry" type="text" placeholder="e.g. Mining, Tourism"
+                <select v-model="cb.company.industry"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                  <option value="">Select industry</option>
+                  <option v-for="ind in INDUSTRIES" :key="ind" :value="ind">{{ ind }}</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
+                <input v-model="cb.company.branch" type="text" placeholder="e.g. Lusaka Branch, Kitwe Office"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">City</label>
+                <input v-model="cb.company.city" type="text" placeholder="e.g. Lusaka"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1 md:col-span-2">
@@ -478,21 +642,56 @@ function guestNights(g) {
               </div>
               <div class="flex flex-col gap-1">
                 <label
-                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">City</label>
-                <input v-model="cb.company.city" type="text" placeholder="e.g. Lusaka"
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Country</label>
+                <select v-model="cb.company.country"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                  <option value="">Select country</option>
+                  <option v-for="country in COUNTRIES" :key="country" :value="country">{{ country }}</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── Booked By ───────────────────────────────────────────── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+            <div class="flex items-center gap-2 mb-6">
+              <span class="material-symbols-outlined text-(--color-primary)">person</span>
+              <div>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Person submitting this booking</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="flex flex-col gap-1">
+                <label
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full
+                  Name <span class="text-(--color-error)">*</span></label>
+                <input v-model="cb.bookedBy.name" type="text" placeholder="Jane Smith"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.bookedByName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByName }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email
+                  <span class="text-(--color-error)">*</span></label>
+                <input v-model="cb.bookedBy.email" type="email" placeholder="j.smith@acme.com"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.bookedByEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByEmail }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                <input v-model="cb.bookedBy.phone" type="tel" placeholder="+260 97 000 0000"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
                 <label
-                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Country</label>
-                <input v-model="cb.company.country" type="text" placeholder="e.g. Zambia"
+                  class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job
+                  Title</label>
+                <input v-model="cb.bookedBy.jobTitle" type="text" placeholder="e.g. Head of Section"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-              </div>
-              <!-- Branch error (shown when navigated here without a required branch) -->
-              <div v-if="errors.branchId"
-                class="md:col-span-2 flex items-center gap-2 p-3 rounded-lg bg-(--color-error-container) text-(--color-on-error-container)">
-                <span class="material-symbols-outlined text-base shrink-0">warning</span>
-                <p class="font-sans text-sm">{{ errors.branchId }}</p>
               </div>
             </div>
           </section>
@@ -527,11 +726,9 @@ function guestNights(g) {
                   <select v-model="cb.accommodation.roomType"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                     <option value="">Any</option>
-                    <option value="single">Single</option>
-                    <option value="double">Double</option>
-                    <option value="twin">Twin</option>
-                    <option value="suite">Suite</option>
-                    <option value="family">Family</option>
+                    <option v-for="type in lodgeRoomTypes" :key="type" :value="type">
+                      {{ type.charAt(0).toUpperCase() + type.slice(1) }}
+                    </option>
                   </select>
                 </div>
                 <div class="flex flex-col gap-1">
@@ -1380,26 +1577,14 @@ function guestNights(g) {
               <div>
                 <dt
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Reg. Number</dt>
+                  TPIN</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.regNumber }}</dd>
               </div>
-              <div>
+              <div v-if="cb.company.branch">
                 <dt
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Contact Person</dt>
-                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.contactPerson }}</dd>
-              </div>
-              <div>
-                <dt
-                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Email</dt>
-                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.email }}</dd>
-              </div>
-              <div>
-                <dt
-                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Phone</dt>
-                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.phone }}</dd>
+                  Branch</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.branch }}</dd>
               </div>
               <div v-if="cb.company.industry">
                 <dt
@@ -1407,12 +1592,64 @@ function guestNights(g) {
                   Industry</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.industry }}</dd>
               </div>
+              <div v-if="cb.company.email">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Company Email</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.email }}</dd>
+              </div>
+              <div v-if="cb.company.phone">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Company Phone</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.phone }}</dd>
+              </div>
+              <div v-if="cb.company.city">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  City</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.city }}</dd>
+              </div>
+              <div v-if="cb.company.country">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Country</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.country }}</dd>
+              </div>
               <div v-if="cb.company.address" class="sm:col-span-2">
                 <dt
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Address</dt>
-                <dd class="font-sans text-sm text-(--color-on-surface)">{{ [cb.company.address, cb.company.city,
-                cb.company.country, cb.company.postalCode].filter(Boolean).join(', ') }}</dd>
+                  Street Address</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.company.address }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <!-- Booked By summary -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+            <div class="flex items-center justify-between mb-5">
+              <h2 class="font-serif text-xl flex items-center gap-2 text-(--color-on-surface)">
+                <span class="material-symbols-outlined text-(--color-primary)">person</span> Booked By
+              </h2>
+              <button class="font-sans text-sm text-(--color-primary) font-semibold hover:underline"
+                @click="step = 1">Edit</button>
+            </div>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
+              <div>
+                <dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Name</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.bookedBy.name }}</dd>
+              </div>
+              <div>
+                <dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Email</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.bookedBy.email }}</dd>
+              </div>
+              <div v-if="cb.bookedBy.phone">
+                <dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Phone</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.bookedBy.phone }}</dd>
+              </div>
+              <div v-if="cb.bookedBy.jobTitle">
+                <dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Job Title</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.bookedBy.jobTitle }}</dd>
               </div>
             </dl>
           </section>
@@ -1494,6 +1731,12 @@ function guestNights(g) {
                   Authoriser Email</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.authoriser.email }}</dd>
               </div>
+              <div v-if="cb.accommodation.authoriser.phone">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Authoriser Phone</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.authoriser.phone }}</dd>
+              </div>
               <div v-if="cb.accommodation.authoriser.glCode">
                 <dt
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
@@ -1505,6 +1748,12 @@ function guestNights(g) {
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
                   Cost Center</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.costCenter }}</dd>
+              </div>
+              <div v-if="cb.accommodation.notes" class="sm:col-span-2">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Additional Requests</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.accommodation.notes }}</dd>
               </div>
             </dl>
             <div v-if="accomDocFiles.filter(d => d.url).length"
@@ -1619,6 +1868,12 @@ function guestNights(g) {
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
                   Authoriser Email</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.authoriser.email }}</dd>
+              </div>
+              <div v-if="cb.meals.authoriser.phone">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Authoriser Phone</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.authoriser.phone }}</dd>
               </div>
               <div v-if="cb.meals.authoriser.glCode">
                 <dt
@@ -1738,6 +1993,12 @@ function guestNights(g) {
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
                   Authoriser Email</dt>
                 <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.authoriser.email }}</dd>
+              </div>
+              <div v-if="cb.conference.authoriser.phone">
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  Authoriser Phone</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.authoriser.phone }}</dd>
               </div>
               <div v-if="cb.conference.authoriser.glCode">
                 <dt

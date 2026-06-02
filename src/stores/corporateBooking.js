@@ -20,16 +20,22 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
   const branchId  = ref('')
 
   const company = ref({
-    name:          '',
-    regNumber:     '',
-    contactPerson: '',
-    email:         '',
-    phone:         '',
-    industry:      '',
-    address:       '',
-    city:          '',
-    country:       '',
-    postalCode:    '',
+    name:      '',
+    regNumber: '',
+    branch:    '',
+    email:     '',
+    phone:     '',
+    industry:  '',
+    address:   '',
+    city:      '',
+    country:   '',
+  })
+
+  const bookedBy = ref({
+    name:     '',
+    email:    '',
+    phone:    '',
+    jobTitle: '',
   })
 
   const accommodation = ref({
@@ -115,38 +121,43 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     }))
   }
 
-  async function submit() {
+  async function submit(activeService) {
     const payload = {
       org_id: lodgeId.value,
       client: {
         company_name:       company.value.name,
-        contact_person:     company.value.contactPerson,
-        email:              company.value.email,
-        phone:              company.value.phone,
         company_reg_number: company.value.regNumber,
-        industry:           company.value.industry   || undefined,
-        address:            company.value.address    || undefined,
-        city:               company.value.city       || undefined,
-        country:            company.value.country    || undefined,
-        postal_code:        company.value.postalCode || undefined,
+        branch:             company.value.branch   || undefined,
+        email:              company.value.email    || undefined,
+        phone:              company.value.phone    || undefined,
+        industry:           company.value.industry || undefined,
+        address:            company.value.address  || undefined,
+        city:               company.value.city     || undefined,
+        country:            company.value.country  || undefined,
+      },
+      booked_by: {
+        name:      bookedBy.value.name,
+        email:     bookedBy.value.email,
+        phone:     bookedBy.value.phone    || undefined,
+        job_title: bookedBy.value.jobTitle || undefined,
       },
     }
 
     if (branchId.value) payload.branch_id = branchId.value
 
-    if (accommodation.value.enabled) {
+    if (activeService === 'accommodation') {
       const a = accommodation.value
       payload.accommodation = {
         reason_for_booking: a.reasonForBooking || undefined,
-        room_type:          a.roomType  || undefined,
+        room_type:          a.roomType         || undefined,
         room_count:         a.roomCount,
         guests: a.guests.map(g => ({
           full_name: g.fullName,
           email:     g.email    || undefined,
           phone:     g.phone    || undefined,
           id_number: g.idNumber || undefined,
-          check_in:  g.checkIn,
-          check_out: g.checkOut,
+          check_in:  g.checkIn  || undefined,
+          check_out: g.checkOut || undefined,
         })),
         documents:   a.documents.length ? a.documents : undefined,
         authoriser:  buildAuthoriserPayload(a.authoriser),
@@ -155,7 +166,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       }
     }
 
-    if (meals.value.enabled) {
+    if (activeService === 'meals') {
       const m = meals.value
       payload.meals = {
         reason_for_booking: m.reasonForBooking || undefined,
@@ -176,13 +187,13 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
             price:        item.price || undefined,
           })) : undefined,
         })),
-        documents:          m.documents.length ? m.documents : undefined,
-        authoriser:         buildAuthoriserPayload(m.authoriser),
-        cost_center:        m.costCenter || undefined,
+        documents:   m.documents.length ? m.documents : undefined,
+        authoriser:  buildAuthoriserPayload(m.authoriser),
+        cost_center: m.costCenter || undefined,
       }
     }
 
-    if (conference.value.enabled) {
+    if (activeService === 'conference') {
       const c = conference.value
       payload.conference = {
         reason_for_booking: c.reasonForBooking || undefined,
@@ -207,7 +218,8 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     lodgeId.value   = null
     lodgeName.value = ''
     branchId.value  = ''
-    company.value   = { name: '', regNumber: '', contactPerson: '', email: '', phone: '', industry: '', address: '', city: '', country: '', postalCode: '' }
+    company.value   = { name: '', regNumber: '', branch: '', email: '', phone: '', industry: '', address: '', city: '', country: '' }
+    bookedBy.value = { name: '', email: '', phone: '', jobTitle: '' }
     accommodation.value = {
       enabled: true, reasonForBooking: '', roomType: '', roomCount: 1,
       guests: [blankGuest()], documents: [], authoriser: blankAuthoriser(), costCenter: '', notes: '',
@@ -224,7 +236,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
 
   return {
     lodgeId, lodgeName, branchId,
-    company, accommodation, meals, conference,
+    company, bookedBy, accommodation, meals, conference,
     hasAnyService,
     setLodge,
     addGuest, removeGuest,

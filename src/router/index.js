@@ -51,10 +51,11 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) return savedPosition
-    return { top: 0, behavior: 'smooth' }
-  },
+})
+
+router.afterEach(() => {
+  const main = document.querySelector('main')
+  if (main) main.scrollTop = 0
 })
 
 router.beforeEach((to) => {
