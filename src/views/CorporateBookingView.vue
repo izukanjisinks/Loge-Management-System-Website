@@ -328,7 +328,7 @@ function validate() {
 
   const conf = cb.conference
   if (conf.enabled) {
-    if (!conf.date) e.confDate = 'Required'
+    if (!conf.startDate) e.confStartDate = 'Required'
     if (!conf.startTime) e.confStartTime = 'Required'
     if (!conf.endTime) e.confEndTime = 'Required'
     conf.guests.forEach((g, i) => {
@@ -989,7 +989,7 @@ function guestNights(g) {
                   <label
                     class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Number
                     of Guests</label>
-                  <input v-model.number="cb.meals.pax" type="number" min="1"
+                  <input v-model.number="cb.meals.guestCount" type="number" min="1"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div class="flex flex-col gap-1">
@@ -1302,13 +1302,20 @@ function guestNights(g) {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div class="flex flex-col gap-1">
                     <label
-                      class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Date
-                      <span class="text-(--color-error)">*</span></label>
-                    <input v-model="cb.conference.date" type="date"
+                      class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">From
+                      Date <span class="text-(--color-error)">*</span></label>
+                    <input v-model="cb.conference.startDate" type="date"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                      :class="errors.confDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                    <span v-if="errors.confDate" class="font-sans text-xs text-(--color-error)">{{ errors.confDate
-                    }}</span>
+                      :class="errors.confStartDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.confStartDate" class="font-sans text-xs text-(--color-error)">{{ errors.confStartDate }}</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label
+                      class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">To
+                      Date</label>
+                    <input v-model="cb.conference.endDate" type="date"
+                      :min="cb.conference.startDate || undefined"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                   </div>
                   <div class="flex flex-col gap-1">
                     <label
@@ -1317,6 +1324,7 @@ function guestNights(g) {
                     <input v-model.number="cb.conference.attendees" type="number" min="1"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                   </div>
+                  <div></div>
                   <div class="flex flex-col gap-1">
                     <label
                       class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start
@@ -1805,8 +1813,8 @@ function guestNights(g) {
               <div>
                 <dt
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Pax</dt>
-                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.pax }}</dd>
+                  Number of Guests</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.meals.guestCount }}</dd>
               </div>
               <div v-if="cb.meals.checkIn">
                 <dt
@@ -1930,8 +1938,14 @@ function guestNights(g) {
               <div>
                 <dt
                   class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
-                  Date</dt>
-                <dd class="font-sans text-sm text-(--color-on-surface)">{{ fmt(cb.conference.date) }}</dd>
+                  From Date</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ fmt(cb.conference.startDate) }}</dd>
+              </div>
+              <div>
+                <dt
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">
+                  To Date</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.conference.endDate ? fmt(cb.conference.endDate) : '—' }}</dd>
               </div>
               <div>
                 <dt
@@ -2109,15 +2123,16 @@ function guestNights(g) {
                 <div>
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Meals</p>
                   <p class="font-sans text-xs text-(--color-on-surface-variant)">{{MEAL_PLANS.find(p => p.value ===
-                    cb.meals.planType)?.label}} · {{ cb.meals.pax }} pax</p>
+                    cb.meals.planType)?.label}} · {{ cb.meals.guestCount }} guest{{ cb.meals.guestCount !== 1 ? 's' : '' }}</p>
                 </div>
               </div>
               <div v-if="activeTab === 'conference'" class="flex items-start gap-3">
                 <span class="material-symbols-outlined text-(--color-primary) text-base mt-0.5">meeting_room</span>
                 <div>
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Conference Room</p>
-                  <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ fmt(cb.conference.date) }}<template
-                      v-if="cb.conference.date"> · {{ cb.conference.startTime }}–{{ cb.conference.endTime }}</template>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ fmt(cb.conference.startDate) }}<template
+                      v-if="cb.conference.endDate"> – {{ fmt(cb.conference.endDate) }}</template><template
+                      v-if="cb.conference.startDate"> · {{ cb.conference.startTime }}–{{ cb.conference.endTime }}</template>
                   </p>
                 </div>
               </div>

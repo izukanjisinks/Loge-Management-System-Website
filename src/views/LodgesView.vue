@@ -5,29 +5,32 @@ import { useLodges } from '@/composables/useRooms'
 
 const { lodges, total, loading, error, fetchLodges } = useLodges()
 
-const PAGE_SIZE  = 9
-const page       = ref(1)
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
-const search     = ref('')
+const PAGE_SIZE    = 9
+const page         = ref(1)
+const totalPages   = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
+const search       = ref('')
+const initialLoad  = ref(true)
+const searching    = ref(false)
 
-async function load(p = 1) {
+async function load(p = 1, isSearch = false) {
   page.value = p
+  if (isSearch) searching.value = true
   const params = { page: p, page_size: PAGE_SIZE }
   if (search.value.trim()) params.search = search.value.trim()
   await fetchLodges(params)
+  searching.value = false
+  initialLoad.value = false
 }
 
 let searchDebounce = null
 watch(search, () => {
   clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(() => load(1), 400)
+  searchDebounce = setTimeout(() => load(1, true), 400)
 })
 
 onMounted(() => load(1))
 
 const filtered = computed(() => lodges.value)
-
-
 </script>
 
 <template>
@@ -48,13 +51,22 @@ const filtered = computed(() => lodges.value)
 
       <!-- Search -->
       <div class="relative w-full md:w-72">
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-outline) text-base">search</span>
+        <span v-if="!searching"
+          class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-outline) text-base">search</span>
+        <span v-else
+          class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-primary) text-base animate-spin">progress_activity</span>
         <input
           v-model="search"
           type="text"
           placeholder="Search by name or location…"
-          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-4 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)"
+          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-8 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)"
         />
+        <button v-if="search"
+          type="button"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-outline) hover:text-(--color-on-surface) transition-colors"
+          @click="search = ''">
+          <span class="material-symbols-outlined text-base">close</span>
+        </button>
       </div>
     </div>
 
@@ -70,8 +82,8 @@ const filtered = computed(() => lodges.value)
         </button>
       </div>
 
-      <!-- Skeleton loader -->
-      <div v-else-if="loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Skeleton loader (initial load only) -->
+      <div v-else-if="loading && initialLoad" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div
           v-for="i in 9"
           :key="i"

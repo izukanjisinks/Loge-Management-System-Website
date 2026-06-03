@@ -3,11 +3,18 @@ import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-const auth     = useAuthStore()
-const router   = useRouter()
-const menuOpen = ref(false)
+const auth              = useAuthStore()
+const router            = useRouter()
+const menuOpen          = ref(false)
+const showLogoutDialog  = ref(false)
 
 function handleLogout() {
+  menuOpen.value = false
+  showLogoutDialog.value = true
+}
+
+function confirmLogout() {
+  showLogoutDialog.value = false
   auth.logout()
   router.push({ name: 'home' })
 }
@@ -111,4 +118,65 @@ function handleLogout() {
       </div>
     </Transition>
   </header>
+
+  <!-- Sign out confirmation dialog -->
+  <Transition
+    enter-active-class="transition duration-200"
+    enter-from-class="opacity-0"
+    enter-to-class="opacity-100"
+    leave-active-class="transition duration-150"
+    leave-from-class="opacity-100"
+    leave-to-class="opacity-0"
+  >
+    <div
+      v-if="showLogoutDialog"
+      class="fixed inset-0 z-200 flex items-center justify-center px-5"
+      @click.self="showLogoutDialog = false"
+    >
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+      <!-- Dialog -->
+      <Transition
+        enter-active-class="transition duration-200"
+        enter-from-class="opacity-0 scale-95"
+        enter-to-class="opacity-100 scale-100"
+      >
+        <div
+          v-if="showLogoutDialog"
+          class="relative bg-(--color-surface) rounded-2xl shadow-xl p-8 w-full max-w-sm border border-(--color-outline-variant)"
+        >
+          <div class="flex flex-col items-center text-center gap-4">
+            <span
+              class="material-symbols-outlined text-5xl text-(--color-primary)"
+              style="font-variation-settings: 'FILL' 0"
+            >logout</span>
+            <div>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Sign out?</h2>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1.5 leading-relaxed">
+                You'll need to sign in again to access your reservations and bookings.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-7">
+            <button
+              type="button"
+              class="flex-1 py-3 rounded-xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface) hover:bg-(--color-surface-container-low) transition-colors"
+              @click="showLogoutDialog = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="flex-1 py-3 rounded-xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors"
+              @click="confirmLogout"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </div>
+  </Transition>
 </template>

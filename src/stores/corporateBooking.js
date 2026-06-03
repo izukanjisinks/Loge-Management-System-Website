@@ -54,7 +54,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     enabled:          true,
     reasonForBooking: '',
     planType:         'full_board',
-    pax:              1,
+    guestCount:              1,
     checkIn:          '',
     checkOut:         '',
     dietaryNotes:     '',
@@ -67,7 +67,8 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
   const conference = ref({
     enabled:          true,
     reasonForBooking: '',
-    date:             '',
+    startDate:        '',
+    endDate:          '',
     startTime:        '09:00',
     endTime:          '17:00',
     attendees:        10,
@@ -171,9 +172,9 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       payload.meals = {
         reason_for_booking: m.reasonForBooking || undefined,
         plan_type:          m.planType,
-        pax:                m.pax,
-        check_in:           m.checkIn      || undefined,
-        check_out:          m.checkOut     || undefined,
+        guest_count:               m.guestCount,
+        from:               m.checkIn  || undefined,
+        to:                 m.checkOut || undefined,
         dietary_notes:      m.dietaryNotes || undefined,
         guests: m.guests.map(g => ({
           full_name:  g.fullName,
@@ -197,7 +198,8 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       const c = conference.value
       payload.conference = {
         reason_for_booking: c.reasonForBooking || undefined,
-        date:               c.date,
+        start_date:         c.startDate,
+        end_date:           c.endDate || undefined,
         start_time:         c.startTime,
         end_time:           c.endTime,
         attendees:          c.attendees,
@@ -225,11 +227,11 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       guests: [blankGuest()], documents: [], authoriser: blankAuthoriser(), costCenter: '', notes: '',
     }
     meals.value = {
-      enabled: true, reasonForBooking: '', planType: 'full_board', pax: 1, checkIn: '', checkOut: '', dietaryNotes: '',
+      enabled: true, reasonForBooking: '', planType: 'full_board', guestCount: 1, checkIn: '', checkOut: '', dietaryNotes: '',
       guests: [blankSimpleGuest()], documents: [], authoriser: blankAuthoriser(), costCenter: '',
     }
     conference.value = {
-      enabled: true, reasonForBooking: '', date: '', startTime: '09:00', endTime: '17:00', attendees: 10, equipment: [], notes: '',
+      enabled: true, reasonForBooking: '', startDate: '', endDate: '', startTime: '09:00', endTime: '17:00', attendees: 10, equipment: [], notes: '',
       guests: [blankSimpleGuest()], documents: [], authoriser: blankAuthoriser(), costCenter: '',
     }
   }
