@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookingStore }   from '@/stores/booking'
 import { useAuthStore }      from '@/stores/auth'
@@ -14,7 +14,7 @@ const router  = useRouter()
 const booking = useBookingStore()
 const auth    = useAuthStore()
 
-// â”€â”€ Room data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Room data â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const room       = ref(null)
 const apiLoading = ref(false)
 const apiError   = ref('')
@@ -50,6 +50,7 @@ function normalise(r) {
     location:    r.location    || '',
     description: r.description || '',
     images:      r.images?.length ? r.images : [],
+    tourUrl:     r.virtual_tour_url || r.tour_url || '',
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     bookedDates: r.booked_dates ?? [],
     orgName:     r.organization?.name || '',
@@ -58,6 +59,7 @@ function normalise(r) {
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   apiLoading.value = true
   apiError.value   = ''
   try {
@@ -70,11 +72,26 @@ onMounted(async () => {
   }
 })
 
-// â”€â”€ Gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const activeImg = ref(0)
-const images    = computed(() => room.value?.images ?? [])
+// â"€â"€ Gallery â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+const activeImg     = ref(0)
+const images        = computed(() => room.value?.images ?? [])
+const lightboxOpen  = ref(false)
+const lightboxIndex = ref(0)
 
-// â”€â”€ Booking widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function openLightbox(i) { lightboxIndex.value = i; lightboxOpen.value = true }
+function closeLightbox() { lightboxOpen.value = false }
+function lightboxPrev() { lightboxIndex.value = (lightboxIndex.value - 1 + images.value.length) % images.value.length }
+function lightboxNext() { lightboxIndex.value = (lightboxIndex.value + 1) % images.value.length }
+
+function onKeydown(e) {
+  if (!lightboxOpen.value) return
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); lightboxPrev() }
+  if (e.key === 'ArrowRight') { e.preventDefault(); lightboxNext() }
+  if (e.key === 'Escape')     { e.preventDefault(); closeLightbox() }
+}
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
+// â"€â"€ Booking widget â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const checkIn    = ref('')
 const checkOut   = ref('')
 const guestCount = ref(1)
@@ -160,53 +177,112 @@ function reserve() {
 
   <div v-else-if="room" class="max-w-[1280px] mx-auto pb-24">
 
-    <!-- â”€â”€ Bento Image Gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    <section class="px-5 md:px-16 mt-8">
-      <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-150">
+    <!-- Back button -->
+    <div class="px-5 md:px-16 pt-6">
+      <button type="button"
+        class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors"
+        @click="room.orgId ? router.push({ name: 'lodge-detail', params: { id: room.orgId } }) : router.back()">
+        <span class="material-symbols-outlined text-base">arrow_back</span>
+        {{ room.orgName || 'Back to Rooms' }}
+      </button>
+    </div>
+
+    <!-- Bento Image Gallery -->
+    <section class="px-5 md:px-16 mt-4">
+      <div class="relative grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-[500px]">
         <!-- Main image -->
-        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-xl cursor-pointer" @click="activeImg = 0">
-          <img
-            v-if="images[0]"
-            :src="images[activeImg] || images[0]"
-            :alt="room.name"
-            class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-            loading="eager"
-          />
+        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-xl cursor-pointer group/main"
+          @click="openLightbox(0)">
+          <img v-if="images[0]" :src="images[0]" :alt="room.name"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/main:scale-105"
+            loading="eager" />
           <div v-else class="absolute inset-0 w-full h-full bg-(--color-surface-container) flex items-center justify-center">
             <span class="material-symbols-outlined text-5xl text-(--color-outline)">image_not_supported</span>
           </div>
-
-          <!-- Nav arrows when multiple images -->
-          <template v-if="images.length > 1">
-            <button
-              class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
-              @click.stop="activeImg = (activeImg - 1 + images.length) % images.length"
-            >
-              <span class="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button
-              class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
-              @click.stop="activeImg = (activeImg + 1) % images.length"
-            >
-              <span class="material-symbols-outlined">chevron_right</span>
-            </button>
-          </template>
+          <div class="absolute inset-0 bg-black/0 group-hover/main:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+            <span class="material-symbols-outlined text-4xl text-white opacity-0 group-hover/main:opacity-100 transition-opacity drop-shadow">zoom_in</span>
+          </div>
         </div>
 
         <!-- Secondary images -->
-        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-xl">
-          <img :src="images[1]" :alt="`${room.name} 2`" class="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-pointer" loading="lazy" @click="activeImg = 1" />
+        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(1)">
+          <img :src="images[1]" :alt="`${room.name} 2`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
+          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
         </div>
-        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-xl">
-          <img :src="images[2]" :alt="`${room.name} 3`" class="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-pointer" loading="lazy" @click="activeImg = 2" />
+        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(2)">
+          <img :src="images[2]" :alt="`${room.name} 3`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
+          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
         </div>
-        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-xl">
-          <img :src="images[3]" :alt="`${room.name} 4`" class="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 cursor-pointer" loading="lazy" @click="activeImg = 3" />
+        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(3)">
+          <img :src="images[3]" :alt="`${room.name} 4`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
+          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+          <button v-if="images.length > 4" type="button"
+            class="absolute bottom-4 right-4 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-(--color-on-surface) font-sans text-sm font-semibold px-4 py-2 rounded-full shadow hover:bg-white transition-colors"
+            @click.stop="openLightbox(0)">
+            <span class="material-symbols-outlined text-base">photo_library</span>
+            View all {{ images.length }} photos
+          </button>
         </div>
       </div>
     </section>
 
-    <!-- â”€â”€ Lodge Info & Booking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <!-- 3D Virtual Tour -->
+    <section v-if="room.tourUrl" class="px-5 md:px-16 mt-8">
+      <h2 class="font-serif text-2xl text-(--color-on-surface) mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-(--color-primary)">3d_rotation</span>
+        Virtual Tour
+      </h2>
+      <div class="relative w-full rounded-xl overflow-hidden border border-(--color-outline-variant) shadow-sm" style="padding-top:56.25%">
+        <iframe :src="room.tourUrl" class="absolute inset-0 w-full h-full" allowfullscreen
+          allow="xr-spatial-tracking; gyroscope; accelerometer" loading="lazy" title="360° Virtual Tour"></iframe>
+      </div>
+    </section>
+
+    <!-- Lightbox -->
+    <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100"
+      leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+      <div v-if="lightboxOpen" class="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-md"
+        @click.self="closeLightbox">
+        <!-- Top bar -->
+        <div class="flex items-center justify-between px-6 py-4 shrink-0">
+          <p class="font-sans text-sm text-white/70">{{ lightboxIndex + 1 }} / {{ images.length }}</p>
+          <button type="button"
+            class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            @click="closeLightbox">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <!-- Main image -->
+        <div class="flex-1 flex items-center justify-center px-16 min-h-0 relative">
+          <button type="button"
+            class="absolute left-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors"
+            @click="lightboxPrev">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+          <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 scale-95"
+            enter-to-class="opacity-100 scale-100" mode="out-in">
+            <img :key="lightboxIndex" :src="images[lightboxIndex]" :alt="`${room.name} ${lightboxIndex + 1}`"
+              class="max-h-full max-w-full object-contain rounded-lg select-none" draggable="false" />
+          </Transition>
+          <button type="button"
+            class="absolute right-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white transition-colors"
+            @click="lightboxNext">
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
+        </div>
+        <!-- Thumbnail strip -->
+        <div class="shrink-0 px-6 py-4 flex gap-2 overflow-x-auto justify-center">
+          <button v-for="(img, i) in images" :key="i" type="button"
+            class="shrink-0 w-16 h-12 rounded-md overflow-hidden border-2 transition-all"
+            :class="i === lightboxIndex ? 'border-white opacity-100' : 'border-transparent opacity-40 hover:opacity-70'"
+            @click="lightboxIndex = i">
+            <img :src="img" :alt="`Thumbnail ${i + 1}`" class="w-full h-full object-cover" loading="lazy" />
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- â"€â"€ Lodge Info & Booking â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€ -->
     <div class="px-5 md:px-16 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
 
       <!-- Left: Description & Amenities -->
@@ -302,11 +378,11 @@ function reserve() {
                   >
                     <div class="flex flex-col gap-0.5">
                       <span class="font-sans text-[10px] font-bold uppercase tracking-wider text-(--color-on-surface-variant)">
-                        {{ checkIn && checkOut ? 'Check In â†’ Check Out' : 'Select Dates' }}
+                        {{ checkIn && checkOut ? 'Check In &rarr; Check Out' : 'Select Dates' }}
                       </span>
                       <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
                         {{ checkIn ? formatDisplay(checkIn) : 'Add dates' }}
-                        <template v-if="checkIn || checkOut"> â†’ {{ checkOut ? formatDisplay(checkOut) : 'â€”' }}</template>
+                        <template v-if="checkIn || checkOut"> &rarr; {{ checkOut ? formatDisplay(checkOut) : '&mdash;' }}</template>
                       </span>
                     </div>
                     <span class="material-symbols-outlined text-sm text-(--color-on-surface-variant) shrink-0">calendar_month</span>
@@ -336,7 +412,7 @@ function reserve() {
                   class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) font-bold hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
                   :disabled="guestCount <= 1"
                   @click="guestCount = Math.max(1, guestCount - 1)"
-                >âˆ’</button>
+                >&minus;</button>
                 <span class="font-sans text-sm font-semibold w-4 text-center">{{ guestCount }}</span>
                 <button
                   class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) font-bold hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
@@ -364,7 +440,7 @@ function reserve() {
           >
             <div v-if="nightCount > 0" class="mt-6 pt-6 border-t border-(--color-outline-variant) space-y-2">
               <div class="flex justify-between text-(--color-on-surface-variant) font-sans text-sm">
-                <span>K{{ room.price.toLocaleString() }} Ã— {{ nightCount }} nights</span>
+                <span>K{{ room.price.toLocaleString() }} &times; {{ nightCount }} nights</span>
                 <span>K{{ Number(baseTotal.toFixed(0)).toLocaleString() }}</span>
               </div>
               <div class="flex justify-between text-(--color-on-surface-variant) font-sans text-sm">

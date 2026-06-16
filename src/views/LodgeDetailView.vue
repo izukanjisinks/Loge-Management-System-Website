@@ -306,56 +306,56 @@ function reserve(room) {
           </div>
         </Transition>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div v-for="room in rooms" :key="room.id"
-          class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col">
-          <div class="relative h-44 overflow-hidden">
-            <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
-            <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
-              class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-              {{ room.is_available ? 'Available' : 'Unavailable' }}
-            </span>
-            <span
-              class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
-              {{ room.type }}
-            </span>
-          </div>
-
-          <div class="p-5 flex flex-col flex-1">
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <h3 class="font-serif text-lg text-(--color-on-surface)">{{ room.name }}</h3>
-              <div class="text-right shrink-0">
-                <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString()
-                  }}
-                </p>
-                <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
-              </div>
-            </div>
-
-            <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
-              <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
-              Sleeps {{ room.capacity }}
-            </p>
-
-            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
-              {{ room.description || 'A comfortable and well-appointed room.' }}
-            </p>
-
-            <div class="flex flex-wrap gap-1 mb-4">
-              <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
-                class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
-                <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
-                {{ a }}
+          <div v-for="room in rooms" :key="room.id"
+            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col cursor-pointer group hover:shadow-lg transition-shadow duration-300"
+            @click="router.push({ name: 'room-detail', params: { id: room.id } })">
+            <div class="relative h-44 overflow-hidden">
+              <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+              <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
+              <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
+                class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+                {{ room.is_available ? 'Available' : 'Unavailable' }}
+              </span>
+              <span
+                class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
+                {{ room.type }}
               </span>
             </div>
 
-            <button :disabled="!room.is_available" class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all
-                     bg-(--color-primary) text-white hover:bg-(--color-clay-earth)
-                     disabled:opacity-40 disabled:cursor-not-allowed" @click="reserve(room)">
-              {{ room.is_available ? 'Reserve' : 'Unavailable' }}
-            </button>
+            <div class="p-5 flex flex-col flex-1">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h3 class="font-serif text-lg text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ room.name }}</h3>
+                <div class="text-right shrink-0">
+                  <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString() }}</p>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
+                </div>
+              </div>
+
+              <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
+                <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
+                Sleeps {{ room.capacity }}
+              </p>
+
+              <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
+                {{ room.description || 'A comfortable and well-appointed room.' }}
+              </p>
+
+              <div class="flex flex-wrap gap-1 mb-4">
+                <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
+                  class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
+                  {{ a }}
+                </span>
+              </div>
+
+              <button
+                :disabled="!room.is_available"
+                class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all bg-(--color-primary) text-white hover:bg-(--color-clay-earth) disabled:opacity-40 disabled:cursor-not-allowed"
+                @click.stop="reserve(room)">
+                {{ room.is_available ? 'Reserve' : 'Unavailable' }}
+              </button>
+            </div>
           </div>
-        </div>
         </div>
       </div>
 

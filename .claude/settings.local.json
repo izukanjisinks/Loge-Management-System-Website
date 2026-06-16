@@ -13,7 +13,9 @@
       "Bash(node -e \"require\\('./node_modules/firebase/package.json'\\)\")",
       "Bash(npm install *)",
       "Bash(cd \"C:\\\\development\\\\Lodge-Management-System\" && find . -type f -name \"*.go\" | grep -i route)",
-      "Read(//c/development/Lodge-Management-System/**)"
+      "Read(//c/development/Lodge-Management-System/**)",
+      "Bash(python -c ' *)",
+      "Bash(node -e ' *)"
     ]
   }
 }
