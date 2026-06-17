@@ -15,7 +15,10 @@
       "Bash(cd \"C:\\\\development\\\\Lodge-Management-System\" && find . -type f -name \"*.go\" | grep -i route)",
       "Read(//c/development/Lodge-Management-System/**)",
       "Bash(python -c ' *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(npx vite *)",
+      "Bash(npm run *)"
     ]
   }
 }
