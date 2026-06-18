@@ -89,9 +89,13 @@ export function mockAdapter(config) {
 
   if (method === 'get' && url.includes('/rooms')) {
     let rooms = ALL_MOCK_ROOMS
-    if (params.org_id)    rooms = rooms.filter(r => r.org_id   === params.org_id)
+    if (params.org_id)    rooms = rooms.filter(r => r.org_id    === params.org_id)
     if (params.branch_id) rooms = rooms.filter(r => r.branch_id === params.branch_id)
     if (params.type)      rooms = rooms.filter(r => r.type      === params.type)
+    // Availability check — mark all rooms available when dates are provided
+    if (params.check_in && params.check_out) {
+      rooms = rooms.map(r => ({ ...r, available: true, is_available: true }))
+    }
     return ok(rooms)
   }
 
@@ -109,6 +113,16 @@ export function mockAdapter(config) {
 
   if (method === 'get' && url.includes('/bookings')) {
     return ok(MOCK_BOOKINGS)
+  }
+
+  if (method === 'post' && url.includes('/bookings/individual')) {
+    return ok({
+      id: `ind-bk-${Date.now()}`,
+      booking_ref: `MCW-IND-${Math.floor(Math.random() * 90000) + 10000}`,
+      status: 'pending',
+      booking_type: 'individual',
+      created_at: new Date().toISOString(),
+    }, 600)
   }
 
   if (method === 'post' && url.includes('/bookings/corporate-event')) {

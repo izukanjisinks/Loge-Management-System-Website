@@ -167,6 +167,14 @@ export function searchCompanies(query) {
   )
 }
 
+export function lookupByTpin(tpin) {
+  if (!tpin || tpin.trim().length < 2) return []
+  const q = tpin.toLowerCase().trim()
+  return DUMMY_COMPANIES.filter(c =>
+    c.registrationNo && c.registrationNo.toLowerCase().includes(q)
+  )
+}
+
 export function getBranchesForCompany(companyId) {
   return DUMMY_BRANCHES[companyId] ?? []
 }

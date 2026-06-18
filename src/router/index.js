@@ -16,6 +16,12 @@ const routes = [
         component: () => import('@/views/CorporateBookingView.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: 'lodges/:id/individual',
+        name: 'individual-booking',
+        component: () => import('@/views/IndividualBookingView.vue'),
+        meta: { requiresAuth: true },
+      },
       { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
       {
         path: 'reserve/:roomId',

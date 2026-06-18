@@ -231,8 +231,26 @@ function reserve(room) {
       </div>
     </section>
 
-    <!-- ── Corporate Booking CTA ────────────────────────────────────── -->
+    <!-- ── Individual Booking CTA ───────────────────────────────────── -->
     <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+        <div class="flex items-start gap-4">
+          <span class="material-symbols-outlined text-2xl text-(--color-primary) mt-0.5 shrink-0" style="font-variation-settings: 'FILL' 1">person</span>
+          <div>
+            <h3 class="font-serif text-lg text-(--color-on-surface)">Individual Guest Booking</h3>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-0.5">Book accommodation, events, and meals for yourself or a small group of guests.</p>
+          </div>
+        </div>
+        <RouterLink :to="{ name: 'individual-booking', params: { id: lodgeId }, query: filterBranch ? { branchId: filterBranch } : {} }"
+          class="shrink-0 flex items-center gap-2 px-6 py-2.5 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors whitespace-nowrap">
+          <span class="material-symbols-outlined text-base">arrow_forward</span>
+          Book as Guest
+        </RouterLink>
+      </div>
+    </section>
+
+    <!-- ── Corporate Booking CTA ────────────────────────────────────── -->
+    <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-4">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
         <div class="flex items-start gap-4">
           <span class="material-symbols-outlined text-2xl text-(--color-primary) mt-0.5 shrink-0">business_center</span>

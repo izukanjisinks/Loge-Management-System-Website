@@ -40,19 +40,39 @@ export function flattenSessions(ev) {
   return result
 }
 
-function blankMealSession() {
+function blankMealTemplate() {
   return {
     sessionName: '',
-    mealDate: '',
     mealPeriod: 'lunch',
     serviceType: 'buffet',
     paxCount: 10,
-    linkedEventIndex: null,
+    linkedMasterSessionIndex: null,
     dietaryNotes: '',
     arrangementsNotes: '',
-    groupItems: [],
     individualOrders: [],
   }
+}
+
+export function flattenMeals(meals, events) {
+  const { masterMeals, mealOverrides, mealMode } = meals
+  const startDate = mealMode === 'standalone' ? (meals.startDate ?? '') : (events?.startDate ?? '')
+  const endDate   = mealMode === 'standalone' ? (meals.endDate   ?? '') : (events?.endDate   ?? '')
+  if (!startDate || !endDate || endDate < startDate) {
+    return masterMeals.map(m => ({ ...m, mealDate: '', individualOrders: [] }))
+  }
+  const [sy, sm, sd] = startDate.split('-').map(Number)
+  const [ey, em, ed] = endDate.split('-').map(Number)
+  const start = new Date(Date.UTC(sy, sm - 1, sd))
+  const end   = new Date(Date.UTC(ey, em - 1, ed))
+  const result = []
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const date = d.toISOString().slice(0, 10)
+    const ov = mealOverrides[date]
+    if (ov?.excluded) continue
+    const sessions = ov?.sessions ?? masterMeals
+    sessions.forEach(m => result.push({ ...m, mealDate: date, individualOrders: m.individualOrders ?? [] }))
+  }
+  return result
 }
 
 export const useCorporateBookingStore = defineStore('corporateBooking', () => {
@@ -68,8 +88,12 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
 
   // Booking snapshot fields (copied from profile, overridable by rep)
   const companyName     = ref('')
-  const registrationNo  = ref('')
+  const tpin            = ref('')
   const industry        = ref('')
+  const companyEmail    = ref('')
+  const companyPhone    = ref('')
+  const city            = ref('')
+  const streetAddress   = ref('')
   const branchName      = ref('')
   const departmentName  = ref('')
   const costCenter      = ref('')
@@ -110,10 +134,15 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     dayOverrides: {},           // { 'YYYY-MM-DD': { excluded: bool, sessions: [...] } }
   })
 
-  // Meals service — multiple sessions (breakfast, lunch, gala dinner, etc.)
+  // Meals service — master plan + per-day overrides
   const meals = ref({
     reasonForBooking: '',
-    sessions: [blankMealSession()],
+    mealMode: 'event_linked',   // 'event_linked' | 'standalone'
+    startDate: '',              // standalone only
+    endDate: '',                // standalone only
+    scheduleMode: 'uniform',
+    masterMeals: [blankMealTemplate()],
+    mealOverrides: {},
   })
 
   // General booking notes
@@ -138,8 +167,10 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     selectedProfileId.value = profile?.id ?? null
 
     companyName.value    = company?.name            ?? companyName.value
-    registrationNo.value = company?.registrationNo  ?? registrationNo.value
+    tpin.value           = company?.registrationNo  ?? tpin.value
     industry.value       = company?.industry        ?? industry.value
+    companyEmail.value   = company?.billingEmail    ?? companyEmail.value
+    companyPhone.value   = branch?.phone            ?? company?.phone   ?? companyPhone.value
     branchName.value     = branch?.name             ?? branchName.value
 
     if (profile) {
@@ -158,8 +189,12 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     selectedBranchId.value   = null
     selectedProfileId.value  = null
     companyName.value        = ''
-    registrationNo.value     = ''
+    tpin.value               = ''
     industry.value           = ''
+    companyEmail.value       = ''
+    companyPhone.value       = ''
+    city.value               = ''
+    streetAddress.value      = ''
     branchName.value         = ''
     departmentName.value     = ''
     costCenter.value         = ''
@@ -204,9 +239,35 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     if (ov && ov.sessions.length > 1) ov.sessions.splice(i, 1)
   }
 
-  // Meal session management
-  function addMealSession()      { meals.value.sessions.push(blankMealSession()) }
-  function removeMealSession(i)  { if (meals.value.sessions.length > 1) meals.value.sessions.splice(i, 1) }
+  // Meal plan management
+  function addMasterMeal()      { meals.value.masterMeals.push(blankMealTemplate()) }
+  function removeMasterMeal(i)  { if (meals.value.masterMeals.length > 1) meals.value.masterMeals.splice(i, 1) }
+
+  function setMealOverride(date) {
+    if (!meals.value.mealOverrides[date]) {
+      meals.value.mealOverrides[date] = {
+        excluded: false,
+        sessions: meals.value.masterMeals.map(m => ({ ...m, individualOrders: [] })),
+      }
+    }
+  }
+  function clearMealOverride(date)  { delete meals.value.mealOverrides[date] }
+  function toggleMealDayExcluded(date) {
+    const ov = meals.value.mealOverrides[date]
+    if (!ov) {
+      meals.value.mealOverrides[date] = { excluded: true, sessions: [] }
+    } else {
+      ov.excluded = !ov.excluded
+    }
+  }
+  function addOverrideMeal(date) {
+    const ov = meals.value.mealOverrides[date]
+    if (ov) ov.sessions.push({ ...blankMealTemplate(), individualOrders: [] })
+  }
+  function removeOverrideMeal(date, i) {
+    const ov = meals.value.mealOverrides[date]
+    if (ov && ov.sessions.length > 1) ov.sessions.splice(i, 1)
+  }
 
   async function submit() {
     const payload = {
@@ -216,8 +277,12 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
 
       // Company snapshot
       company_name:        companyName.value    || undefined,
-      registration_no:     registrationNo.value || undefined,
+      tpin:                tpin.value           || undefined,
       industry:            industry.value       || undefined,
+      company_email:       companyEmail.value   || undefined,
+      company_phone:       companyPhone.value   || undefined,
+      city:                city.value           || undefined,
+      street_address:      streetAddress.value  || undefined,
       branch_name:         branchName.value     || undefined,
       department_name:     departmentName.value || undefined,
       cost_center:         costCenter.value     || undefined,
@@ -282,17 +347,18 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     if (mealsEnabled.value) {
       payload.meals = {
         reason_for_booking: meals.value.reasonForBooking || undefined,
-        sessions: meals.value.sessions.map(s => ({
-          session_name:        s.sessionName         || undefined,
-          meal_date:           s.mealDate            || undefined,
-          meal_period:         s.mealPeriod,
-          service_type:        s.serviceType,
-          pax_count:           s.paxCount,
-          linked_event_index:  s.linkedEventIndex    ?? undefined,
-          dietary_notes:       s.dietaryNotes        || undefined,
-          arrangements_notes:  s.arrangementsNotes   || undefined,
-          individual_orders:   s.individualOrders?.length
-            ? s.individualOrders
+        schedule_mode: meals.value.scheduleMode,
+        sessions: flattenMeals(meals.value, eventsEnabled.value ? events.value : null).map(m => ({
+          session_name:                m.sessionName                || undefined,
+          meal_date:                   m.mealDate                   || undefined,
+          meal_period:                 m.mealPeriod,
+          service_type:                m.serviceType,
+          pax_count:                   m.paxCount,
+          linked_master_session_index: m.linkedMasterSessionIndex   ?? undefined,
+          dietary_notes:               m.dietaryNotes               || undefined,
+          arrangements_notes:          m.arrangementsNotes          || undefined,
+          individual_orders:           (m.individualOrders ?? []).length
+            ? (m.individualOrders ?? [])
                 .filter(o => o.menuItemId)
                 .map(o => ({
                   attendant_idx: o.attendantIdx,
@@ -314,8 +380,12 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     selectedBranchId.value   = null
     selectedProfileId.value  = null
     companyName.value        = ''
-    registrationNo.value     = ''
+    tpin.value               = ''
     industry.value           = ''
+    companyEmail.value       = ''
+    companyPhone.value       = ''
+    city.value               = ''
+    streetAddress.value      = ''
     branchName.value         = ''
     departmentName.value     = ''
     costCenter.value         = ''
@@ -331,14 +401,15 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     attendants.value           = [blankAttendant(true)]
     accommodation.value = { reasonForBooking: '', roomType: '', roomCount: 1, checkIn: '', checkOut: '', notes: '' }
     events.value        = { reasonForBooking: '', startDate: '', endDate: '', scheduleMode: 'uniform', masterSessions: [blankSessionTemplate()], dayOverrides: {} }
-    meals.value         = { reasonForBooking: '', sessions: [blankMealSession()] }
+    meals.value         = { reasonForBooking: '', mealMode: 'event_linked', startDate: '', endDate: '', scheduleMode: 'uniform', masterMeals: [blankMealTemplate()], mealOverrides: {} }
     notes.value         = ''
   }
 
   return {
     lodgeId, lodgeName, branchId,
     selectedCompanyId, selectedBranchId, selectedProfileId,
-    companyName, registrationNo, industry,
+    companyName, tpin, industry,
+    companyEmail, companyPhone, city, streetAddress,
     branchName, departmentName, costCenter, glCode,
     approverName, approverEmail, approverPhone, approverTitle,
     bookedBy, notes,
@@ -349,7 +420,8 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     addAttendant, removeAttendant,
     addMasterSession, removeMasterSession,
     setDayOverride, clearDayOverride, toggleDayExcluded, addOverrideSession, removeOverrideSession,
-    addMealSession, removeMealSession,
+    addMasterMeal, removeMasterMeal,
+    setMealOverride, clearMealOverride, toggleMealDayExcluded, addOverrideMeal, removeOverrideMeal,
     submit, reset,
   }
 })

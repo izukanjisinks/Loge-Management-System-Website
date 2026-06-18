@@ -3,16 +3,17 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
-import { useCorporateBookingStore, flattenSessions } from '@/stores/corporateBooking'
+import { useCorporateBookingStore } from '@/stores/corporateBooking'
 import { uploadBookingDocument } from '@/services/storage'
 import api from '@/lib/api'
 import {
-  searchCompanies,
+  lookupByTpin,
   getBranchesForCompany,
   getProfilesForBranch,
   DUMMY_CONFERENCE_ROOMS,
   DUMMY_MENU_ITEMS,
 } from '@/data/dummyCorporateData'
+import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS, MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
 
 const route  = useRoute()
 const router = useRouter()
@@ -62,12 +63,13 @@ const companySearchState = ref('idle') // idle | searching | found | not_found |
 const companyBranches    = ref([])
 const branchProfiles     = ref([])
 
-function doCompanySearch() {
+function doTpinLookup() {
   const q = companyQuery.value.trim()
-  if (q.length < 2) { companyResults.value = []; return }
+  cb.tpin = q
+  if (q.length < 2) { companyResults.value = []; companySearchState.value = 'idle'; return }
   companySearchState.value = 'searching'
   setTimeout(() => {
-    const results = searchCompanies(q)
+    const results = lookupByTpin(q)
     companyResults.value    = results
     companySearchState.value = results.length ? 'found' : 'not_found'
   }, 300)
@@ -75,7 +77,8 @@ function doCompanySearch() {
 
 function selectCompany(company) {
   cb.fillFromProfile(company, null, null)
-  companyQuery.value       = company.name
+  companyQuery.value       = company.registrationNo
+  cb.tpin                  = company.registrationNo
   companyResults.value     = []
   companySearchState.value = 'found'
   companyBranches.value    = getBranchesForCompany(company.id)
@@ -188,45 +191,6 @@ const INDUSTRIES = [
   'Retail & Wholesale Trade', 'Telecommunications', 'Other',
 ]
 
-const EVENT_TYPES = [
-  { value: 'conference',  label: 'Conference' },
-  { value: 'seminar',     label: 'Seminar' },
-  { value: 'workshop',    label: 'Workshop' },
-  { value: 'gala',        label: 'Gala / Dinner' },
-  { value: 'wedding',     label: 'Wedding' },
-  { value: 'training',    label: 'Training' },
-]
-
-const SETUP_TYPES = [
-  { value: 'boardroom',  label: 'Boardroom' },
-  { value: 'theatre',    label: 'Theatre' },
-  { value: 'classroom',  label: 'Classroom' },
-  { value: 'u_shape',    label: 'U-Shape' },
-  { value: 'banquet',    label: 'Banquet' },
-  { value: 'cocktail',   label: 'Cocktail' },
-]
-
-const PRICING_BASIS = [
-  { value: 'half_day',  label: 'Half Day' },
-  { value: 'full_day',  label: 'Full Day' },
-  { value: 'hourly',    label: 'Hourly' },
-  { value: 'flat_rate', label: 'Flat Rate' },
-]
-
-const MEAL_PERIODS = [
-  { value: 'breakfast', label: 'Breakfast' },
-  { value: 'lunch',     label: 'Lunch' },
-  { value: 'dinner',    label: 'Dinner' },
-  { value: 'tea_break', label: 'Tea Break' },
-  { value: 'cocktail',  label: 'Cocktail' },
-]
-
-const SERVICE_TYPES = [
-  { value: 'buffet',           label: 'Buffet' },
-  { value: 'set_menu',         label: 'Set Menu' },
-  { value: 'individual_order', label: 'À la Carte (Individual Orders)' },
-  { value: 'mixed',            label: 'Mixed (Set Menu + Exceptions)' },
-]
 
 // ── Validation ─────────────────────────────────────────────────────────────
 function validate() {
@@ -246,6 +210,11 @@ function validate() {
 
   cb.attendants.forEach((a, i) => {
     if (!a.fullName) e[`att_${i}_name`] = 'Required'
+    if (a.isLead) {
+      if (!a.email)    e[`att_${i}_email`]    = 'Required for lead contact'
+      if (!a.phone)    e[`att_${i}_phone`]    = 'Required for lead contact'
+      if (!a.idNumber) e[`att_${i}_idNumber`] = 'Required for lead contact'
+    }
   })
 
   if (cb.eventsEnabled) {
@@ -338,6 +307,32 @@ function menuItemsForPeriod(mealPeriod) {
   return cat ? DUMMY_MENU_ITEMS.filter(m => m.category === cat || m.category === 'beverage') : DUMMY_MENU_ITEMS
 }
 
+// ── Meal mode + bulk assignment ───────────────────────────────────────────
+const bulkMenuItems = ref({})
+
+function getBulk(key) {
+  if (!bulkMenuItems.value[key]) bulkMenuItems.value[key] = { menuItemId: '', quantity: 1 }
+  return bulkMenuItems.value[key]
+}
+
+function applyBulkToAll(session, key) {
+  const b = bulkMenuItems.value[key]
+  if (!b?.menuItemId) return
+  session.individualOrders = cb.attendants.map((_, idx) => ({
+    attendantIdx: idx,
+    menuItemId: b.menuItemId,
+    quantity: b.quantity,
+    notes: '',
+  }))
+}
+
+function setMealMode(mode) {
+  if (cb.meals.mealMode === mode) return
+  cb.meals.mealMode = mode
+  cb.meals.mealOverrides = {}
+  expandedMealDayOverride.value = null
+}
+
 // ── Event schedule helpers ────────────────────────────────────────────────
 const dayRange = computed(() => {
   const { startDate, endDate } = cb.events
@@ -354,6 +349,31 @@ const dayRange = computed(() => {
 })
 
 const expandedDayOverride = ref(null)
+
+const eventDaySummary = computed(() => {
+  const total      = dayRange.value.length
+  const skipped    = Object.values(cb.events.dayOverrides).filter(o =>  o.excluded).length
+  const customised = Object.values(cb.events.dayOverrides).filter(o => !o.excluded).length
+  return { total, skipped, customised, defaultCount: total - skipped - customised }
+})
+
+const mealDayRange = computed(() => {
+  const useEvents = cb.meals.mealMode === 'event_linked' && cb.eventsEnabled
+  const startDate = useEvents ? cb.events.startDate : cb.meals.startDate
+  const endDate   = useEvents ? cb.events.endDate   : cb.meals.endDate
+  if (!startDate || !endDate || endDate < startDate) return []
+  const [sy, sm, sd] = startDate.split('-').map(Number)
+  const [ey, em, ed] = endDate.split('-').map(Number)
+  const start = new Date(Date.UTC(sy, sm - 1, sd))
+  const end   = new Date(Date.UTC(ey, em - 1, ed))
+  const dates = []
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    dates.push(d.toISOString().slice(0, 10))
+  }
+  return dates
+})
+
+const expandedMealDayOverride = ref(null)
 
 function fmtDayLabel(iso) {
   const d = new Date(iso + 'T00:00:00Z')
@@ -388,11 +408,26 @@ function isServiceEnabled(key) {
   return false
 }
 
-function mealSessionLabel(s, i) {
-  if (s.sessionName) return s.sessionName
-  const period = MEAL_PERIODS.find(p => p.value === s.mealPeriod)?.label ?? ''
-  if (s.mealDate) return `${period} — ${fmt(s.mealDate)}`
-  return `${period || 'Meal Session'} ${i + 1}`
+function masterMealLabel(m, i) {
+  if (m.sessionName) return m.sessionName
+  return MEAL_PERIODS.find(p => p.value === m.mealPeriod)?.label ?? `Meal ${i + 1}`
+}
+
+function mealDayStatus(date) {
+  const ov = cb.meals.mealOverrides[date]
+  if (!ov) return 'default'
+  if (ov.excluded) return 'skipped'
+  return 'overridden'
+}
+
+function startMealDayOverride(date) {
+  cb.setMealOverride(date)
+  expandedMealDayOverride.value = expandedMealDayOverride.value === date ? null : date
+}
+
+function collapseMealDayOverride(date) {
+  cb.clearMealOverride(date)
+  if (expandedMealDayOverride.value === date) expandedMealDayOverride.value = null
 }
 
 const stepDefs = computed(() => [
@@ -513,23 +548,23 @@ watch(() => cb.branchId, fetchRoomTypes)
           <!-- ═══════════════ ORGANISATION TAB ═══════════════ -->
           <template v-if="activeTab === 'organisation'">
 
-          <!-- ── Company Profile ─────────────────────────────── -->
+          <!-- ── Company Details ─────────────────────────────── -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center gap-2 mb-1">
               <span class="material-symbols-outlined text-(--color-primary)">business</span>
-              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Profile</h2>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
             </div>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Search for your company, select a branch and department profile — details will auto-fill and can be overridden.</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Enter the company TPIN to look up an existing company — details will auto-fill. If not found, fill in the details below to register a new one.</p>
 
-            <!-- Company search -->
+            <!-- TPIN lookup -->
             <div class="space-y-4">
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Search Company <span class="text-(--color-error)">*</span></label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN <span class="text-(--color-error)">*</span></label>
                 <div class="relative">
-                  <input v-model="companyQuery" type="text" placeholder="Type company name or registration number…"
+                  <input v-model="companyQuery" type="text" placeholder="Enter company TPIN to look up…"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 pr-10 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                     :class="errors.companyName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"
-                    @input="doCompanySearch" @keydown.escape="companyResults = []" />
+                    @input="doTpinLookup" @keydown.escape="companyResults = []" />
                   <button v-if="companyQuery" type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-outline) hover:text-(--color-error)" @click="clearCompany">
                     <span class="material-symbols-outlined text-base">close</span>
                   </button>
@@ -543,8 +578,9 @@ watch(() => cb.branchId, fetchRoomTypes)
                     @click="selectCompany(c)">
                     <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0 mt-0.5">business</span>
                     <div class="min-w-0">
+                      <p class="font-sans text-xs font-semibold text-(--color-primary) truncate">{{ c.registrationNo }}</p>
                       <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ c.name }}</p>
-                      <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ c.registrationNo }} · {{ c.industry }}</p>
+                      <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ c.industry }}</p>
                     </div>
                   </button>
                 </div>
@@ -554,7 +590,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                   <div v-if="companySearchState === 'not_found'" class="mt-2 flex items-start justify-between gap-3 p-3 rounded-lg bg-(--color-surface-container-low) border border-(--color-outline-variant)">
                     <div class="flex items-center gap-2">
                       <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) shrink-0">domain_add</span>
-                      <p class="font-sans text-sm text-(--color-on-surface)">No company found. <span class="text-(--color-on-surface-variant)">Fill in the details below.</span></p>
+                      <p class="font-sans text-sm text-(--color-on-surface)">TPIN not found. <span class="text-(--color-on-surface-variant)">Fill in the details below to register a new company.</span></p>
                     </div>
                     <button type="button" class="font-sans text-xs font-semibold text-(--color-primary) hover:underline shrink-0" @click="useNewCompany">Enter details</button>
                   </div>
@@ -565,7 +601,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                   <div v-if="companySearchState === 'found' && cb.selectedCompanyId" class="mt-2 flex items-center justify-between gap-3 p-3 rounded-lg bg-(--color-savannah-mist) border border-(--color-primary)">
                     <div class="flex items-center gap-2">
                       <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
-                      <p class="font-sans text-sm text-(--color-on-surface)">Company selected — details pre-filled. You may edit any field.</p>
+                      <p class="font-sans text-sm text-(--color-on-surface)">Company found — details pre-filled. You may edit any field.</p>
                     </div>
                     <button type="button" class="font-sans text-xs font-semibold text-(--color-primary) hover:underline shrink-0" @click="clearCompany">Change</button>
                   </div>
@@ -605,27 +641,37 @@ watch(() => cb.branchId, fetchRoomTypes)
                   <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName }}</span>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Registration / TPIN</label>
-                  <input v-model="cb.registrationNo" type="text" placeholder="e.g. ZRA-001"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch / Office</label>
-                  <input v-model="cb.branchName" type="text" placeholder="e.g. Lusaka Head Office"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
-                  <input v-model="cb.departmentName" type="text" placeholder="e.g. Finance, Human Resources"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                </div>
-                <div class="flex flex-col gap-1">
                   <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry</label>
                   <select v-model="cb.industry"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                     <option value="">Select industry</option>
                     <option v-for="ind in INDUSTRIES" :key="ind" :value="ind">{{ ind }}</option>
                   </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Email</label>
+                  <input v-model="cb.companyEmail" type="email" placeholder="billing@company.com"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone</label>
+                  <input v-model="cb.companyPhone" type="tel" placeholder="+260 211 000 000"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">City</label>
+                  <input v-model="cb.city" type="text" placeholder="e.g. Lusaka"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Street Address</label>
+                  <input v-model="cb.streetAddress" type="text" placeholder="e.g. 14 Addis Ababa Drive, Rhodespark"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
+                  <input v-model="cb.departmentName" type="text" placeholder="e.g. Finance, Human Resources"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>
             </div>
@@ -734,19 +780,25 @@ watch(() => cb.branchId, fetchRoomTypes)
                       <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
                       <input v-model="att.email" type="email"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
                       <input v-model="att.phone" type="tel"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
                       <input v-model="att.idNumber" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_idNumber`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_idNumber`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1 sm:col-span-2">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
@@ -1053,7 +1105,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                     :class="cb.events.scheduleMode === 'uniform' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">calendar_view_week</span>
                   <div>
                     <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Uniform Schedule</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">All days follow the same session plan</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Define one daily schedule — it repeats across all event days automatically</p>
                   </div>
                 </button>
                 <button type="button" @click="cb.events.scheduleMode = 'per_day'"
@@ -1065,24 +1117,56 @@ watch(() => cb.branchId, fetchRoomTypes)
                     :class="cb.events.scheduleMode === 'per_day' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">event_note</span>
                   <div>
                     <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Per-Day Schedule</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Customise sessions for individual days</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Start from a default schedule, then override or skip specific days as needed</p>
                   </div>
                 </button>
               </div>
 
-              <!-- Master Session Plan -->
-              <div class="mb-3">
-                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  {{ cb.events.scheduleMode === 'per_day' ? 'Default Session Plan' : 'Session Plan' }}
-                </p>
-                <p v-if="cb.events.scheduleMode === 'per_day'" class="font-sans text-xs text-(--color-on-surface-variant) mt-1">Applied to all days unless you override a specific day below.</p>
+              <!-- Master Session Plan — contextual scope panel -->
+              <div class="mb-4 p-4 rounded-xl border"
+                :class="dayRange.length > 0 ? 'bg-(--color-savannah-mist) border-(--color-primary)' : 'bg-(--color-surface-container) border-(--color-outline-variant)'">
+                <div class="flex items-start gap-2">
+                  <span class="material-symbols-outlined text-base shrink-0 mt-0.5"
+                    :class="dayRange.length > 0 ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">copy_all</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                      {{ cb.events.scheduleMode === 'per_day' ? 'Default Daily Schedule' : 'Daily Schedule Template' }}
+                    </p>
+                    <template v-if="dayRange.length > 0">
+                      <p v-if="cb.events.scheduleMode === 'uniform'" class="font-sans text-xs text-(--color-on-surface-variant) mt-1">
+                        Applied to all <strong class="text-(--color-on-surface)">{{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }}</strong>
+                        · {{ fmt(cb.events.startDate) }}<span v-if="cb.events.endDate && cb.events.endDate !== cb.events.startDate"> – {{ fmt(cb.events.endDate) }}</span>.
+                        Changes here affect every event day.
+                      </p>
+                      <p v-else class="font-sans text-xs text-(--color-on-surface-variant) mt-1">
+                        Fallback for days without a custom plan — currently covering
+                        <strong class="text-(--color-on-surface)">{{ eventDaySummary.defaultCount }} of {{ eventDaySummary.total }} day{{ eventDaySummary.total !== 1 ? 's' : '' }}</strong>
+                        · {{ fmt(cb.events.startDate) }}<span v-if="cb.events.endDate && cb.events.endDate !== cb.events.startDate"> – {{ fmt(cb.events.endDate) }}</span>.
+                      </p>
+                    </template>
+                    <p v-else class="font-sans text-xs text-(--color-on-surface-variant) mt-1">
+                      Set a date range above to see how many days this schedule covers.
+                    </p>
+                  </div>
+                </div>
               </div>
               <div class="space-y-4 mb-4">
                 <div v-for="(session, i) in cb.events.masterSessions" :key="i" class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
                   <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
                     <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ sessionLabel(session, i) }}</span>
                     <div class="flex items-center gap-2">
-                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">Session {{ i + 1 }}</span>
+                      <span v-if="dayRange.length > 0 && cb.events.scheduleMode === 'uniform'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                        × {{ dayRange.length }} days
+                      </span>
+                      <span v-else-if="dayRange.length > 0 && cb.events.scheduleMode === 'per_day'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-surface-container-high) font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                        default
+                      </span>
+                      <span v-else
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                        Session {{ i + 1 }}
+                      </span>
                       <button type="button" :disabled="cb.events.masterSessions.length === 1"
                         class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
                         @click="cb.removeMasterSession(i)">
@@ -1155,7 +1239,8 @@ watch(() => cb.branchId, fetchRoomTypes)
                 </div>
               </div>
               <button type="button" class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline" @click="cb.addMasterSession()">
-                <span class="material-symbols-outlined text-base">add</span> Add Session
+                <span class="material-symbols-outlined text-base">add</span>
+                {{ cb.events.scheduleMode === 'per_day' ? 'Add Session to Default Schedule' : 'Add Session to Template' }}
               </button>
 
               <!-- Per-Day Overrides (per_day mode only, requires dates) -->
@@ -1163,7 +1248,24 @@ watch(() => cb.branchId, fetchRoomTypes)
                 <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-1">
                   Day-by-Day Schedule <span class="text-(--color-outline) font-normal normal-case tracking-normal">({{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }})</span>
                 </p>
-                <p class="font-sans text-xs text-(--color-on-surface-variant) mb-4">Skip days your event doesn't run, or customise sessions for individual days.</p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mb-3">Skip days your event doesn't run, or customise sessions for individual days.</p>
+                <!-- Status summary strip -->
+                <div class="flex items-center gap-2 flex-wrap mb-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--color-surface-container) font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-(--color-outline) inline-block"></span>
+                    {{ eventDaySummary.defaultCount }} using default
+                  </span>
+                  <span v-if="eventDaySummary.customised > 0"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-(--color-primary) inline-block"></span>
+                    {{ eventDaySummary.customised }} customised
+                  </span>
+                  <span v-if="eventDaySummary.skipped > 0"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--color-outline-variant) font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-(--color-outline-variant) inline-block"></span>
+                    {{ eventDaySummary.skipped }} skipped
+                  </span>
+                </div>
                 <div class="space-y-2">
                   <div v-for="date in dayRange" :key="date" class="border rounded-xl overflow-hidden transition-all"
                     :class="dayStatus(date) === 'skipped' ? 'border-(--color-outline-variant) opacity-60' : 'border-(--color-outline-variant)'">
@@ -1179,7 +1281,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                           class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-outline-variant) font-sans text-xs font-semibold text-(--color-on-surface-variant) shrink-0">
                           Skipped
                         </span>
-                        <span v-else class="font-sans text-xs text-(--color-on-surface-variant) hidden sm:inline">Using master schedule</span>
+                        <span v-else class="font-sans text-xs text-(--color-on-surface-variant) hidden sm:inline">Using default schedule</span>
                       </div>
                       <div class="flex items-center gap-1 shrink-0 ml-2">
                         <button v-if="dayStatus(date) !== 'skipped'" type="button"
@@ -1310,7 +1412,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                     {{ cb.mealsEnabled ? 'Meals included in this booking' : 'Not currently included' }}
                   </p>
                   <p class="font-sans text-xs text-(--color-on-surface-variant)">
-                    {{ cb.mealsEnabled ? 'Configure meal sessions below.' : 'Include to add catering — buffet, set menu, or individual orders.' }}
+                    {{ cb.mealsEnabled ? 'Configure the meal plan below.' : 'Include to add catering — buffet, set menu, or individual orders.' }}
                   </p>
                 </div>
               </div>
@@ -1324,131 +1426,250 @@ watch(() => cb.branchId, fetchRoomTypes)
               </button>
             </div>
 
-            <!-- Meals fields -->
+            <!-- Meals section -->
             <section v-if="cb.mealsEnabled" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
               <div class="flex items-center gap-2 mb-2">
                 <span class="material-symbols-outlined text-(--color-primary)">restaurant</span>
-                <h2 class="font-serif text-xl text-(--color-on-surface)">Meal Sessions</h2>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Meal Plan</h2>
               </div>
-              <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Add a session for each meal service — morning buffet, team lunch, gala dinner, etc.</p>
-              <div>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Configure your catering requirements. Meals can follow an event schedule or be booked as a standalone service.</p>
+
+              <!-- Reason for booking -->
+              <div class="mb-6">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) block mb-2">Reason for Booking</label>
-                <textarea v-model="cb.meals.reasonForBooking" rows="2" placeholder="e.g. Team retreat, client dinner, conference catering…"
-                  class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none mb-5"></textarea>
+                <textarea v-model="cb.meals.reasonForBooking" rows="2" placeholder="e.g. Team retreat, conference catering, client dinner…"
+                  class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
               </div>
-              <div class="space-y-4">
-                <div v-for="(session, i) in cb.meals.sessions" :key="i" class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
-                  <!-- Session header -->
+
+              <!-- Meal mode selector -->
+              <div class="mb-6">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Booking Type</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button type="button" @click="setMealMode('event_linked')"
+                    class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                    :class="cb.meals.mealMode === 'event_linked'
+                      ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                      : 'border-(--color-outline-variant) hover:border-(--color-outline)'">
+                    <span class="material-symbols-outlined text-xl mt-0.5"
+                      :class="cb.meals.mealMode === 'event_linked' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">link</span>
+                    <div>
+                      <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Event-Linked</p>
+                      <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Meals follow the event schedule and dates</p>
+                    </div>
+                  </button>
+                  <button type="button" @click="setMealMode('standalone')"
+                    class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                    :class="cb.meals.mealMode === 'standalone'
+                      ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                      : 'border-(--color-outline-variant) hover:border-(--color-outline)'">
+                    <span class="material-symbols-outlined text-xl mt-0.5"
+                      :class="cb.meals.mealMode === 'standalone' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">restaurant</span>
+                    <div>
+                      <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Standalone</p>
+                      <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Independent meal booking with its own dates</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Event-linked: dates banner or no-event hint -->
+              <template v-if="cb.meals.mealMode === 'event_linked'">
+                <div v-if="cb.eventsEnabled && cb.events.startDate" class="flex items-center gap-2 p-3 rounded-xl bg-(--color-savannah-mist) border border-(--color-primary) mb-6">
+                  <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">link</span>
+                  <p class="font-sans text-xs text-(--color-on-surface)">
+                    Using event dates:
+                    <strong>{{ fmt(cb.events.startDate) }}</strong><span v-if="cb.events.endDate && cb.events.endDate !== cb.events.startDate"> – <strong>{{ fmt(cb.events.endDate) }}</strong></span>
+                    <span class="text-(--color-on-surface-variant)"> · {{ mealDayRange.length }} day{{ mealDayRange.length !== 1 ? 's' : '' }}</span>
+                  </p>
+                </div>
+                <div v-else class="flex items-start gap-2 p-3 rounded-xl bg-(--color-surface-container) border border-(--color-outline-variant) mb-6">
+                  <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) shrink-0 mt-0.5">info</span>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) leading-relaxed">
+                    No event dates found.
+                    <button type="button" class="text-(--color-primary) font-semibold hover:underline" @click="cb.eventsEnabled = true; activeTab = 'events'">Go to Events</button>
+                    to set a date range, or switch to Standalone above.
+                  </p>
+                </div>
+              </template>
+
+              <!-- Standalone: own date range inputs -->
+              <div v-else class="mb-6">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Meal Date Range</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Start Date</label>
+                    <input v-model="cb.meals.startDate" type="date"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">End Date</label>
+                    <input v-model="cb.meals.endDate" type="date" :min="cb.meals.startDate || undefined"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Leave same as start date for a single-day booking.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Schedule mode selector (only when dates available) -->
+              <div v-if="mealDayRange.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                <button type="button" @click="cb.meals.scheduleMode = 'uniform'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="cb.meals.scheduleMode === 'uniform'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-outline)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5"
+                    :class="cb.meals.scheduleMode === 'uniform' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">calendar_view_week</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Uniform Plan</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Same meals apply to every day</p>
+                  </div>
+                </button>
+                <button type="button" @click="cb.meals.scheduleMode = 'per_day'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="cb.meals.scheduleMode === 'per_day'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-outline)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5"
+                    :class="cb.meals.scheduleMode === 'per_day' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">event_note</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Per-Day Plan</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Customise or skip meals for individual days</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Master Meal Plan label -->
+              <div class="mb-3">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  {{ cb.meals.scheduleMode === 'per_day' && mealDayRange.length ? 'Default Meal Plan' : 'Meal Plan' }}
+                </p>
+                <p v-if="cb.meals.scheduleMode === 'per_day' && mealDayRange.length" class="font-sans text-xs text-(--color-on-surface-variant) mt-1">Applied to all days unless you override a specific day below.</p>
+              </div>
+
+              <!-- Master Meal items -->
+              <div class="space-y-4 mb-4">
+                <div v-for="(meal, i) in cb.meals.masterMeals" :key="i" class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
                   <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
-                    <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ mealSessionLabel(session, i) }}</span>
+                    <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ masterMealLabel(meal, i) }}</span>
                     <div class="flex items-center gap-2">
                       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
-                        {{ SERVICE_TYPES.find(t => t.value === session.serviceType)?.label ?? session.serviceType }}
+                        {{ MEAL_PERIODS.find(p => p.value === meal.mealPeriod)?.label ?? meal.mealPeriod }}
                       </span>
-                      <button type="button" :disabled="cb.meals.sessions.length === 1"
+                      <button type="button" :disabled="cb.meals.masterMeals.length === 1"
                         class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
-                        @click="cb.removeMealSession(i)">
+                        @click="cb.removeMasterMeal(i)">
                         <span class="material-symbols-outlined text-base">delete</span>
                       </button>
                     </div>
                   </div>
-                  <!-- Session fields -->
                   <div class="p-4 bg-(--color-surface-container-low) space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div class="flex flex-col gap-1 md:col-span-2">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name</label>
-                        <input v-model="session.sessionName" type="text" placeholder="e.g. Day 1 Lunch, Welcome Dinner, Morning Tea Break"
+                        <input v-model="meal.sessionName" type="text" placeholder="e.g. Morning Tea, Working Lunch, Networking Dinner"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                       </div>
                       <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Meal Period</label>
-                        <select v-model="session.mealPeriod"
+                        <select v-model="meal.mealPeriod"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                           <option v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</option>
                         </select>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Date</label>
-                        <input v-model="session.mealDate" type="date"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                      </div>
-                      <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Service Type</label>
-                        <select v-model="session.serviceType"
+                        <select v-model="meal.serviceType"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                           <option v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                          {{ session.serviceType === 'individual_order' ? 'Number of Diners' : 'Cover Count (Pax)' }}
-                        </label>
-                        <input v-model.number="session.paxCount" type="number" min="1"
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cover Count (Pax)</label>
+                        <input v-model.number="meal.paxCount" type="number" min="1"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                       </div>
+                      <div v-if="cb.meals.mealMode === 'event_linked' && cb.eventsEnabled && cb.events.masterSessions.length" class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Paired with Event Session</label>
+                        <select v-model="meal.linkedMasterSessionIndex"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          <option :value="null">Any / All sessions</option>
+                          <option v-for="(s, si) in cb.events.masterSessions" :key="si" :value="si">{{ sessionLabel(s, si) }}</option>
+                        </select>
+                      </div>
                       <div class="flex flex-col gap-1 md:col-span-2">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary & Arrangements Notes</label>
-                        <textarea v-model="session.dietaryNotes" rows="2" placeholder="Vegetarian/halal options, allergen-free stations, replenish times, table setup…"
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary & Arrangement Notes</label>
+                        <textarea v-model="meal.dietaryNotes" rows="2" placeholder="Halal options, allergen-free stations, replenish schedule, table layout…"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors resize-none"></textarea>
                       </div>
                     </div>
 
-                    <!-- ── Individual Meal Assignments ──────────────────── -->
-                    <div v-if="session.serviceType === 'individual_order' || session.serviceType === 'mixed'">
-                      <div class="flex items-center gap-2 mb-3 pt-2 border-t border-(--color-outline-variant)">
+                    <!-- Individual orders on master meal (individual_order or mixed) -->
+                    <div v-if="meal.serviceType === 'individual_order' || meal.serviceType === 'mixed'" class="pt-3 border-t border-(--color-outline-variant)">
+                      <div class="flex items-center gap-2 mb-2">
                         <span class="material-symbols-outlined text-sm text-(--color-primary)">person_pin</span>
                         <p class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant)">
-                          {{ session.serviceType === 'mixed' ? 'Exception / Individual Orders' : 'Individual Meal Assignments' }}
+                          {{ meal.serviceType === 'mixed' ? 'Buffet Exceptions / Individual Orders' : 'Individual Meal Assignments' }}
                         </p>
                       </div>
                       <p class="font-sans text-xs text-(--color-on-surface-variant) mb-3">
-                        {{ session.serviceType === 'mixed'
-                          ? 'Assign specific menu items to attendees who require something different from the set menu.'
-                          : 'Assign menu items directly to each attendee. Items are sourced from this session\'s meal period.' }}
+                        {{ meal.serviceType === 'mixed'
+                          ? 'Assign specific menu items to attendees who require something different from the buffet.'
+                          : 'Assign menu items directly to each attendee.' }}
                       </p>
-                      <!-- No attendants registered yet -->
                       <div v-if="!cb.attendants.length || (cb.attendants.length === 1 && !cb.attendants[0].fullName)"
                         class="flex items-start gap-2 p-3 bg-(--color-surface-container) rounded-lg">
                         <span class="material-symbols-outlined text-base text-(--color-outline) shrink-0 mt-0.5">info</span>
                         <p class="font-sans text-xs text-(--color-on-surface-variant)">
-                          Register attendees in the <button type="button" class="text-(--color-primary) font-semibold hover:underline" @click="activeTab = 'organisation'">Organisation tab</button> first, then return here to assign their meals.
+                          Register attendees in the <button type="button" class="text-(--color-primary) font-semibold hover:underline" @click="activeTab = 'organisation'">Organisation tab</button> first.
                         </p>
                       </div>
-                      <!-- Per-attendant rows -->
                       <div v-else class="space-y-3">
+                        <!-- Bulk quick-fill -->
+                        <div class="flex items-center gap-2 p-3 bg-(--color-surface-container) rounded-lg flex-wrap sm:flex-nowrap">
+                          <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) shrink-0">flash_on</span>
+                          <select v-model="getBulk(`master-${i}`).menuItemId"
+                            class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                            <option value="">Quick-fill all attendees…</option>
+                            <option v-for="mi in menuItemsForPeriod(meal.mealPeriod)" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                          </select>
+                          <input type="number" min="1" v-model.number="getBulk(`master-${i}`).quantity"
+                            class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
+                          <button type="button" @click="applyBulkToAll(meal, `master-${i}`)"
+                            :disabled="!getBulk(`master-${i}`).menuItemId"
+                            class="shrink-0 px-3 py-2 rounded-lg bg-(--color-primary) text-white font-sans text-xs font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40">
+                            Apply to All
+                          </button>
+                        </div>
+                        <!-- Per-attendant rows -->
                         <div v-for="(att, attIdx) in cb.attendants" :key="attIdx"
                           class="rounded-lg border border-(--color-outline-variant) overflow-hidden">
-                          <!-- Attendant header -->
                           <div class="flex items-center justify-between px-4 py-2.5 bg-(--color-surface-container)">
                             <div class="flex items-center gap-2">
                               <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-bold text-(--color-primary)">{{ attIdx + 1 }}</span>
                               <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Attendant ${attIdx + 1}` }}</p>
                               <span v-if="att.isLead" class="font-sans text-xs text-(--color-primary) opacity-70">· Lead</span>
-                              <span v-if="att.dietaryNotes" class="font-sans text-xs text-(--color-on-surface-variant) opacity-70 hidden sm:inline truncate max-w-32">· {{ att.dietaryNotes }}</span>
+                              <span v-if="att.dietaryNotes" class="font-sans text-xs text-(--color-on-surface-variant) opacity-70 truncate max-w-32">· {{ att.dietaryNotes }}</span>
                             </div>
-                            <button type="button" @click="addOrderItem(session, attIdx)"
+                            <button type="button" @click="addOrderItem(meal, attIdx)"
                               class="flex items-center gap-1 text-(--color-primary) font-sans text-xs font-semibold hover:underline shrink-0">
                               <span class="material-symbols-outlined text-sm">add</span> Add item
                             </button>
                           </div>
-                          <!-- Order items for this attendant -->
                           <div class="p-3 space-y-2 bg-(--color-surface-container-low)">
-                            <p v-if="!session.individualOrders.some(o => o.attendantIdx === attIdx)"
+                            <p v-if="!meal.individualOrders.some(o => o.attendantIdx === attIdx)"
                               class="font-sans text-xs text-(--color-outline) text-center py-1">No items assigned yet</p>
-                            <template v-for="(order, orderIdx) in session.individualOrders" :key="orderIdx">
+                            <template v-for="(order, orderIdx) in meal.individualOrders" :key="orderIdx">
                               <div v-if="order.attendantIdx === attIdx" class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                                 <select v-model="order.menuItemId"
                                   class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                                   <option value="">Select menu item…</option>
-                                  <option v-for="mi in menuItemsForPeriod(session.mealPeriod)" :key="mi.id" :value="mi.id">
-                                    {{ mi.name }} — K {{ mi.price }}
-                                  </option>
+                                  <option v-for="mi in menuItemsForPeriod(meal.mealPeriod)" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                                 </select>
                                 <input type="number" min="1" v-model.number="order.quantity"
                                   class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
                                 <input type="text" placeholder="Notes…" v-model="order.notes"
                                   class="flex-1 min-w-0 sm:w-32 sm:flex-none bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                                <button type="button" @click="removeOrderItem(session, orderIdx)"
+                                <button type="button" @click="removeOrderItem(meal, orderIdx)"
                                   class="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
                                   <span class="material-symbols-outlined text-sm">delete</span>
                                 </button>
@@ -1458,13 +1679,198 @@ watch(() => cb.branchId, fetchRoomTypes)
                         </div>
                       </div>
                     </div>
-
                   </div>
                 </div>
               </div>
-              <button type="button" class="mt-4 flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline" @click="cb.addMealSession()">
-                <span class="material-symbols-outlined text-base">add</span> Add Meal Session
+              <button type="button" class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline" @click="cb.addMasterMeal()">
+                <span class="material-symbols-outlined text-base">add</span> Add Meal Type
               </button>
+
+              <!-- Per-Day Meal Overrides -->
+              <div v-if="cb.meals.scheduleMode === 'per_day' && mealDayRange.length > 0" class="mt-8 pt-6 border-t border-(--color-outline-variant)">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-1">
+                  Day-by-Day Meals <span class="text-(--color-outline) font-normal normal-case tracking-normal">({{ mealDayRange.length }} day{{ mealDayRange.length !== 1 ? 's' : '' }})</span>
+                </p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mb-4">Skip days with no meals, or replace the default plan for individual days.</p>
+                <div class="space-y-2">
+                  <div v-for="date in mealDayRange" :key="date" class="border rounded-xl overflow-hidden transition-all"
+                    :class="mealDayStatus(date) === 'skipped' ? 'border-(--color-outline-variant) opacity-60' : 'border-(--color-outline-variant)'">
+                    <!-- Day row -->
+                    <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="font-sans text-sm font-semibold text-(--color-on-surface) shrink-0">{{ fmtDayLabel(date) }}</span>
+                        <span v-if="mealDayStatus(date) === 'overridden'"
+                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary) shrink-0">
+                          {{ cb.meals.mealOverrides[date].sessions.length }} override{{ cb.meals.mealOverrides[date].sessions.length !== 1 ? 's' : '' }}
+                        </span>
+                        <span v-else-if="mealDayStatus(date) === 'skipped'"
+                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-outline-variant) font-sans text-xs font-semibold text-(--color-on-surface-variant) shrink-0">
+                          No meals
+                        </span>
+                        <span v-else class="font-sans text-xs text-(--color-on-surface-variant) hidden sm:inline">Using default plan</span>
+                      </div>
+                      <div class="flex items-center gap-1 shrink-0 ml-2">
+                        <button v-if="mealDayStatus(date) !== 'skipped'" type="button"
+                          class="font-sans text-xs font-semibold text-(--color-primary) hover:underline px-2 py-1"
+                          @click="startMealDayOverride(date)">
+                          {{ mealDayStatus(date) === 'overridden' ? (expandedMealDayOverride === date ? 'Collapse' : 'Edit') : 'Customise' }}
+                        </button>
+                        <button v-if="mealDayStatus(date) === 'overridden'" type="button"
+                          class="font-sans text-xs text-(--color-on-surface-variant) hover:text-(--color-error) hover:underline px-2 py-1"
+                          @click="collapseMealDayOverride(date)">
+                          Reset
+                        </button>
+                        <button type="button"
+                          class="h-7 w-7 flex items-center justify-center rounded-lg transition-colors"
+                          :class="mealDayStatus(date) === 'skipped'
+                            ? 'text-(--color-primary) bg-(--color-savannah-mist) hover:opacity-80'
+                            : 'text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container)'"
+                          :title="mealDayStatus(date) === 'skipped' ? 'Restore meals for this day' : 'No meals on this day'"
+                          @click="cb.toggleMealDayExcluded(date)">
+                          <span class="material-symbols-outlined text-base">{{ mealDayStatus(date) === 'skipped' ? 'undo' : 'no_meals' }}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Expanded override editor -->
+                    <div v-if="expandedMealDayOverride === date && mealDayStatus(date) === 'overridden'" class="p-4 bg-(--color-surface-container-low) space-y-3">
+                      <div v-for="(m, mi) in cb.meals.mealOverrides[date].sessions" :key="mi" class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-2.5 bg-(--color-surface-container)">
+                          <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ masterMealLabel(m, mi) }}</span>
+                          <button type="button" :disabled="cb.meals.mealOverrides[date].sessions.length === 1"
+                            class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                            @click="cb.removeOverrideMeal(date, mi)">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
+                        <div class="p-4 bg-(--color-savannah-mist) space-y-3">
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1 md:col-span-2">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name</label>
+                              <input v-model="m.sessionName" type="text" placeholder="e.g. Gala Dinner, Farewell Lunch, Special Banquet"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Meal Period</label>
+                              <select v-model="m.mealPeriod"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                <option v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</option>
+                              </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Service Type</label>
+                              <select v-model="m.serviceType"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                <option v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+                              </select>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cover Count (Pax)</label>
+                              <input v-model.number="m.paxCount" type="number" min="1"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                            </div>
+                            <div class="flex flex-col gap-1 md:col-span-2">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary & Arrangement Notes</label>
+                              <textarea v-model="m.dietaryNotes" rows="2" placeholder="Special arrangements for this day…"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors resize-none"></textarea>
+                            </div>
+                          </div>
+                          <!-- Individual orders (individual_order or mixed service types only) -->
+                          <div v-if="m.serviceType === 'individual_order' || m.serviceType === 'mixed'">
+                            <div class="flex items-center gap-2 mb-3 pt-2 border-t border-(--color-outline-variant)">
+                              <span class="material-symbols-outlined text-sm text-(--color-primary)">person_pin</span>
+                              <p class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant)">
+                                {{ m.serviceType === 'mixed' ? 'Buffet Exceptions / Individual Orders' : 'Individual Meal Assignments' }}
+                              </p>
+                            </div>
+                            <p class="font-sans text-xs text-(--color-on-surface-variant) mb-3">
+                              {{ m.serviceType === 'mixed'
+                                ? 'Assign specific menu items to attendees who require something different from the buffet.'
+                                : 'Assign menu items directly to each attendee.' }}
+                            </p>
+                            <div v-if="!cb.attendants.length || (cb.attendants.length === 1 && !cb.attendants[0].fullName)"
+                              class="flex items-start gap-2 p-3 bg-(--color-surface-container) rounded-lg">
+                              <span class="material-symbols-outlined text-base text-(--color-outline) shrink-0 mt-0.5">info</span>
+                              <p class="font-sans text-xs text-(--color-on-surface-variant)">
+                                Register attendees in the <button type="button" class="text-(--color-primary) font-semibold hover:underline" @click="activeTab = 'organisation'">Organisation tab</button> first.
+                              </p>
+                            </div>
+                            <div v-else class="space-y-3">
+                              <!-- Bulk quick-fill -->
+                              <div class="flex items-center gap-2 p-3 bg-(--color-surface-container) rounded-lg flex-wrap sm:flex-nowrap">
+                                <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) shrink-0">flash_on</span>
+                                <select v-model="getBulk(`${date}-${mi}`).menuItemId"
+                                  class="flex-1 min-w-0 bg-white rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                  <option value="">Quick-fill all attendees…</option>
+                                  <option v-for="item in menuItemsForPeriod(m.mealPeriod)" :key="item.id" :value="item.id">{{ item.name }} — K {{ item.price }}</option>
+                                </select>
+                                <input type="number" min="1" v-model.number="getBulk(`${date}-${mi}`).quantity"
+                                  class="w-16 shrink-0 bg-white rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
+                                <button type="button" @click="applyBulkToAll(m, `${date}-${mi}`)"
+                                  :disabled="!getBulk(`${date}-${mi}`).menuItemId"
+                                  class="shrink-0 px-3 py-2 rounded-lg bg-(--color-primary) text-white font-sans text-xs font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40">
+                                  Apply to All
+                                </button>
+                              </div>
+                              <!-- Per-attendant rows -->
+                              <div v-for="(att, attIdx) in cb.attendants" :key="attIdx"
+                                class="rounded-lg border border-(--color-outline-variant) overflow-hidden">
+                                <div class="flex items-center justify-between px-4 py-2.5 bg-(--color-surface-container)">
+                                  <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-bold text-(--color-primary)">{{ attIdx + 1 }}</span>
+                                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Attendant ${attIdx + 1}` }}</p>
+                                    <span v-if="att.isLead" class="font-sans text-xs text-(--color-primary) opacity-70">· Lead</span>
+                                    <span v-if="att.dietaryNotes" class="font-sans text-xs text-(--color-on-surface-variant) opacity-70 truncate max-w-32">· {{ att.dietaryNotes }}</span>
+                                  </div>
+                                  <button type="button" @click="addOrderItem(m, attIdx)"
+                                    class="flex items-center gap-1 text-(--color-primary) font-sans text-xs font-semibold hover:underline shrink-0">
+                                    <span class="material-symbols-outlined text-sm">add</span> Add item
+                                  </button>
+                                </div>
+                                <div class="p-3 space-y-2 bg-(--color-surface-container-low)">
+                                  <p v-if="!m.individualOrders.some(o => o.attendantIdx === attIdx)"
+                                    class="font-sans text-xs text-(--color-outline) text-center py-1">No items assigned yet</p>
+                                  <template v-for="(order, orderIdx) in m.individualOrders" :key="orderIdx">
+                                    <div v-if="order.attendantIdx === attIdx" class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                      <select v-model="order.menuItemId"
+                                        class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                        <option value="">Select menu item…</option>
+                                        <option v-for="item in menuItemsForPeriod(m.mealPeriod)" :key="item.id" :value="item.id">
+                                          {{ item.name }} — K {{ item.price }}
+                                        </option>
+                                      </select>
+                                      <input type="number" min="1" v-model.number="order.quantity"
+                                        class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
+                                      <input type="text" placeholder="Notes…" v-model="order.notes"
+                                        class="flex-1 min-w-0 sm:w-32 sm:flex-none bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                                      <button type="button" @click="removeOrderItem(m, orderIdx)"
+                                        class="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                                        <span class="material-symbols-outlined text-sm">delete</span>
+                                      </button>
+                                    </div>
+                                  </template>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <button type="button" class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline"
+                        @click="cb.addOverrideMeal(date)">
+                        <span class="material-symbols-outlined text-base">add</span> Add Meal for This Day
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hint when per_day but no dates yet -->
+              <div v-else-if="cb.meals.scheduleMode === 'per_day' && mealDayRange.length === 0" class="mt-6 flex items-start gap-2 p-3 bg-(--color-surface-container) rounded-xl">
+                <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0 mt-0.5">info</span>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">
+                  {{ cb.meals.mealMode === 'standalone' ? 'Set a start and end date above to unlock per-day scheduling.' : 'Set event dates to unlock per-day scheduling.' }}
+                </p>
+              </div>
+
             </section>
 
             <!-- Disabled placeholder -->
@@ -1495,13 +1901,19 @@ watch(() => cb.branchId, fetchRoomTypes)
           <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center justify-between mb-5">
               <h2 class="font-serif text-xl flex items-center gap-2 text-(--color-on-surface)">
-                <span class="material-symbols-outlined text-(--color-primary)">business</span> Company Profile
+                <span class="material-symbols-outlined text-(--color-primary)">business</span> Company Details
               </h2>
               <button class="font-sans text-sm text-(--color-primary) font-semibold hover:underline" @click="step = 1">Edit</button>
             </div>
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
               <div><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Company</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.companyName || '—' }}</dd></div>
-              <div v-if="cb.registrationNo"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Reg. / TPIN</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.registrationNo }}</dd></div>
+              <div v-if="cb.tpin"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">TPIN</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.tpin }}</dd></div>
+              <div v-if="cb.companyEmail"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Company Email</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.companyEmail }}</dd></div>
+              <div v-if="cb.companyPhone"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Company Phone</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.companyPhone }}</dd></div>
+              <div v-if="cb.city || cb.streetAddress" class="sm:col-span-2">
+                <dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Address</dt>
+                <dd class="font-sans text-sm text-(--color-on-surface)">{{ [cb.streetAddress, cb.city].filter(Boolean).join(', ') }}</dd>
+              </div>
               <div v-if="cb.branchName"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Branch</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.branchName }}</dd></div>
               <div v-if="cb.departmentName"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Department</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.departmentName }}</dd></div>
               <div v-if="cb.costCenter"><dt class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-1">Cost Centre</dt><dd class="font-sans text-sm text-(--color-on-surface)">{{ cb.costCenter }}</dd></div>
@@ -1610,20 +2022,40 @@ watch(() => cb.branchId, fetchRoomTypes)
 
             <!-- Meals -->
             <div v-if="cb.mealsEnabled" class="last:border-0 last:pb-0 last:mb-0">
-              <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) flex items-center gap-1 mb-3">
-                <span class="material-symbols-outlined text-sm text-(--color-primary)">restaurant</span> Meals ({{ cb.meals.sessions.length }} session{{ cb.meals.sessions.length !== 1 ? 's' : '' }})
+              <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) flex items-center gap-1 mb-2">
+                <span class="material-symbols-outlined text-sm text-(--color-primary)">restaurant</span>
+                Meals · {{ cb.meals.masterMeals.length }} meal type{{ cb.meals.masterMeals.length !== 1 ? 's' : '' }} per day
+                <span v-if="mealDayRange.length" class="font-normal normal-case tracking-normal">
+                  ({{ mealDayRange.length - Object.values(cb.meals.mealOverrides).filter(o => o.excluded).length }} active day{{ (mealDayRange.length - Object.values(cb.meals.mealOverrides).filter(o => o.excluded).length) !== 1 ? 's' : '' }})
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-sans text-xs font-semibold"
+                  :class="cb.meals.mealMode === 'standalone' ? 'bg-(--color-surface-container) text-(--color-on-surface-variant)' : 'bg-(--color-savannah-mist) text-(--color-primary)'">
+                  {{ cb.meals.mealMode === 'standalone' ? 'Standalone' : 'Event-linked' }}
+                </span>
               </p>
-              <div class="space-y-3">
-                <div v-for="(s, i) in cb.meals.sessions" :key="i" class="p-3 bg-(--color-surface-container-low) rounded-lg">
-                  <p class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">{{ mealSessionLabel(s, i) }}</p>
+              <p v-if="cb.meals.mealMode === 'standalone' && cb.meals.startDate" class="font-sans text-xs text-(--color-on-surface-variant) mb-3">
+                {{ fmt(cb.meals.startDate) }}<span v-if="cb.meals.endDate && cb.meals.endDate !== cb.meals.startDate"> — {{ fmt(cb.meals.endDate) }}</span>
+              </p>
+              <div class="space-y-3 mb-2">
+                <div v-for="(m, i) in cb.meals.masterMeals" :key="i" class="p-3 bg-(--color-surface-container-low) rounded-lg">
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">{{ masterMealLabel(m, i) }}</p>
                   <p class="font-sans text-xs text-(--color-on-surface-variant)">
-                    {{ SERVICE_TYPES.find(t => t.value === s.serviceType)?.label }}
-                    · {{ s.paxCount }} covers
-                    <span v-if="s.mealDate"> · {{ fmt(s.mealDate) }}</span>
+                    {{ SERVICE_TYPES.find(t => t.value === m.serviceType)?.label }}
+                    · {{ m.paxCount }} covers
+                    <span v-if="cb.meals.mealMode === 'event_linked' && m.linkedMasterSessionIndex !== null && cb.events.masterSessions[m.linkedMasterSessionIndex]">
+                      · paired with {{ sessionLabel(cb.events.masterSessions[m.linkedMasterSessionIndex], m.linkedMasterSessionIndex) }}
+                    </span>
+                    <span v-if="(m.serviceType === 'individual_order' || m.serviceType === 'mixed') && m.individualOrders?.filter(o => o.menuItemId).length">
+                      · {{ m.individualOrders.filter(o => o.menuItemId).length }} individual order{{ m.individualOrders.filter(o => o.menuItemId).length !== 1 ? 's' : '' }}
+                    </span>
                   </p>
-                  <p v-if="s.dietaryNotes" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">{{ s.dietaryNotes }}</p>
+                  <p v-if="m.dietaryNotes" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">{{ m.dietaryNotes }}</p>
                 </div>
               </div>
+              <p v-if="cb.meals.scheduleMode === 'per_day' && Object.values(cb.meals.mealOverrides).filter(o => !o.excluded).length > 0"
+                class="font-sans text-xs text-(--color-on-surface-variant)">
+                + {{ Object.values(cb.meals.mealOverrides).filter(o => !o.excluded).length }} day{{ Object.values(cb.meals.mealOverrides).filter(o => !o.excluded).length !== 1 ? 's' : '' }} with custom meals
+              </p>
             </div>
           </section>
 
@@ -1701,6 +2133,7 @@ watch(() => cb.branchId, fetchRoomTypes)
               <div class="min-w-0">
                 <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant)">Company</p>
                 <p class="font-sans text-sm text-(--color-on-surface) truncate">{{ cb.companyName }}</p>
+                <p v-if="cb.tpin" class="font-sans text-xs text-(--color-primary) font-semibold mt-0.5">{{ cb.tpin }}</p>
                 <p v-if="cb.departmentName" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">{{ cb.departmentName }}</p>
               </div>
             </div>
@@ -1722,7 +2155,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                     <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Events</p>
                     <p class="font-sans text-xs text-(--color-on-surface-variant)">
                       {{ cb.events.masterSessions.length }} session{{ cb.events.masterSessions.length !== 1 ? 's' : '' }} per day
-                      <span v-if="dayRange.length"> · {{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }}</span>
+                      <span v-if="dayRange.length"> · {{ dayRange.length - Object.values(cb.events.dayOverrides).filter(o => o.excluded).length }} day{{ (dayRange.length - Object.values(cb.events.dayOverrides).filter(o => o.excluded).length) !== 1 ? 's' : '' }}</span>
                     </p>
                   </div>
                 </div>
@@ -1730,7 +2163,11 @@ watch(() => cb.branchId, fetchRoomTypes)
                   <span class="material-symbols-outlined text-(--color-primary) text-base mt-0.5">restaurant</span>
                   <div>
                     <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Meals</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ cb.meals.sessions.length }} meal session{{ cb.meals.sessions.length !== 1 ? 's' : '' }}</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">
+                      {{ cb.meals.masterMeals.length }} meal type{{ cb.meals.masterMeals.length !== 1 ? 's' : '' }}
+                      <span v-if="mealDayRange.length"> · {{ mealDayRange.length - Object.values(cb.meals.mealOverrides).filter(o => o.excluded).length }} day{{ (mealDayRange.length - Object.values(cb.meals.mealOverrides).filter(o => o.excluded).length) !== 1 ? 's' : '' }}</span>
+                      <span v-if="cb.meals.mealMode === 'standalone' && cb.meals.startDate"> · {{ fmt(cb.meals.startDate) }}<span v-if="cb.meals.endDate && cb.meals.endDate !== cb.meals.startDate"> – {{ fmt(cb.meals.endDate) }}</span></span>
+                    </p>
                   </div>
                 </div>
               </div>
