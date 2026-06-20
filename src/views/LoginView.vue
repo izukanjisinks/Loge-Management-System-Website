@@ -75,7 +75,7 @@ async function submitReset() {
 
   resetLoading.value = true
   try {
-    await api.post('/guest/auth/reset-password', { email: resetEmail.value })
+    await api.post('/web/auth/reset-password', { email: resetEmail.value })
     resetSuccess.value = true
   } catch {
     resetError.value = 'Something went wrong. Please try again.'

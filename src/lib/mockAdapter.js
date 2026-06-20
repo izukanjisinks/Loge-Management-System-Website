@@ -11,6 +11,8 @@ import {
   MOCK_ROOMS_BY_ID,
   ALL_MOCK_ROOMS,
   MOCK_BOOKINGS,
+  ALL_MOCK_VENUES,
+  MOCK_VENUES_BY_ID,
 } from '@/data/dummyData'
 
 import {
@@ -69,6 +71,23 @@ export function mockAdapter(config) {
     return ok(MOCK_USER)
   }
 
+  // ── Web user profile ──────────────────────────────────────────────────────
+  if (method === 'get' && url.endsWith('/web/profile')) {
+    return ok(MOCK_USER)
+  }
+
+  if (method === 'put' && url.endsWith('/web/profile')) {
+    return ok({ ...MOCK_USER, ...body })
+  }
+
+  if (method === 'put' && url.includes('/web/auth/change-password')) {
+    return ok({ message: 'Password updated successfully' })
+  }
+
+  if (method === 'post' && url.includes('/web/auth/reset-password')) {
+    return ok({ message: 'Reset instructions sent' })
+  }
+
   // ── Lodges ───────────────────────────────────────────────────────────────
   if (method === 'get' && /\/lodges\/[^/]+$/.test(url)) {
     const id    = idFrom(url, 'lodges')
@@ -97,6 +116,33 @@ export function mockAdapter(config) {
       rooms = rooms.map(r => ({ ...r, available: true, is_available: true }))
     }
     return ok(rooms)
+  }
+
+  // ── Venues ────────────────────────────────────────────────────────────────
+  if (method === 'get' && /\/venues\/[^/]+$/.test(url)) {
+    const id    = idFrom(url, 'venues')
+    const venue = MOCK_VENUES_BY_ID[id]
+    return venue ? ok(venue) : notFound('Venue not found')
+  }
+
+  if (method === 'get' && url.includes('/venues')) {
+    let venues = ALL_MOCK_VENUES
+    if (params.org_id)        venues = venues.filter(v => v.org_id        === params.org_id)
+    if (params.branch_id)     venues = venues.filter(v => v.branch_id     === params.branch_id)
+    if (params.type)          venues = venues.filter(v => v.type          === params.type)
+    if (params.location_type) venues = venues.filter(v => v.location_type === params.location_type)
+    if (params.min_capacity)  venues = venues.filter(v => v.max_capacity  >= Number(params.min_capacity))
+    return ok(venues)
+  }
+
+  // ── Venue enquiries ───────────────────────────────────────────────────────
+  if (method === 'post' && url.includes('/venue-enquiries')) {
+    return ok({
+      id:         `venq-${Date.now()}`,
+      reference:  `MCW-VNQ-${Math.floor(Math.random() * 90000) + 10000}`,
+      status:     'received',
+      created_at: new Date().toISOString(),
+    }, 700)
   }
 
   // ── Bookings ──────────────────────────────────────────────────────────────

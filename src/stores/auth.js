@@ -8,15 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value)
 
-  function _persist(t, u) {
-    token.value = t
-    user.value  = u
-    localStorage.setItem('token', t)
-    localStorage.setItem('user', JSON.stringify(u))
-  }
-
-  // Normalise the user object from the API into the shape the UI expects.
-  // The API returns full_name; the UI uses firstName / lastName / name.
+  // Normalise the API user shape into what the UI expects.
+  // Server returns full_name; UI uses firstName / lastName / name.
   function _normaliseUser(apiUser) {
     const parts     = (apiUser.full_name || '').trim().split(' ')
     const firstName = parts[0] || ''
@@ -24,25 +17,57 @@ export const useAuthStore = defineStore('auth', () => {
     return { ...apiUser, firstName, lastName, name: apiUser.full_name }
   }
 
+  function _setToken(t) {
+    token.value = t
+    localStorage.setItem('token', t)
+  }
+
+  function _setUser(u) {
+    user.value = u
+    localStorage.setItem('user', JSON.stringify(u))
+  }
+
   async function login(email, password) {
-    const { data } = await api.post('/guest/auth/login', { email, password })
-    _persist(data.token, _normaliseUser(data.user ?? data.guest))
+    const { data } = await api.post('/web/auth/login', { email, password })
+    _setToken(data.token)
+    // Use inline user if the server sends it; otherwise fetch from profile
+    if (data.user) {
+      _setUser(_normaliseUser(data.user))
+    } else {
+      await fetchUser()
+    }
   }
 
   async function register(payload) {
-    const { data } = await api.post('/guest/auth/register', payload)
-    _persist(data.token, _normaliseUser(data.user ?? data.guest))
+    const { data } = await api.post('/web/auth/register', payload)
+    _setToken(data.token)
+    if (data.user) {
+      _setUser(_normaliseUser(data.user))
+    } else {
+      await fetchUser()
+    }
   }
 
   async function fetchUser() {
     if (!token.value) return
     try {
-      const { data } = await api.get('/guest/me')
-      user.value = _normaliseUser(data)
-      localStorage.setItem('user', JSON.stringify(user.value))
+      const { data } = await api.get('/web/profile')
+      _setUser(_normaliseUser(data))
     } catch {
       logout()
     }
+  }
+
+  async function updateProfile(payload) {
+    const { data } = await api.put('/web/profile', payload)
+    _setUser(_normaliseUser(data))
+  }
+
+  async function changePassword(oldPassword, newPassword) {
+    await api.put('/web/auth/change-password', {
+      old_password: oldPassword,
+      new_password: newPassword,
+    })
   }
 
   function logout() {
@@ -52,5 +77,10 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
-  return { user, token, isAuthenticated, login, register, fetchUser, logout }
+  return {
+    user, token, isAuthenticated,
+    login, register, fetchUser,
+    updateProfile, changePassword,
+    logout,
+  }
 })

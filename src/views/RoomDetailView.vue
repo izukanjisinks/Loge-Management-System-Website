@@ -8,6 +8,7 @@ import { RangeCalendar }     from '@/components/ui/range-calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import api                   from '@/lib/api'
+import BookingTypeModal      from '@/components/booking/BookingTypeModal.vue'
 
 const route   = useRoute()
 const router  = useRouter()
@@ -141,17 +142,27 @@ const dateError = computed(() => {
   return ''
 })
 
-function reserve() {
+const bookingModalOpen = ref(false)
+
+function openBooking() {
   if (!checkIn.value || !checkOut.value || dateError.value) return
-  booking.setRoom(room.value.id, room.value.type, room.value.price, room.value.orgId, room.value.orgName)
-  booking.setDates(checkIn.value, checkOut.value)
-  booking.setMealPlan(null, 'Room Only', 0)
-  booking.guestCount = guestCount.value
-  if (!auth.isAuthenticated) {
-    router.push({ name: 'login', query: { redirect: `/reserve/${room.value.id}` } })
-  } else {
-    router.push({ name: 'reservation', params: { roomId: room.value.id } })
-  }
+  bookingModalOpen.value = true
+}
+
+function onBookingTypeConfirmed(type) {
+  const routeName = type === 'individual' ? 'individual-booking' : 'corporate-booking'
+  router.push({
+    name:   routeName,
+    params: { id: room.value.orgId },
+    query:  {
+      roomId:   room.value.id,
+      roomName: room.value.name,
+      roomType: room.value.type,
+      rate:     room.value.price,
+      checkIn:  checkIn.value,
+      checkOut: checkOut.value,
+    },
+  })
 }
 </script>
 
@@ -424,11 +435,12 @@ function reserve() {
 
             <!-- CTA -->
             <button
-              class="w-full bg-(--color-primary) text-white py-4 rounded-lg font-serif text-2xl hover:bg-(--color-primary-container) transition-colors active:scale-95 duration-150 shadow-md"
+              class="w-full bg-(--color-primary) text-white py-4 rounded-lg font-sans text-base font-semibold hover:bg-(--color-clay-earth) transition-colors active:scale-95 duration-150 shadow-md flex items-center justify-center gap-2"
               :class="(!checkIn || !checkOut || !!dateError) && 'opacity-60 pointer-events-none'"
-              @click="reserve"
+              @click="openBooking"
             >
-              Check Availability
+              <span class="material-symbols-outlined text-base">event_available</span>
+              Book Now
             </button>
           </div>
 
@@ -466,4 +478,10 @@ function reserve() {
     </div>
 
   </div>
+
+  <BookingTypeModal
+    v-model="bookingModalOpen"
+    :context="room ? { itemType: 'room', name: room.name, lodgeName: room.orgName } : {}"
+    @confirm="onBookingTypeConfirmed"
+  />
 </template>

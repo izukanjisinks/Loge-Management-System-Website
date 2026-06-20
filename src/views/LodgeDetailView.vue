@@ -7,6 +7,8 @@ import { useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
+import api from '@/lib/api'
+import BookingTypeModal from '@/components/booking/BookingTypeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,9 +24,28 @@ const branches     = computed(() => lodgesStore.branchesFor(lodgeId))
 
 const { rooms, total: roomsTotal, page: roomsPage, totalPages: roomsTotalPages, loading: roomsLoading, error: roomsError, fetchRooms } = useRooms()
 
+const activeTab     = ref('rooms')  // 'rooms' | 'venues'
 const searched      = ref(false)
 const dateFilters   = ref({})
 const filterBranch  = ref('')
+
+// ── Venues ────────────────────────────────────────────────────────────────────
+const venues        = ref([])
+const venuesLoading = ref(false)
+const venuesError   = ref('')
+
+async function fetchVenues() {
+  venuesLoading.value = true
+  venuesError.value   = ''
+  try {
+    const { data } = await api.get('/guest/venues', { params: { org_id: lodgeId } })
+    venues.value = data.data ?? data
+  } catch {
+    venuesError.value = 'Unable to load venues. Please try again.'
+  } finally {
+    venuesLoading.value = false
+  }
+}
 
 watch(filterBranch, () => {
   const params = { org_id: lodgeId, ...dateFilters.value }
@@ -78,6 +99,7 @@ onMounted(async () => {
   await lodgesStore.fetchLodges()
   lodgesStore.fetchLodgeDetail(lodgeId)
   fetchRooms({ org_id: lodgeId })
+  fetchVenues()
 })
 
 const COVERS = [
@@ -101,12 +123,68 @@ async function checkAvailability() {
   searched.value = true
 }
 
+const selectedRoom     = ref(null)
+const bookingModalOpen = ref(false)
+
 function reserve(room) {
-  const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
-  booking.setRoom(room.id, cap(room.type), parseFloat(room.price_per_night) || 0, lodgeId, lodge.value?.name ?? '')
-  if (checkIn.value)  booking.checkIn  = checkIn.value
-  if (checkOut.value) booking.checkOut = checkOut.value
-  router.push({ name: 'reservation', params: { roomId: room.id } })
+  selectedRoom.value     = room
+  bookingModalOpen.value = true
+}
+
+function onRoomBookingConfirmed(type) {
+  const room = selectedRoom.value
+  if (!room) return
+  const q = {
+    roomId:   room.id,
+    roomName: room.name,
+    roomType: room.type ?? room.type_label ?? '',
+    rate:     parseFloat(room.price_per_night) || 0,
+  }
+  if (checkIn.value)  q.checkIn  = checkIn.value
+  if (checkOut.value) q.checkOut = checkOut.value
+  router.push({
+    name:   type === 'individual' ? 'individual-booking' : 'corporate-booking',
+    params: { id: lodgeId },
+    query:  q,
+  })
+}
+
+// ── Venue display helpers ─────────────────────────────────────────────────────
+function venueLocationIcon(type) {
+  if (type === 'outdoor')      return 'park'
+  if (type === 'semi_outdoor') return 'open_in_full'
+  return 'warehouse'
+}
+function venueLocationLabel(type) {
+  if (type === 'outdoor')      return 'Outdoor'
+  if (type === 'semi_outdoor') return 'Semi-Outdoor'
+  return 'Indoor'
+}
+function venueTypeIcon(type) {
+  const icons = {
+    conference_room: 'corporate_fare', boardroom: 'meeting_room',
+    banquet_hall: 'celebration',       wedding_venue: 'favorite',
+    garden: 'local_florist',           marquee: 'festival',
+    training_room: 'school',           exhibition: 'museum',
+    amphitheatre: 'theater_comedy',
+  }
+  return icons[type] ?? 'event'
+}
+function venueAmenityIcon(label) {
+  const l = (label ?? '').toLowerCase()
+  if (l.includes('wifi') || l.includes('wi-fi'))         return 'wifi'
+  if (l.includes('projector') || l.includes('screen'))   return 'connected_tv'
+  if (l.includes('pa') || l.includes('sound'))           return 'volume_up'
+  if (l.includes('air') || l.includes('climate'))        return 'ac_unit'
+  if (l.includes('stage') || l.includes('podium'))       return 'mic'
+  if (l.includes('parking'))                             return 'local_parking'
+  if (l.includes('catering') || l.includes('dining'))    return 'restaurant'
+  if (l.includes('bar'))                                 return 'local_bar'
+  if (l.includes('video') || l.includes('conferencing')) return 'videocam'
+  if (l.includes('whiteboard') || l.includes('flip'))    return 'draw'
+  if (l.includes('display') || l.includes('4k'))         return 'monitor'
+  if (l.includes('generator'))                           return 'bolt'
+  return 'check_circle'
 }
 </script>
 
@@ -161,8 +239,8 @@ function reserve(room) {
       </div>
     </div>
 
-    <!-- ── Availability checker ───────────────────────────────────── -->
-    <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-5">
+    <!-- ── Availability checker (Rooms only) ────────────────────────── -->
+    <section v-if="activeTab === 'rooms'" class="max-w-[1280px] mx-auto px-5 md:px-16 mt-5">
       <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface) mb-2">Check Availability</h2>
       <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">
         Pick your dates to see which rooms are free at {{ lodge.name }}.
@@ -283,137 +361,267 @@ function reserve(room) {
       </div>
     </section>
 
-    <!-- ── Rooms ────────────────────────────────────────── -->
+    <!-- ── Rooms & Venues tabs ───────────────────────────────────── -->
     <section class="max-w-[1280px] mx-auto px-5 md:px-16 mt-12">
-      <div class="flex items-baseline justify-between mb-8">
+
+      <!-- Tab header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface)">Rooms at {{ lodge.name }}</h2>
+          <h2 class="font-serif text-[28px] font-semibold text-(--color-on-surface)">What's Available</h2>
           <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
-            <template v-if="roomsLoading">Loading rooms…</template>
-            <template v-else-if="searched">{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} available for selected dates</template>
-            <template v-else>{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }}</template>
+            <template v-if="activeTab === 'rooms'">
+              <template v-if="roomsLoading">Loading rooms…</template>
+              <template v-else-if="searched">{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} available for selected dates</template>
+              <template v-else>{{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} &middot; {{ venues.length }} venue{{ venues.length !== 1 ? 's' : '' }}</template>
+            </template>
+            <template v-else>
+              {{ venues.length }} venue{{ venues.length !== 1 ? 's' : '' }} at {{ lodge.name }}
+            </template>
           </p>
         </div>
-      </div>
 
-      <!-- Rooms error -->
-      <div v-if="roomsError && !roomsLoading" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
-        <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
-        <p class="font-sans text-sm text-(--color-on-error-container)">{{ roomsError }}</p>
-      </div>
-
-      <!-- Rooms skeleton (first load only) -->
-      <div v-if="roomsLoading && !rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-        <div v-for="i in 3" :key="i"
-          class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
-          <div class="h-44 bg-(--color-surface-container-highest)"></div>
-          <div class="p-4 space-y-2">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
-            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
-          </div>
+        <!-- Tab toggle -->
+        <div class="flex items-center gap-1 p-1 bg-(--color-savannah-mist) rounded-xl shrink-0 self-start sm:self-auto">
+          <button
+            :class="activeTab === 'rooms'
+              ? 'bg-(--color-primary) text-white shadow-sm'
+              : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'"
+            class="flex items-center gap-2 px-5 py-2.5 rounded-lg font-sans text-sm font-semibold transition-all"
+            @click="activeTab = 'rooms'"
+          >
+            <span class="material-symbols-outlined text-base">bed</span>
+            Rooms
+          </button>
+          <button
+            :class="activeTab === 'venues'
+              ? 'bg-(--color-primary) text-white shadow-sm'
+              : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'"
+            class="flex items-center gap-2 px-5 py-2.5 rounded-lg font-sans text-sm font-semibold transition-all"
+            @click="activeTab = 'venues'"
+          >
+            <span class="material-symbols-outlined text-base">event</span>
+            Venues
+          </button>
         </div>
       </div>
 
-      <!-- Room cards -->
-      <div v-else-if="rooms.length" class="relative mb-16">
-        <!-- Re-fetch overlay spinner -->
-        <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0" enter-to-class="opacity-100"
-          leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-          <div v-if="roomsLoading" class="absolute inset-0 z-10 bg-(--color-background) flex items-center justify-center rounded-2xl">
-            <span class="material-symbols-outlined text-4xl text-(--color-primary) animate-spin">progress_activity</span>
-          </div>
-        </Transition>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div v-for="room in rooms" :key="room.id"
-            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col cursor-pointer group hover:shadow-lg transition-shadow duration-300"
-            @click="router.push({ name: 'room-detail', params: { id: room.id } })">
-            <div class="relative h-44 overflow-hidden">
-              <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
-              <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
-                class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-                {{ room.is_available ? 'Available' : 'Unavailable' }}
-              </span>
-              <span
-                class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
-                {{ room.type }}
-              </span>
-            </div>
+      <!-- ── Rooms tab content ─────────────────────────────────────── -->
+      <Transition enter-active-class="transition duration-200" enter-from-class="opacity-0 translate-y-1" enter-to-class="opacity-100 translate-y-0" mode="out-in">
+        <div v-if="activeTab === 'rooms'" key="rooms">
 
-            <div class="p-5 flex flex-col flex-1">
-              <div class="flex items-start justify-between gap-2 mb-2">
-                <h3 class="font-serif text-lg text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ room.name }}</h3>
-                <div class="text-right shrink-0">
-                  <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString() }}</p>
-                  <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
+          <!-- Rooms error -->
+          <div v-if="roomsError && !roomsLoading" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
+            <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
+            <p class="font-sans text-sm text-(--color-on-error-container)">{{ roomsError }}</p>
+          </div>
+
+          <!-- Rooms skeleton -->
+          <div v-if="roomsLoading && !rooms.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            <div v-for="i in 3" :key="i"
+              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
+              <div class="h-44 bg-(--color-surface-container-highest)"></div>
+              <div class="p-4 space-y-2">
+                <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
+                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Room cards -->
+          <div v-else-if="rooms.length" class="relative mb-16">
+            <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0" enter-to-class="opacity-100"
+              leave-active-class="transition duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+              <div v-if="roomsLoading" class="absolute inset-0 z-10 bg-(--color-background) flex items-center justify-center rounded-2xl">
+                <span class="material-symbols-outlined text-4xl text-(--color-primary) animate-spin">progress_activity</span>
+              </div>
+            </Transition>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div v-for="room in rooms" :key="room.id"
+                class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col cursor-pointer group hover:shadow-lg transition-shadow duration-300"
+                @click="router.push({ name: 'room-detail', params: { id: room.id } })">
+                <div class="relative h-44 overflow-hidden">
+                  <img :src="roomImage(room)" :alt="room.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
+                  <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
+                    class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
+                    {{ room.is_available ? 'Available' : 'Unavailable' }}
+                  </span>
+                  <span class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
+                    {{ room.type }}
+                  </span>
+                </div>
+                <div class="p-5 flex flex-col flex-1">
+                  <div class="flex items-start justify-between gap-2 mb-2">
+                    <h3 class="font-serif text-lg text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ room.name }}</h3>
+                    <div class="text-right shrink-0">
+                      <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString() }}</p>
+                      <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
+                    </div>
+                  </div>
+                  <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
+                    <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
+                    Sleeps {{ room.capacity }}
+                  </p>
+                  <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
+                    {{ room.description || 'A comfortable and well-appointed room.' }}
+                  </p>
+                  <div class="flex flex-wrap gap-1 mb-4">
+                    <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
+                      class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
+                      <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
+                      {{ a }}
+                    </span>
+                  </div>
+                  <button
+                    :disabled="!room.is_available"
+                    class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all bg-(--color-primary) text-white hover:bg-(--color-clay-earth) disabled:opacity-40 disabled:cursor-not-allowed"
+                    @click.stop="reserve(room)">
+                    {{ room.is_available ? 'Reserve' : 'Unavailable' }}
+                  </button>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
-                <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
-                Sleeps {{ room.capacity }}
-              </p>
+          <div v-else-if="!roomsLoading"
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-8">
+            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">{{ searched ? 'event_busy' : 'bed' }}</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">{{ searched ? 'No rooms available' : 'No rooms listed' }}</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">{{ searched ? 'All rooms are booked for those dates. Try different dates.' : 'This property has no rooms configured yet.' }}</p>
+          </div>
 
-              <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
-                {{ room.description || 'A comfortable and well-appointed room.' }}
-              </p>
+          <!-- Pagination -->
+          <div class="flex items-center justify-center gap-2 mt-10 mb-4">
+            <button :disabled="roomsPage <= 1 || roomsLoading"
+              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              @click="goToPage(roomsPage - 1)">
+              <span class="material-symbols-outlined text-base">chevron_left</span>
+            </button>
+            <button v-for="p in roomsTotalPages" :key="p"
+              :class="p === roomsPage ? 'bg-(--color-primary) text-white border-transparent' : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
+              class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
+              @click="goToPage(p)">
+              {{ p }}
+            </button>
+            <button :disabled="roomsPage >= roomsTotalPages || roomsLoading"
+              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              @click="goToPage(roomsPage + 1)">
+              <span class="material-symbols-outlined text-base">chevron_right</span>
+            </button>
+          </div>
+        </div>
 
-              <div class="flex flex-wrap gap-1 mb-4">
-                <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
-                  class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
-                  <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
-                  {{ a }}
+        <!-- ── Venues tab content ──────────────────────────────────────── -->
+        <div v-else-if="activeTab === 'venues'" key="venues">
+
+          <!-- Venues error -->
+          <div v-if="venuesError && !venuesLoading" class="py-12 text-center bg-(--color-error-container) rounded-2xl mb-8">
+            <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
+            <p class="font-sans text-sm text-(--color-on-error-container)">{{ venuesError }}</p>
+          </div>
+
+          <!-- Venues skeleton — same structure as rooms skeleton -->
+          <div v-if="venuesLoading && !venues.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            <div v-for="i in 3" :key="i"
+              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
+              <div class="h-44 bg-(--color-surface-container-highest)"></div>
+              <div class="p-5 space-y-2">
+                <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
+                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
+                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-full"></div>
+                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-3/4"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Venue cards — inline, same structure as room cards above -->
+          <div v-else-if="venues.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            <div
+              v-for="venue in venues"
+              :key="venue.id"
+              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col cursor-pointer group hover:shadow-lg transition-shadow duration-300"
+              @click="router.push({ name: 'venue-detail', params: { id: venue.id } })"
+            >
+              <!-- Image -->
+              <div class="relative h-44 overflow-hidden">
+                <img v-if="venue.images?.[0]" :src="venue.images[0]" :alt="venue.name"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  loading="lazy" />
+                <div v-else class="w-full h-full bg-(--color-surface-container) flex items-center justify-center">
+                  <span class="material-symbols-outlined text-5xl text-(--color-outline)">event</span>
+                </div>
+                <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
+
+                <!-- Indoor / Outdoor — top left -->
+                <span class="absolute top-3 left-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
+                  <span class="material-symbols-outlined text-sm">{{ venueLocationIcon(venue.location_type) }}</span>
+                  {{ venueLocationLabel(venue.location_type) }}
+                </span>
+
+                <!-- Capacity — top right -->
+                <span class="absolute top-3 right-3 flex items-center gap-1 bg-white/90 text-(--color-on-surface) px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">group</span>
+                  up to {{ venue.max_capacity }}
+                </span>
+
+                <!-- Venue type — bottom left -->
+                <span class="absolute bottom-3 left-3 flex items-center gap-1 bg-(--color-primary) text-white px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
+                  <span class="material-symbols-outlined text-sm">{{ venueTypeIcon(venue.type) }}</span>
+                  {{ venue.type_label }}
                 </span>
               </div>
 
-              <button
-                :disabled="!room.is_available"
-                class="w-full py-2.5 rounded-full font-sans text-sm font-semibold transition-all bg-(--color-primary) text-white hover:bg-(--color-clay-earth) disabled:opacity-40 disabled:cursor-not-allowed"
-                @click.stop="reserve(room)">
-                {{ room.is_available ? 'Reserve' : 'Unavailable' }}
-              </button>
+              <!-- Info -->
+              <div class="p-5 flex flex-col flex-1">
+                <h3 class="font-serif text-lg text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors mb-2">
+                  {{ venue.name }}
+                </h3>
+                <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">groups</span>
+                  Up to {{ venue.max_capacity }} guests
+                </p>
+                <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
+                  {{ venue.description }}
+                </p>
+                <div class="flex flex-wrap gap-1 mb-4">
+                  <span
+                    v-for="a in (venue.amenities ?? []).slice(0, 3)"
+                    :key="a"
+                    class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs"
+                  >
+                    <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ venueAmenityIcon(a) }}</span>
+                    {{ a }}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="w-full py-2.5 rounded-full font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors"
+                  @click.stop="router.push({ name: 'venue-detail', params: { id: venue.id } })"
+                >
+                  View Details
+                </button>
+              </div>
             </div>
           </div>
+
+          <!-- Empty state -->
+          <div v-else-if="!venuesLoading"
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-8">
+            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">No venues listed</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no event spaces configured yet.</p>
+          </div>
         </div>
-      </div>
-
-      <div v-else-if="!roomsLoading"
-        class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) mb-8">
-        <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">{{ searched ? 'event_busy' : 'bed' }}</span>
-        <p class="font-serif text-xl text-(--color-on-surface)">{{ searched ? 'No rooms available' : 'No rooms listed' }}</p>
-        <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">{{ searched ? 'All rooms are booked for those dates. Try different dates.' : 'This lodge has no rooms configured yet.' }}</p>
-      </div>
-
-      <!-- Pagination -->
-      <div class="flex items-center justify-center gap-2 mt-10 mb-4">
-        <button
-          :disabled="roomsPage <= 1 || roomsLoading"
-          class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          @click="goToPage(roomsPage - 1)"
-        >
-          <span class="material-symbols-outlined text-base">chevron_left</span>
-        </button>
-
-        <button
-          v-for="p in roomsTotalPages" :key="p"
-          :class="p === roomsPage
-            ? 'bg-(--color-primary) text-white border-transparent'
-            : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
-          class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
-          @click="goToPage(p)"
-        >
-          {{ p }}
-        </button>
-
-        <button
-          :disabled="roomsPage >= roomsTotalPages || roomsLoading"
-          class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          @click="goToPage(roomsPage + 1)"
-        >
-          <span class="material-symbols-outlined text-base">chevron_right</span>
-        </button>
-      </div>
+      </Transition>
     </section>
 
   </div>
+
+  <BookingTypeModal
+    v-model="bookingModalOpen"
+    :context="selectedRoom
+      ? { itemType: 'room', name: selectedRoom.name, lodgeName: lodge?.name ?? '' }
+      : { itemType: 'room', name: '', lodgeName: lodge?.name ?? '' }"
+    @confirm="onRoomBookingConfirmed"
+  />
 </template>

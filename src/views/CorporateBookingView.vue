@@ -457,6 +457,31 @@ onMounted(async () => {
     if (!cb.bookedBy.email && auth.user.email)
       cb.bookedBy.email = auth.user.email
   }
+
+  // Pre-populate from room query params (e.g. from RoomDetailView / LodgeDetailView)
+  const q = route.query
+  if (q.roomId) {
+    cb.accommodationEnabled = true
+    if (q.checkIn)  cb.accommodation.checkIn  = q.checkIn
+    if (q.checkOut) cb.accommodation.checkOut = q.checkOut
+    if (q.roomType) cb.accommodation.roomType = q.roomType
+    cb.accommodation.reasonForBooking = q.roomName ? `Accommodation: ${q.roomName}` : ''
+    activeTab.value = 'accommodation'
+  }
+
+  // Pre-populate from venue query params (e.g. from VenueDetailView)
+  if (q.venueId) {
+    cb.eventsEnabled = true
+    cb.events.reasonForBooking = q.venueName || ''
+    if (cb.events.masterSessions?.[0]) {
+      cb.events.masterSessions[0].venueId = q.venueId
+    }
+    if (q.eventDate) {
+      cb.events.startDate = q.eventDate
+      cb.events.endDate   = q.eventDate
+    }
+    activeTab.value = 'events'
+  }
 })
 
 watch(() => cb.branchId, fetchRoomTypes)

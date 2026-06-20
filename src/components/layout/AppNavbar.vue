@@ -1,15 +1,22 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-const auth              = useAuthStore()
-const router            = useRouter()
-const menuOpen          = ref(false)
-const showLogoutDialog  = ref(false)
+const auth             = useAuthStore()
+const router           = useRouter()
+const menuOpen         = ref(false)
+const showLogoutDialog = ref(false)
+const userMenuOpen     = ref(false)
+
+const initials = computed(() => {
+  const n = auth.user?.full_name ?? ''
+  return n.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase() || '?'
+})
 
 function handleLogout() {
-  menuOpen.value = false
+  menuOpen.value     = false
+  userMenuOpen.value = false
   showLogoutDialog.value = true
 }
 
@@ -18,6 +25,12 @@ function confirmLogout() {
   auth.logout()
   router.push({ name: 'home' })
 }
+
+function closeUserMenu(e) {
+  if (!e.target.closest('[data-user-menu]')) userMenuOpen.value = false
+}
+onMounted(() => document.addEventListener('click', closeUserMenu))
+onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
 </script>
 
 <template>
@@ -33,11 +46,25 @@ function confirmLogout() {
       <!-- Desktop nav links -->
       <div class="hidden md:flex gap-6 items-center">
         <RouterLink
+          to="/rooms"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
+        >
+          Rooms
+        </RouterLink>
+        <RouterLink
+          to="/venues"
+          class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
+          active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
+        >
+          Venues
+        </RouterLink>
+        <RouterLink
           to="/lodges"
           class="text-(--color-on-surface-variant) font-medium hover:text-(--color-primary) transition-colors duration-200 text-sm font-sans tracking-[0.05em]"
           active-class="!text-(--color-primary) border-b-2 border-(--color-primary) font-bold pb-1"
         >
-          Explore
+          Properties
         </RouterLink>
         <RouterLink
           to="/bookings"
@@ -58,12 +85,54 @@ function confirmLogout() {
       <!-- Desktop CTA -->
       <div class="hidden md:flex items-center gap-4">
         <template v-if="auth.isAuthenticated">
-          <button
-            class="text-sm text-(--color-on-surface-variant) font-sans font-medium hover:text-(--color-on-surface) transition-colors"
-            @click="handleLogout"
-          >
-            Sign Out
-          </button>
+          <!-- User menu trigger -->
+          <div class="relative" data-user-menu>
+            <button
+              class="flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 hover:bg-(--color-surface-container) transition-colors"
+              @click.stop="userMenuOpen = !userMenuOpen"
+            >
+              <span class="w-7 h-7 rounded-full bg-(--color-primary) flex items-center justify-center shrink-0">
+                <span class="font-serif text-xs font-bold text-white leading-none">{{ initials }}</span>
+              </span>
+              <span class="font-sans text-sm font-medium text-(--color-on-surface) max-w-28 truncate">
+                {{ auth.user?.firstName || auth.user?.full_name }}
+              </span>
+              <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) transition-transform" :class="userMenuOpen ? 'rotate-180' : ''">expand_more</span>
+            </button>
+
+            <!-- Dropdown -->
+            <Transition
+              enter-active-class="transition duration-150 ease-out"
+              enter-from-class="opacity-0 scale-95 -translate-y-1"
+              enter-to-class="opacity-100 scale-100 translate-y-0"
+              leave-active-class="transition duration-100 ease-in"
+              leave-from-class="opacity-100 scale-100"
+              leave-to-class="opacity-0 scale-95"
+            >
+              <div v-if="userMenuOpen"
+                class="absolute right-0 top-full mt-1.5 w-44 bg-(--color-surface) rounded-xl shadow-lg border border-(--color-outline-variant) overflow-hidden z-50 origin-top-right">
+                <RouterLink to="/account"
+                  class="flex items-center gap-2.5 px-4 py-3 font-sans text-sm text-(--color-on-surface) hover:bg-(--color-surface-container) transition-colors"
+                  @click="userMenuOpen = false">
+                  <span class="material-symbols-outlined text-base text-(--color-on-surface-variant)">manage_accounts</span>
+                  My Account
+                </RouterLink>
+                <RouterLink to="/bookings"
+                  class="flex items-center gap-2.5 px-4 py-3 font-sans text-sm text-(--color-on-surface) hover:bg-(--color-surface-container) transition-colors"
+                  @click="userMenuOpen = false">
+                  <span class="material-symbols-outlined text-base text-(--color-on-surface-variant)">calendar_month</span>
+                  My Bookings
+                </RouterLink>
+                <div class="border-t border-(--color-outline-variant) mx-3 my-1"></div>
+                <button
+                  class="w-full flex items-center gap-2.5 px-4 py-3 font-sans text-sm text-(--color-error) hover:bg-(--color-error-container) transition-colors"
+                  @click="handleLogout">
+                  <span class="material-symbols-outlined text-base">logout</span>
+                  Sign Out
+                </button>
+              </div>
+            </Transition>
+          </div>
         </template>
         <template v-else>
           <RouterLink
@@ -99,11 +168,19 @@ function confirmLogout() {
         class="md:hidden bg-(--color-surface) px-5 pb-6 pt-2 flex flex-col gap-4 border-t border-(--color-outline-variant)"
         @click="menuOpen = false"
       >
-        <RouterLink to="/lodges"   class="font-sans text-sm text-(--color-on-surface-variant) py-2">Explore</RouterLink>
+        <RouterLink to="/rooms"    class="font-sans text-sm text-(--color-on-surface-variant) py-2">Rooms</RouterLink>
+        <RouterLink to="/venues"   class="font-sans text-sm text-(--color-on-surface-variant) py-2">Venues</RouterLink>
+        <RouterLink to="/lodges"   class="font-sans text-sm text-(--color-on-surface-variant) py-2">Properties</RouterLink>
+        <RouterLink to="/explore"  class="font-sans text-sm text-(--color-on-surface-variant) py-2">Explore All</RouterLink>
         <RouterLink to="/bookings" class="font-sans text-sm text-(--color-on-surface-variant) py-2">Reservations</RouterLink>
         <RouterLink to="/about"    class="font-sans text-sm text-(--color-on-surface-variant) py-2">About</RouterLink>
         <template v-if="auth.isAuthenticated">
-          <button class="font-sans text-sm text-(--color-on-surface-variant) py-2 text-left" @click="handleLogout">
+          <RouterLink to="/account" class="flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant) py-2">
+            <span class="material-symbols-outlined text-base">manage_accounts</span>
+            My Account
+          </RouterLink>
+          <button class="flex items-center gap-2 font-sans text-sm text-(--color-error) py-2 text-left" @click="handleLogout">
+            <span class="material-symbols-outlined text-base">logout</span>
             Sign Out
           </button>
         </template>

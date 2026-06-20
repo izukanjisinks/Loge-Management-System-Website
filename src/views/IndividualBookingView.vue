@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
@@ -372,6 +372,38 @@ onMounted(async () => {
   // Restore room availability if dates were already set (e.g. navigating back)
   const { checkIn, checkOut } = ib.accommodation
   if (checkIn && checkOut && checkOut > checkIn) fetchAvailableRooms()
+
+  // Pre-populate from room query params (e.g. from RoomDetailView / LodgeDetailView)
+  const q = route.query
+  if (q.roomId) {
+    ib.accommodationEnabled = true
+    if (q.checkIn)  ib.accommodation.checkIn  = q.checkIn
+    if (q.checkOut) ib.accommodation.checkOut = q.checkOut
+    // Wait for the date-change watcher (which resets attendantRooms) to flush first
+    await nextTick()
+    ib.accommodation.attendantRooms = [{
+      attendantIdx: 0,
+      roomId:   q.roomId,
+      roomName: q.roomName || 'Selected Room',
+      roomType: q.roomType || '',
+      rate:     q.rate     || '0',
+    }]
+    activeTab.value = 'accommodation'
+  }
+
+  // Pre-populate from venue query params (e.g. from VenueDetailView)
+  if (q.venueId) {
+    ib.eventsEnabled = true
+    ib.events.reasonForBooking = q.venueName || ''
+    if (ib.events.masterSessions?.[0]) {
+      ib.events.masterSessions[0].venueId = q.venueId
+    }
+    if (q.eventDate) {
+      ib.events.startDate = q.eventDate
+      ib.events.endDate   = q.eventDate
+    }
+    activeTab.value = 'events'
+  }
 })
 </script>
 

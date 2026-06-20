@@ -33,14 +33,19 @@ import { RouterLink } from 'vue-router'
             class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Contact</a>
         </div>
         <div class="flex flex-col gap-3">
-          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Service</span>
-          <RouterLink to="/bookings"
+          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Explore</span>
+          <RouterLink to="/rooms"
             class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
-            Corporate Booking</RouterLink>
+            Accommodation</RouterLink>
+          <RouterLink to="/venues"
+            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
+            Venues &amp; Events</RouterLink>
           <RouterLink to="/lodges"
             class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
             Partner Lodges</RouterLink>
-          <!-- <a href="#"                class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Concierge</a> -->
+          <RouterLink to="/bookings"
+            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
+            My Reservations</RouterLink>
         </div>
         <div class="flex flex-col gap-3">
           <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Legal</span>

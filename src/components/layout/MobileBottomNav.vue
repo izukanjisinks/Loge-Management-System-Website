@@ -2,10 +2,10 @@
 import { RouterLink } from 'vue-router'
 
 const links = [
-  { to: '/',         icon: 'explore',        label: 'Discover'  },
-  { to: '/lodges',   icon: 'search',         label: 'Search'    },
+  { to: '/',         icon: 'home',           label: 'Home'      },
+  { to: '/rooms',    icon: 'bed',            label: 'Rooms'     },
+  { to: '/venues',   icon: 'event',          label: 'Venues'    },
   { to: '/bookings', icon: 'calendar_today', label: 'Bookings'  },
-  { to: '/login',    icon: 'person',         label: 'Profile'   },
 ]
 </script>
 
