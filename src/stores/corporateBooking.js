@@ -15,6 +15,8 @@ function blankSessionTemplate() {
     expectedAttendees: 10,
     setupType: 'boardroom',
     venueId: '',
+    venueName: '',
+    venueCapacity: null,
     pricingBasis: 'full_day',
     specialRequirements: '',
   }
@@ -112,7 +114,9 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
   const mealsEnabled         = ref(false)
 
   // Unified attendants — the spine; each person registered once per booking
-  const attendants = ref([blankAttendant(true)])
+  const attendants       = ref([blankAttendant(true)])
+  const participantMode  = ref('headcount')  // 'headcount' | 'detailed'
+  const participantCount = ref(10)           // total attendees in headcount mode
 
   // Accommodation service
   const accommodation = ref({
@@ -300,15 +304,18 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
         job_title: bookedBy.value.jobTitle || undefined,
       },
 
-      attendants: attendants.value.map(a => ({
-        full_name:      a.fullName,
-        email:          a.email        || undefined,
-        phone:          a.phone        || undefined,
-        id_number:      a.idNumber     || undefined,
-        dietary_notes:  a.dietaryNotes || undefined,
-        company:        a.company      || undefined,
-        is_lead_contact: a.isLead,
-      })),
+      attendants: participantMode.value === 'headcount'
+        ? [{ full_name: bookedBy.value.name, email: bookedBy.value.email || undefined, phone: bookedBy.value.phone || undefined, is_lead_contact: true }]
+        : attendants.value.map(a => ({
+            full_name:       a.fullName,
+            email:           a.email        || undefined,
+            phone:           a.phone        || undefined,
+            id_number:       a.idNumber     || undefined,
+            dietary_notes:   a.dietaryNotes || undefined,
+            company:         a.company      || undefined,
+            is_lead_contact: a.isLead,
+          })),
+      participant_count: participantMode.value === 'headcount' ? participantCount.value : undefined,
 
       notes: notes.value || undefined,
     }
@@ -357,7 +364,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
           linked_master_session_index: m.linkedMasterSessionIndex   ?? undefined,
           dietary_notes:               m.dietaryNotes               || undefined,
           arrangements_notes:          m.arrangementsNotes          || undefined,
-          individual_orders:           (m.individualOrders ?? []).length
+          individual_orders: participantMode.value === 'detailed' && (m.individualOrders ?? []).length
             ? (m.individualOrders ?? [])
                 .filter(o => o.menuItemId)
                 .map(o => ({
@@ -399,6 +406,8 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     eventsEnabled.value        = false
     mealsEnabled.value         = false
     attendants.value           = [blankAttendant(true)]
+    participantMode.value      = 'headcount'
+    participantCount.value     = 10
     accommodation.value = { reasonForBooking: '', roomType: '', roomCount: 1, checkIn: '', checkOut: '', notes: '' }
     events.value        = { reasonForBooking: '', startDate: '', endDate: '', scheduleMode: 'uniform', masterSessions: [blankSessionTemplate()], dayOverrides: {} }
     meals.value         = { reasonForBooking: '', mealMode: 'event_linked', startDate: '', endDate: '', scheduleMode: 'uniform', masterMeals: [blankMealTemplate()], mealOverrides: {} }
@@ -416,6 +425,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     accommodationEnabled, eventsEnabled, mealsEnabled,
     attendants, accommodation, events, meals,
     hasAnyService, enabledServicesCount,
+    participantMode, participantCount,
     setLodge, fillFromProfile, clearCompanySelection,
     addAttendant, removeAttendant,
     addMasterSession, removeMasterSession,

@@ -10,7 +10,6 @@ import {
   lookupByTpin,
   getBranchesForCompany,
   getProfilesForBranch,
-  DUMMY_CONFERENCE_ROOMS,
   DUMMY_MENU_ITEMS,
 } from '@/data/dummyCorporateData'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS, MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
@@ -50,7 +49,7 @@ const TABS = [
 
 const tabHasError = computed(() => ({
   organisation: ['companyName', 'bookedByName', 'bookedByEmail', 'service', 'approverName', 'approverEmail', 'costCenter']
-    .some(k => errors.value[k]) || Object.keys(errors.value).some(k => k.startsWith('att_')),
+    .some(k => errors.value[k]) || (cb.participantMode === 'detailed' && Object.keys(errors.value).some(k => k.startsWith('att_'))),
   accommodation: ['accomCheckIn', 'accomCheckOut'].some(k => errors.value[k]),
   events:        Object.keys(errors.value).some(k => k.startsWith('ev_')) || !!errors.value.eventsEndDate,
   meals:         false,
@@ -138,6 +137,62 @@ function useNewCompany() {
   companyResults.value     = []
 }
 
+// ── Venue availability ────────────────────────────────────────────────────
+const availableVenues  = ref([])
+const venuesLoading    = ref(false)
+const venuesError      = ref(false)
+const expandedVenueKey = ref(null)
+
+async function fetchAvailableVenues() {
+  const orgId = cb.lodgeId || lodgeId
+  if (!orgId) { venuesError.value = true; return }
+  const { startDate, endDate } = cb.events
+  venuesLoading.value = true
+  venuesError.value   = false
+  try {
+    const params = { org_id: orgId, page_size: 100 }
+    if (cb.branchId) params.branch_id = cb.branchId
+    if (startDate)   params.check_in  = startDate
+    if (endDate)     params.check_out = endDate
+    const { data } = await api.get('/guest/venues', { params })
+    availableVenues.value = data.data ?? data
+  } catch {
+    venuesError.value     = true
+    availableVenues.value = []
+  } finally {
+    venuesLoading.value = false
+  }
+}
+
+function toggleVenuePicker(key) {
+  expandedVenueKey.value = expandedVenueKey.value === key ? null : key
+  if (expandedVenueKey.value !== null && !availableVenues.value.length && !venuesLoading.value) {
+    fetchAvailableVenues()
+  }
+}
+
+function selectVenueForSession(session, venue) {
+  session.venueId       = venue.id
+  session.venueName     = venue.name
+  session.venueCapacity = venue.max_capacity ?? null
+  expandedVenueKey.value = null
+}
+
+function clearVenueFromSession(session) {
+  session.venueId       = ''
+  session.venueName     = ''
+  session.venueCapacity = null
+}
+
+watch(
+  () => [cb.events.startDate, cb.events.endDate],
+  () => {
+    expandedVenueKey.value = null
+    availableVenues.value  = []
+    if (cb.eventsEnabled) fetchAvailableVenues()
+  }
+)
+
 // ── Lodge room types ──────────────────────────────────────────────────────
 const lodgeRoomTypes = ref([])
 
@@ -208,14 +263,16 @@ function validate() {
   else if (!/\S+@\S+\.\S+/.test(cb.approverEmail)) e.approverEmail = 'Enter a valid email'
   if (!cb.costCenter)    e.costCenter    = 'Required'
 
-  cb.attendants.forEach((a, i) => {
-    if (!a.fullName) e[`att_${i}_name`] = 'Required'
-    if (a.isLead) {
-      if (!a.email)    e[`att_${i}_email`]    = 'Required for lead contact'
-      if (!a.phone)    e[`att_${i}_phone`]    = 'Required for lead contact'
-      if (!a.idNumber) e[`att_${i}_idNumber`] = 'Required for lead contact'
-    }
-  })
+  if (cb.participantMode === 'detailed') {
+    cb.attendants.forEach((a, i) => {
+      if (!a.fullName) e[`att_${i}_name`] = 'Required'
+      if (a.isLead) {
+        if (!a.email)    e[`att_${i}_email`]    = 'Required for lead contact'
+        if (!a.phone)    e[`att_${i}_phone`]    = 'Required for lead contact'
+        if (!a.idNumber) e[`att_${i}_idNumber`] = 'Required for lead contact'
+      }
+    })
+  }
 
   if (cb.eventsEnabled) {
     if (cb.events.startDate && cb.events.endDate && cb.events.endDate < cb.events.startDate) {
@@ -448,7 +505,7 @@ function nights(checkIn, checkOut) {
 onMounted(async () => {
   await lodgesStore.fetchLodges()
   lodgesStore.fetchLodgeDetail(lodgeId)
-  if (lodge.value) cb.setLodge(lodgeId, lodge.value.name)
+  cb.setLodge(lodgeId, lodge.value?.name ?? '')
   if (route.query.branchId && !cb.branchId) cb.branchId = route.query.branchId
   fetchRoomTypes()
   if (auth.user) {
@@ -485,6 +542,14 @@ onMounted(async () => {
 })
 
 watch(() => cb.branchId, fetchRoomTypes)
+
+watch(dayRange, (range) => {
+  if (range.length <= 1) cb.events.scheduleMode = 'uniform'
+})
+
+watch(mealDayRange, (range) => {
+  if (range.length <= 1) cb.meals.scheduleMode = 'uniform'
+})
 </script>
 
 <template>
@@ -748,92 +813,137 @@ watch(() => cb.branchId, fetchRoomTypes)
                 <div class="min-w-0 flex-1">
                   <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants</h2>
                   <p v-if="!attendantsExpanded" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
-                    {{ cb.attendants.filter(a => a.fullName).length > 0
-                      ? cb.attendants.filter(a => a.fullName).length + ' attendant' + (cb.attendants.filter(a => a.fullName).length !== 1 ? 's' : '') + ' registered'
-                      : 'No attendants registered yet — expand to add' }}
+                    {{ cb.participantMode === 'headcount'
+                      ? cb.participantCount + ' attendee' + (cb.participantCount !== 1 ? 's' : '') + ' (headcount)'
+                      : (cb.attendants.filter(a => a.fullName).length > 0
+                          ? cb.attendants.filter(a => a.fullName).length + ' attendant' + (cb.attendants.filter(a => a.fullName).length !== 1 ? 's' : '') + ' registered'
+                          : 'No attendants registered yet — expand to add') }}
                   </p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0 mr-2">
-                  <span v-if="!attendantsExpanded && cb.attendants.filter(a => a.fullName).length > 0"
+                  <span v-if="!attendantsExpanded && (cb.participantMode === 'headcount' ? cb.participantCount > 0 : cb.attendants.filter(a => a.fullName).length > 0)"
                     class="px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
-                    {{ cb.attendants.filter(a => a.fullName).length }}
+                    {{ cb.participantMode === 'headcount' ? cb.participantCount : cb.attendants.filter(a => a.fullName).length }}
                   </span>
-                  <span v-if="Object.keys(errors).some(k => k.startsWith('att_'))"
+                  <span v-if="cb.participantMode === 'detailed' && Object.keys(errors).some(k => k.startsWith('att_'))"
                     class="material-symbols-outlined text-sm text-(--color-error)" style="font-variation-settings: 'FILL' 1">error</span>
                   <span class="material-symbols-outlined text-(--color-on-surface-variant) transition-transform duration-200"
                     :style="{ transform: attendantsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }">expand_more</span>
                 </div>
               </button>
-              <div v-if="attendantsExpanded" class="flex items-center px-4 border-l border-(--color-outline-variant)">
+              <div v-if="attendantsExpanded && cb.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
                 <button type="button" class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0" @click="cb.addAttendant()">
                   <span class="material-symbols-outlined text-base">person_add</span> Add Attendant
                 </button>
               </div>
             </div>
             <div v-if="attendantsExpanded" class="px-6 pb-6 border-t border-(--color-outline-variant)">
-              <p class="font-sans text-sm text-(--color-on-surface-variant) mb-5 pt-4">Register everyone attending under this booking. This list is shared across all included services.</p>
-              <div class="space-y-3">
-                <div v-for="(att, i) in cb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
-                  <!-- Header row -->
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                      <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
-                        :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">
-                        {{ i + 1 }}
-                      </span>
-                      <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
-                      <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Attendant ${i + 1}` }}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <button v-if="!att.isLead" type="button" class="font-sans text-xs text-(--color-outline) hover:text-(--color-primary) transition-colors" @click="att.isLead = true; cb.attendants.forEach((a, j) => { if (j !== i) a.isLead = false })">
-                        Set as lead
-                      </button>
-                      <button type="button" :disabled="cb.attendants.length === 1"
-                        class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
-                        @click="cb.removeAttendant(i)">
-                        <span class="material-symbols-outlined text-base">delete</span>
-                      </button>
-                    </div>
+              <!-- Mode selector cards -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
+                <button type="button"
+                  @click="cb.participantMode = 'headcount'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="cb.participantMode === 'headcount'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) bg-(--color-surface-container-low) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="cb.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">groups</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Specify the total number of attendees — no individual records required</p>
                   </div>
-                  <!-- Fields -->
-                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
-                      <input v-model="att.fullName" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                        :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
+                </button>
+                <button type="button"
+                  @click="cb.participantMode = 'detailed'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="cb.participantMode === 'detailed'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) bg-(--color-surface-container-low) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="cb.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Enter each attendee's name and contact details</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Headcount mode -->
+              <div v-if="cb.participantMode === 'headcount'">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Attendees</label>
+                <div class="flex items-center gap-3 mt-2">
+                  <input type="number" min="1" v-model.number="cb.participantCount"
+                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Number of people expected to attend</p>
+                </div>
+              </div>
+
+              <!-- Detailed mode -->
+              <div v-else>
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-5">Register everyone attending under this booking. This list is shared across all included services.</p>
+                <div class="space-y-3">
+                  <div v-for="(att, i) in cb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
+                    <!-- Header row -->
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
+                          :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">
+                          {{ i + 1 }}
+                        </span>
+                        <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
+                        <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Attendant ${i + 1}` }}</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button v-if="!att.isLead" type="button" class="font-sans text-xs text-(--color-outline) hover:text-(--color-primary) transition-colors" @click="att.isLead = true; cb.attendants.forEach((a, j) => { if (j !== i) a.isLead = false })">
+                          Set as lead
+                        </button>
+                        <button type="button" :disabled="cb.attendants.length === 1"
+                          class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                          @click="cb.removeAttendant(i)">
+                          <span class="material-symbols-outlined text-base">delete</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
-                      <input v-model="att.email" type="email"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                        :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
-                      <input v-model="att.phone" type="tel"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                        :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
-                      <input v-model="att.idNumber" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                        :class="errors[`att_${i}_idNumber`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                      <span v-if="errors[`att_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_idNumber`] }}</span>
-                    </div>
-                    <div class="flex flex-col gap-1 sm:col-span-2">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
-                      <input v-model="att.dietaryNotes" type="text" placeholder="e.g. Vegetarian, halal, nut allergy"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                    </div>
-                    <div class="flex flex-col gap-1 sm:col-span-2">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company / Organisation</label>
-                      <input v-model="att.company" type="text" placeholder="For mixed-delegation events"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    <!-- Fields -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                        <input v-model="att.fullName" type="text"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
+                        <input v-model="att.email" type="email"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
+                        <input v-model="att.phone" type="tel"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span></label>
+                        <input v-model="att.idNumber" type="text"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`att_${i}_idNumber`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`att_${i}_idNumber`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_idNumber`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1 sm:col-span-2">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
+                        <input v-model="att.dietaryNotes" type="text" placeholder="e.g. Vegetarian, halal, nut allergy"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      </div>
+                      <div class="flex flex-col gap-1 sm:col-span-2">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company / Organisation</label>
+                        <input v-model="att.company" type="text" placeholder="For mixed-delegation events"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1037,6 +1147,12 @@ watch(() => cb.branchId, fetchRoomTypes)
                     <span v-if="errors.accomCheckOut" class="font-sans text-xs text-(--color-error)">{{ errors.accomCheckOut }}</span>
                   </div>
                 </div>
+                <div class="flex items-start gap-3 p-4 rounded-xl bg-(--color-surface-container) border border-(--color-outline-variant)">
+                  <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0 mt-0.5">info</span>
+                  <p class="font-sans text-sm text-(--color-on-surface-variant)">
+                    The property team will confirm exact room assignments based on availability prior to your event. Preferences can be noted in Additional Requests below.
+                  </p>
+                </div>
                 <div class="flex flex-col gap-1">
                   <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Additional Requests</label>
                   <textarea v-model="cb.accommodation.notes" rows="2" placeholder="Accessibility needs, room preferences, special occasions…"
@@ -1119,8 +1235,8 @@ watch(() => cb.branchId, fetchRoomTypes)
                   </div>
                 </div>
               </div>
-              <!-- Schedule Mode Selector -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <!-- Schedule Mode Selector — only relevant when spanning multiple days -->
+              <div v-if="dayRange.length > 1" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                 <button type="button" @click="cb.events.scheduleMode = 'uniform'"
                   class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
                   :class="cb.events.scheduleMode === 'uniform'
@@ -1213,13 +1329,84 @@ watch(() => cb.branchId, fetchRoomTypes)
                           <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
                       </div>
-                      <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Venue</label>
-                        <select v-model="session.venueId"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
-                          <option value="">No preference / TBC</option>
-                          <option v-for="r in DUMMY_CONFERENCE_ROOMS" :key="r.id" :value="r.id">{{ r.name }} (cap. {{ r.capacity }})</option>
-                        </select>
+                      <!-- Venue picker (master session) -->
+                      <div class="flex flex-col gap-1 md:col-span-2">
+                        <div class="flex items-center justify-between">
+                          <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Venue</label>
+                          <button v-if="!venuesLoading" type="button"
+                            class="flex items-center gap-1 font-sans text-xs text-(--color-primary) hover:underline"
+                            @click="fetchAvailableVenues">
+                            <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                          </button>
+                        </div>
+                        <div class="border rounded-xl overflow-hidden transition-all"
+                          :class="expandedVenueKey === `master_${i}` ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
+                          <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-(--color-surface-container)">
+                            <div v-if="session.venueId" class="flex items-center gap-2 min-w-0">
+                              <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                              <div class="min-w-0">
+                                <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ session.venueName }}</p>
+                                <p v-if="session.venueCapacity" class="font-sans text-xs text-(--color-on-surface-variant)">Cap. {{ session.venueCapacity }}</p>
+                              </div>
+                            </div>
+                            <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">No preference / TBC</p>
+                            <div class="flex items-center gap-2 shrink-0">
+                              <button v-if="session.venueId" type="button" @click="clearVenueFromSession(session)"
+                                class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                                <span class="material-symbols-outlined text-sm">close</span>
+                              </button>
+                              <button type="button" @click="toggleVenuePicker(`master_${i}`)"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
+                                :class="expandedVenueKey === `master_${i}`
+                                  ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
+                                  : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
+                                <span class="material-symbols-outlined text-sm">{{ expandedVenueKey === `master_${i}` ? 'expand_less' : 'add' }}</span>
+                                {{ expandedVenueKey === `master_${i}` ? 'Close' : (session.venueId ? 'Change' : 'Browse') }}
+                              </button>
+                            </div>
+                          </div>
+                          <div v-if="expandedVenueKey === `master_${i}`" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
+                            <div v-if="venuesLoading" class="flex items-center justify-center py-6 gap-2 text-(--color-on-surface-variant)">
+                              <span class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                              <p class="font-sans text-sm">Loading venues…</p>
+                            </div>
+                            <div v-else-if="venuesError" class="flex items-start gap-2 p-3 rounded-lg bg-(--color-error-container) text-(--color-on-error-container)">
+                              <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
+                              <p class="font-sans text-sm">Could not load venues. <button type="button" class="underline" @click="fetchAvailableVenues">Try again</button></p>
+                            </div>
+                            <div v-else-if="!availableVenues.length" class="flex flex-col items-center py-6 text-center">
+                              <span class="material-symbols-outlined text-3xl text-(--color-outline) mb-2 opacity-40">meeting_room</span>
+                              <p class="font-sans text-sm text-(--color-on-surface-variant)">No venues found at this property</p>
+                            </div>
+                            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <button v-for="venue in availableVenues" :key="venue.id"
+                                type="button"
+                                class="group text-left rounded-xl border-2 transition-all overflow-hidden"
+                                :class="session.venueId === venue.id
+                                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                                  : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest) hover:bg-(--color-savannah-mist)'"
+                                @click="selectVenueForSession(session, venue)">
+                                <div v-if="venue.images?.[0]" class="w-full h-24 overflow-hidden">
+                                  <img :src="venue.images[0]" :alt="venue.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                </div>
+                                <div class="p-3">
+                                  <div class="flex items-start justify-between gap-2 mb-1">
+                                    <p class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors leading-tight">{{ venue.name }}</p>
+                                    <span v-if="session.venueId === venue.id"
+                                      class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                                  </div>
+                                  <div class="flex items-center gap-3 flex-wrap">
+                                    <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
+                                      <span class="material-symbols-outlined text-sm">group</span>Cap. {{ venue.max_capacity }}
+                                    </span>
+                                    <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs font-semibold text-(--color-on-surface-variant) capitalize">{{ (venue.type ?? '').replace(/_/g, ' ') }}</span>
+                                    <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ (venue.location_type ?? 'indoor').replace(/_/g, ' ') }}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Time <span class="text-(--color-error)">*</span></label>
@@ -1355,13 +1542,77 @@ watch(() => cb.branchId, fetchRoomTypes)
                                 <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                               </select>
                             </div>
-                            <div class="flex flex-col gap-1">
+                            <!-- Venue picker (override session) -->
+                            <div class="flex flex-col gap-1 md:col-span-2">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Venue</label>
-                              <select v-model="s.venueId"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
-                                <option value="">No preference / TBC</option>
-                                <option v-for="r in DUMMY_CONFERENCE_ROOMS" :key="r.id" :value="r.id">{{ r.name }} (cap. {{ r.capacity }})</option>
-                              </select>
+                              <div class="border rounded-xl overflow-hidden transition-all"
+                                :class="expandedVenueKey === `ov_${date}_${si}` ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
+                                <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-(--color-surface-container)">
+                                  <div v-if="s.venueId" class="flex items-center gap-2 min-w-0">
+                                    <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                                    <div class="min-w-0">
+                                      <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ s.venueName }}</p>
+                                      <p v-if="s.venueCapacity" class="font-sans text-xs text-(--color-on-surface-variant)">Cap. {{ s.venueCapacity }}</p>
+                                    </div>
+                                  </div>
+                                  <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">No preference / TBC</p>
+                                  <div class="flex items-center gap-2 shrink-0">
+                                    <button v-if="s.venueId" type="button" @click="clearVenueFromSession(s)"
+                                      class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                                      <span class="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                    <button type="button" @click="toggleVenuePicker(`ov_${date}_${si}`)"
+                                      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
+                                      :class="expandedVenueKey === `ov_${date}_${si}`
+                                        ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
+                                        : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
+                                      <span class="material-symbols-outlined text-sm">{{ expandedVenueKey === `ov_${date}_${si}` ? 'expand_less' : 'add' }}</span>
+                                      {{ expandedVenueKey === `ov_${date}_${si}` ? 'Close' : (s.venueId ? 'Change' : 'Browse') }}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div v-if="expandedVenueKey === `ov_${date}_${si}`" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
+                                  <div v-if="venuesLoading" class="flex items-center justify-center py-6 gap-2 text-(--color-on-surface-variant)">
+                                    <span class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                                    <p class="font-sans text-sm">Loading venues…</p>
+                                  </div>
+                                  <div v-else-if="venuesError" class="flex items-start gap-2 p-3 rounded-lg bg-(--color-error-container) text-(--color-on-error-container)">
+                                    <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
+                                    <p class="font-sans text-sm">Could not load venues. <button type="button" class="underline" @click="fetchAvailableVenues">Try again</button></p>
+                                  </div>
+                                  <div v-else-if="!availableVenues.length" class="flex flex-col items-center py-6 text-center">
+                                    <span class="material-symbols-outlined text-3xl text-(--color-outline) mb-2 opacity-40">meeting_room</span>
+                                    <p class="font-sans text-sm text-(--color-on-surface-variant)">No venues found at this property</p>
+                                  </div>
+                                  <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button v-for="venue in availableVenues" :key="venue.id"
+                                      type="button"
+                                      class="group text-left rounded-xl border-2 transition-all overflow-hidden"
+                                      :class="s.venueId === venue.id
+                                        ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                                        : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest) hover:bg-(--color-savannah-mist)'"
+                                      @click="selectVenueForSession(s, venue)">
+                                      <div v-if="venue.images?.[0]" class="w-full h-24 overflow-hidden">
+                                        <img :src="venue.images[0]" :alt="venue.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                      </div>
+                                      <div class="p-3">
+                                        <div class="flex items-start justify-between gap-2 mb-1">
+                                          <p class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors leading-tight">{{ venue.name }}</p>
+                                          <span v-if="s.venueId === venue.id"
+                                            class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                                        </div>
+                                        <div class="flex items-center gap-3 flex-wrap">
+                                          <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
+                                            <span class="material-symbols-outlined text-sm">group</span>Cap. {{ venue.max_capacity }}
+                                          </span>
+                                          <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs font-semibold text-(--color-on-surface-variant) capitalize">{{ (venue.type ?? '').replace(/_/g, ' ') }}</span>
+                                          <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ (venue.location_type ?? 'indoor').replace(/_/g, ' ') }}</span>
+                                        </div>
+                                      </div>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Time <span class="text-(--color-error)">*</span></label>
@@ -1535,8 +1786,8 @@ watch(() => cb.branchId, fetchRoomTypes)
                 </div>
               </div>
 
-              <!-- Schedule mode selector (only when dates available) -->
-              <div v-if="mealDayRange.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <!-- Schedule mode selector — only relevant when spanning multiple days -->
+              <div v-if="mealDayRange.length > 1" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                 <button type="button" @click="cb.meals.scheduleMode = 'uniform'"
                   class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
                   :class="cb.meals.scheduleMode === 'uniform'
@@ -1628,8 +1879,8 @@ watch(() => cb.branchId, fetchRoomTypes)
                       </div>
                     </div>
 
-                    <!-- Individual orders on master meal (individual_order or mixed) -->
-                    <div v-if="meal.serviceType === 'individual_order' || meal.serviceType === 'mixed'" class="pt-3 border-t border-(--color-outline-variant)">
+                    <!-- Individual orders on master meal (individual_order or mixed, detailed mode only) -->
+                    <div v-if="cb.participantMode === 'detailed' && (meal.serviceType === 'individual_order' || meal.serviceType === 'mixed')" class="pt-3 border-t border-(--color-outline-variant)">
                       <div class="flex items-center gap-2 mb-2">
                         <span class="material-symbols-outlined text-sm text-(--color-primary)">person_pin</span>
                         <p class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant)">
@@ -1799,8 +2050,8 @@ watch(() => cb.branchId, fetchRoomTypes)
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors resize-none"></textarea>
                             </div>
                           </div>
-                          <!-- Individual orders (individual_order or mixed service types only) -->
-                          <div v-if="m.serviceType === 'individual_order' || m.serviceType === 'mixed'">
+                          <!-- Individual orders (individual_order or mixed service types, detailed mode only) -->
+                          <div v-if="cb.participantMode === 'detailed' && (m.serviceType === 'individual_order' || m.serviceType === 'mixed')">
                             <div class="flex items-center gap-2 mb-3 pt-2 border-t border-(--color-outline-variant)">
                               <span class="material-symbols-outlined text-sm text-(--color-primary)">person_pin</span>
                               <p class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant)">
@@ -1971,11 +2222,17 @@ watch(() => cb.branchId, fetchRoomTypes)
           <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center justify-between mb-5">
               <h2 class="font-serif text-xl flex items-center gap-2 text-(--color-on-surface)">
-                <span class="material-symbols-outlined text-(--color-primary)">groups</span> Attendants ({{ cb.attendants.length }})
+                <span class="material-symbols-outlined text-(--color-primary)">groups</span>
+                {{ cb.participantMode === 'headcount' ? 'Attendees' : 'Attendants (' + cb.attendants.length + ')' }}
               </h2>
               <button class="font-sans text-sm text-(--color-primary) font-semibold hover:underline" @click="step = 1">Edit</button>
             </div>
-            <div class="space-y-2">
+            <template v-if="cb.participantMode === 'headcount'">
+              <p class="font-sans text-sm text-(--color-on-surface)">
+                <strong>{{ cb.participantCount }}</strong> attendee{{ cb.participantCount !== 1 ? 's' : '' }} expected
+              </p>
+            </template>
+            <div v-else class="space-y-2">
               <div v-for="(att, i) in cb.attendants" :key="i" class="flex items-center justify-between p-3 bg-(--color-surface-container-low) rounded-lg">
                 <div>
                   <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName }}</p>
@@ -2034,9 +2291,7 @@ watch(() => cb.branchId, fetchRoomTypes)
                     · {{ SETUP_TYPES.find(t => t.value === s.setupType)?.label }} setup
                     · {{ PRICING_BASIS.find(p => p.value === s.pricingBasis)?.label }}
                   </p>
-                  <p v-if="s.venueId" class="font-sans text-xs text-(--color-primary) mt-0.5">
-                    Venue: {{ DUMMY_CONFERENCE_ROOMS.find(r => r.id === s.venueId)?.name }}
-                  </p>
+                  <p v-if="s.venueName" class="font-sans text-xs text-(--color-primary) mt-0.5">{{ s.venueName }}</p>
                 </div>
               </div>
               <p v-if="cb.events.scheduleMode === 'per_day' && Object.values(cb.events.dayOverrides).filter(o => !o.excluded).length > 0"

@@ -16,6 +16,8 @@ function blankSessionTemplate() {
     expectedAttendees: 1,
     setupType: 'boardroom',
     venueId: '',
+    venueName: '',
+    venueCapacity: null,
     pricingBasis: 'full_day',
     specialRequirements: '',
   }
@@ -46,7 +48,9 @@ export const useIndividualBookingStore = defineStore('individualBooking', () => 
   const eventsEnabled        = ref(false)
   const mealsEnabled         = ref(false)
 
-  const attendants = ref([blankAttendant(true)])
+  const attendants       = ref([blankAttendant(true)])
+  const participantMode  = ref('headcount')  // 'headcount' | 'detailed'
+  const participantCount = ref(1)            // total guests including booker
 
   const accommodation = ref({
     checkIn:        '',
@@ -215,14 +219,17 @@ export const useIndividualBookingStore = defineStore('individualBooking', () => 
         phone: bookedBy.value.phone || undefined,
       },
 
-      attendants: attendants.value.map(a => ({
-        full_name:       a.fullName,
-        email:           a.email        || undefined,
-        phone:           a.phone        || undefined,
-        id_number:       a.idNumber     || undefined,
-        dietary_notes:   a.dietaryNotes || undefined,
-        is_lead_contact: a.isLead,
-      })),
+      attendants: participantMode.value === 'headcount'
+        ? [{ full_name: bookedBy.value.name, email: bookedBy.value.email || undefined, phone: bookedBy.value.phone || undefined, is_lead_contact: true }]
+        : attendants.value.map(a => ({
+            full_name:       a.fullName,
+            email:           a.email        || undefined,
+            phone:           a.phone        || undefined,
+            id_number:       a.idNumber     || undefined,
+            dietary_notes:   a.dietaryNotes || undefined,
+            is_lead_contact: a.isLead,
+          })),
+      participant_count: participantMode.value === 'headcount' ? participantCount.value : undefined,
 
       notes: notes.value || undefined,
     }
@@ -272,7 +279,7 @@ export const useIndividualBookingStore = defineStore('individualBooking', () => 
           pax_count:                   m.paxCount,
           linked_master_session_index: m.linkedMasterSessionIndex ?? undefined,
           dietary_notes:               m.dietaryNotes             || undefined,
-          individual_orders:           (m.individualOrders ?? []).filter(o => o.menuItemId).length
+          individual_orders: participantMode.value === 'detailed' && (m.individualOrders ?? []).filter(o => o.menuItemId).length
             ? (m.individualOrders ?? []).filter(o => o.menuItemId).map(o => ({
                 attendant_idx: o.attendantIdx,
                 menu_item_id:  o.menuItemId,
@@ -290,6 +297,8 @@ export const useIndividualBookingStore = defineStore('individualBooking', () => 
 
   function reset() {
     bookedBy.value           = { name: '', email: '', phone: '' }
+    participantMode.value    = 'headcount'
+    participantCount.value   = 1
     accommodationEnabled.value = false
     eventsEnabled.value        = false
     mealsEnabled.value         = false
@@ -306,6 +315,7 @@ export const useIndividualBookingStore = defineStore('individualBooking', () => 
     accommodationEnabled, eventsEnabled, mealsEnabled,
     attendants, accommodation, events, meals,
     hasAnyService, enabledServicesCount,
+    participantMode, participantCount,
     setLodge, fillFromAuth,
     addAttendant, removeAttendant,
     setAttendantRoom, clearAttendantRoom,
