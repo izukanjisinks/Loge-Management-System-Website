@@ -378,7 +378,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       }
     }
 
-    const { data } = await api.post('/guest/bookings/corporate-event', payload)
+    const { data } = await api.post('/guest/bookings/corporate', payload)
     return data
   }
 

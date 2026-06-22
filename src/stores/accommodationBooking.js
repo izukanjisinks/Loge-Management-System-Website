@@ -193,7 +193,10 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
       },
     }
 
-    const { data } = await api.post('/guest/bookings/accommodation', payload)
+    const endpoint = bookingContext.value === 'corporate'
+      ? '/guest/bookings/corporate'
+      : '/guest/bookings/accommodation'
+    const { data } = await api.post(endpoint, payload)
     return data
   }
 
