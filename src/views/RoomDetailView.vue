@@ -1,19 +1,15 @@
 ﻿<script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBookingStore }   from '@/stores/booking'
-import { useAuthStore }      from '@/stores/auth'
 import { usePricing }        from '@/composables/usePricing'
-import { RangeCalendar }     from '@/components/ui/range-calendar'
+import { Calendar }          from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import api                   from '@/lib/api'
 import BookingTypeModal      from '@/components/booking/BookingTypeModal.vue'
 
-const route   = useRoute()
-const router  = useRouter()
-const booking = useBookingStore()
-const auth    = useAuthStore()
+const route  = useRoute()
+const router = useRouter()
 
 // â"€â"€ Room data â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const room       = ref(null)
@@ -93,38 +89,29 @@ function onKeydown(e) {
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 // â"€â"€ Booking widget â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
-const checkIn    = ref('')
-const checkOut   = ref('')
-const guestCount = ref(1)
-const baseRate   = computed(() => room.value?.price ?? 0)
-const calendarOpen = ref(false)
+const checkIn      = ref('')
+const checkOut     = ref('')
+const checkInOpen  = ref(false)
+const checkOutOpen = ref(false)
 const todayDate    = today(getLocalTimeZone())
+const baseRate     = computed(() => room.value?.price ?? 0)
 
 function toIso(cd) {
   if (!cd) return ''
   return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
 }
 
-const dateRange = computed({
-  get: () => ({
-    start: checkIn.value ? parseDate(checkIn.value) : undefined,
-    end:   checkOut.value ? parseDate(checkOut.value) : undefined,
-  }),
-  set: (v) => {
-    checkIn.value  = toIso(v?.start)
-    checkOut.value = toIso(v?.end)
-    if (v?.start && v?.end) calendarOpen.value = false
-  },
+const checkInValue = computed({
+  get: () => checkIn.value ? parseDate(checkIn.value) : undefined,
+  set: (v) => { checkIn.value = toIso(v); checkInOpen.value = false },
 })
-
-const isDateUnavailable = computed(() => {
-  const booked = room.value?.bookedDates ?? []
-  if (!booked.length) return () => false
-  return (date) => {
-    const d = toIso(date)
-    return booked.some(b => d >= b.check_in && d < b.check_out)
-  }
+const checkOutValue = computed({
+  get: () => checkOut.value ? parseDate(checkOut.value) : undefined,
+  set: (v) => { checkOut.value = toIso(v); checkOutOpen.value = false },
 })
+const checkOutMin = computed(() =>
+  checkIn.value ? parseDate(checkIn.value).add({ days: 1 }) : todayDate.add({ days: 1 })
+)
 
 function formatDisplay(iso) {
   if (!iso) return null
@@ -132,7 +119,7 @@ function formatDisplay(iso) {
 }
 
 const { nightCount, baseTotal } = usePricing(
-  checkIn, checkOut, baseRate, guestCount, ref('none')
+  checkIn, checkOut, baseRate, ref(1), ref('none')
 )
 const grandTotal = computed(() => baseTotal.value + baseTotal.value * 0.12)
 
@@ -142,10 +129,12 @@ const dateError = computed(() => {
   return ''
 })
 
+const canBook = computed(() => !!checkIn.value && !!checkOut.value && !dateError.value)
+
 const bookingModalOpen = ref(false)
 
 function openBooking() {
-  if (!checkIn.value || !checkOut.value || dateError.value) return
+  if (!canBook.value) return
   bookingModalOpen.value = true
 }
 
@@ -201,7 +190,7 @@ function onBookingTypeConfirmed() {
     <section class="px-5 md:px-16 mt-4">
       <div class="relative grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-[500px]">
         <!-- Main image -->
-        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-xl cursor-pointer group/main"
+        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-2xl cursor-pointer group/main"
           @click="openLightbox(0)">
           <img v-if="images[0]" :src="images[0]" :alt="room.name"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/main:scale-105"
@@ -209,23 +198,23 @@ function onBookingTypeConfirmed() {
           <div v-else class="absolute inset-0 w-full h-full bg-(--color-surface-container) flex items-center justify-center">
             <span class="material-symbols-outlined text-5xl text-(--color-outline)">image_not_supported</span>
           </div>
-          <div class="absolute inset-0 bg-black/0 group-hover/main:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+          <div class="absolute inset-0 bg-black/0 group-hover/main:bg-black/10 transition-colors rounded-2xl flex items-center justify-center">
             <span class="material-symbols-outlined text-4xl text-white opacity-0 group-hover/main:opacity-100 transition-opacity drop-shadow">zoom_in</span>
           </div>
         </div>
 
         <!-- Secondary images -->
-        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(1)">
+        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-2xl cursor-pointer group/s" @click="openLightbox(1)">
           <img :src="images[1]" :alt="`${room.name} 2`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-2xl"></div>
         </div>
-        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(2)">
+        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-2xl cursor-pointer group/s" @click="openLightbox(2)">
           <img :src="images[2]" :alt="`${room.name} 3`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-2xl"></div>
         </div>
-        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(3)">
+        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-2xl cursor-pointer group/s" @click="openLightbox(3)">
           <img :src="images[3]" :alt="`${room.name} 4`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-2xl"></div>
           <button v-if="images.length > 4" type="button"
             class="absolute bottom-4 right-4 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-(--color-on-surface) font-sans text-sm font-semibold px-4 py-2 rounded-full shadow hover:bg-white transition-colors"
             @click.stop="openLightbox(0)">
@@ -242,7 +231,7 @@ function onBookingTypeConfirmed() {
         <span class="material-symbols-outlined text-(--color-primary)">3d_rotation</span>
         Virtual Tour
       </h2>
-      <div class="relative w-full rounded-xl overflow-hidden border border-(--color-outline-variant) shadow-sm" style="padding-top:56.25%">
+      <div class="relative w-full rounded-2xl overflow-hidden border border-(--color-outline-variant) shadow-sm" style="padding-top:56.25%">
         <iframe :src="room.tourUrl" class="absolute inset-0 w-full h-full" allowfullscreen
           allow="xr-spatial-tracking; gyroscope; accelerometer" loading="lazy" title="360° Virtual Tour"></iframe>
       </div>
@@ -312,17 +301,16 @@ function onBookingTypeConfirmed() {
             </div>
             <span class="font-sans text-xs font-semibold px-3 py-1 rounded-full"
               :class="room.available
-                ? 'bg-(--color-tertiary-fixed) text-(--color-tertiary)'
-                : 'bg-(--color-error-container) text-(--color-on-error-container)'"
-            >
-              {{ room.available ? 'Available' : 'Fully Booked' }}
+                ? 'bg-emerald-500/15 text-emerald-700'
+                : 'bg-rose-500/15 text-rose-700'">
+              {{ room.available ? 'In Service' : 'Out of Service' }}
             </span>
           </div>
         </div>
 
         <!-- About -->
-        <div class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist) shadow-sm">
-          <h2 class="font-serif text-2xl mb-4">About the Sanctuary</h2>
+        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant) shadow-sm">
+          <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-4">About this Room</h2>
           <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">
             {{ room.description || 'A premium retreat designed for discerning travellers seeking comfort, authenticity, and the finest African hospitality.' }}
           </p>
@@ -347,14 +335,10 @@ function onBookingTypeConfirmed() {
         </div>
 
         <!-- Amenities -->
-        <div v-if="room.amenities.length">
-          <h3 class="font-serif text-2xl mb-6">World-Class Amenities</h3>
+        <div v-if="room.amenities.length" class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant)">
+          <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-6">Amenities</h2>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div
-              v-for="a in room.amenities"
-              :key="a.label"
-              class="flex items-center gap-3"
-            >
+            <div v-for="a in room.amenities" :key="a.label" class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center text-(--color-primary) shrink-0">
                 <span class="material-symbols-outlined">{{ a.icon }}</span>
               </div>
@@ -367,111 +351,92 @@ function onBookingTypeConfirmed() {
 
       <!-- Right: Sticky Booking Widget -->
       <aside class="lg:sticky lg:top-28 space-y-4">
-        <div class="bg-(--color-surface-container-high) p-6 rounded-xl border border-(--color-outline-variant) shadow-lg">
+        <div class="bg-(--color-surface-container-lowest) p-6 rounded-2xl border border-(--color-outline-variant) shadow-lg">
 
           <!-- Price -->
-          <div class="flex justify-between items-baseline mb-6">
-            <span class="font-serif text-2xl text-(--color-on-surface)">
-              K{{ room.price.toLocaleString() }}
-            </span>
+          <div class="flex items-baseline justify-between mb-6">
+            <span class="font-serif text-2xl text-(--color-on-surface)">K{{ room.price.toLocaleString() }}</span>
             <span class="font-sans text-sm text-(--color-on-surface-variant)">/ night</span>
           </div>
 
-          <div class="space-y-4">
-            <!-- Date picker -->
-            <div class="grid grid-cols-2 gap-2">
-              <Popover v-model:open="calendarOpen">
-                <PopoverTrigger as-child>
-                  <button
-                    type="button"
-                    class="col-span-2 bg-(--color-surface) p-3 rounded border border-(--color-outline-variant) flex items-center justify-between gap-2 text-left w-full hover:border-(--color-primary) transition-colors"
-                  >
-                    <div class="flex flex-col gap-0.5">
-                      <span class="font-sans text-[10px] font-bold uppercase tracking-wider text-(--color-on-surface-variant)">
-                        {{ checkIn && checkOut ? 'Check In &rarr; Check Out' : 'Select Dates' }}
-                      </span>
-                      <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
-                        {{ checkIn ? formatDisplay(checkIn) : 'Add dates' }}
-                        <template v-if="checkIn || checkOut"> &rarr; {{ checkOut ? formatDisplay(checkOut) : '&mdash;' }}</template>
-                      </span>
-                    </div>
-                    <span class="material-symbols-outlined text-sm text-(--color-on-surface-variant) shrink-0">calendar_month</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" class="w-auto">
-                  <RangeCalendar
-                    v-model="dateRange"
-                    :min-value="todayDate"
-                    :is-date-unavailable="isDateUnavailable"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <p v-if="dateError" class="font-sans text-xs text-(--color-error)">{{ dateError }}</p>
-
-            <!-- Guests -->
-            <div class="bg-(--color-surface) p-3 rounded border border-(--color-outline-variant) flex justify-between items-center">
-              <div class="flex flex-col gap-0.5">
-                <span class="font-sans text-[10px] font-bold uppercase tracking-wider text-(--color-on-surface-variant)">Guests</span>
-                <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
-                  {{ guestCount }} {{ guestCount === 1 ? 'Adult' : 'Adults' }}
-                </span>
-              </div>
-              <div class="flex items-center gap-3">
-                <button
-                  class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) font-bold hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
-                  :disabled="guestCount <= 1"
-                  @click="guestCount = Math.max(1, guestCount - 1)"
-                >&minus;</button>
-                <span class="font-sans text-sm font-semibold w-4 text-center">{{ guestCount }}</span>
-                <button
-                  class="w-7 h-7 rounded-full border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) font-bold hover:border-(--color-primary) hover:text-(--color-primary) transition-colors disabled:opacity-30"
-                  :disabled="guestCount >= room.capacity"
-                  @click="guestCount = Math.min(room.capacity, guestCount + 1)"
-                >+</button>
-              </div>
-            </div>
-
-            <!-- CTA -->
-            <button
-              class="w-full bg-(--color-primary) text-white py-4 rounded-lg font-sans text-base font-semibold hover:bg-(--color-clay-earth) transition-colors active:scale-95 duration-150 shadow-md flex items-center justify-center gap-2"
-              :class="(!checkIn || !checkOut || !!dateError) && 'opacity-60 pointer-events-none'"
-              @click="openBooking"
-            >
-              <span class="material-symbols-outlined text-base">event_available</span>
-              Book Now
-            </button>
+          <!-- Check In -->
+          <div class="mb-3">
+            <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check In</label>
+            <Popover v-model:open="checkInOpen">
+              <PopoverTrigger as-child>
+                <button type="button"
+                  class="mt-1.5 w-full bg-(--color-savannah-mist) rounded-xl px-3 py-3 flex items-center gap-2 text-left border-2 transition-colors focus:outline-none"
+                  :class="checkIn ? 'border-(--color-primary)' : 'border-transparent hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">calendar_today</span>
+                  <span class="font-sans text-sm flex-1"
+                    :class="checkIn ? 'text-(--color-on-surface) font-semibold' : 'text-(--color-outline)'">
+                    {{ checkIn ? formatDisplay(checkIn) : 'Select date' }}
+                  </span>
+                  <span v-if="checkIn" class="material-symbols-outlined text-base text-(--color-outline) hover:text-(--color-error) shrink-0"
+                    @click.stop="checkIn = ''">close</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" class="w-auto">
+                <Calendar v-model="checkInValue" :min-value="todayDate" layout="month-and-year" />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <!-- Price breakdown -->
-          <Transition
-            enter-active-class="transition duration-300"
-            enter-from-class="opacity-0 -translate-y-1"
-            enter-to-class="opacity-100 translate-y-0"
-          >
-            <div v-if="nightCount > 0" class="mt-6 pt-6 border-t border-(--color-outline-variant) space-y-2">
-              <div class="flex justify-between text-(--color-on-surface-variant) font-sans text-sm">
-                <span>K{{ room.price.toLocaleString() }} &times; {{ nightCount }} nights</span>
+          <!-- Check Out -->
+          <div class="mb-5">
+            <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check Out</label>
+            <Popover v-model:open="checkOutOpen">
+              <PopoverTrigger as-child>
+                <button type="button"
+                  class="mt-1.5 w-full bg-(--color-savannah-mist) rounded-xl px-3 py-3 flex items-center gap-2 text-left border-2 transition-colors focus:outline-none"
+                  :class="checkOut ? 'border-(--color-primary)' : 'border-transparent hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">calendar_today</span>
+                  <span class="font-sans text-sm flex-1"
+                    :class="checkOut ? 'text-(--color-on-surface) font-semibold' : 'text-(--color-outline)'">
+                    {{ checkOut ? formatDisplay(checkOut) : 'Select date' }}
+                  </span>
+                  <span v-if="checkOut" class="material-symbols-outlined text-base text-(--color-outline) hover:text-(--color-error) shrink-0"
+                    @click.stop="checkOut = ''">close</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" class="w-auto">
+                <Calendar v-model="checkOutValue" :min-value="checkOutMin" layout="month-and-year" />
+              </PopoverContent>
+            </Popover>
+            <p v-if="dateError" class="mt-1.5 font-sans text-xs text-(--color-error)">{{ dateError }}</p>
+          </div>
+
+          <!-- Night summary -->
+          <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0" leave-active-class="transition-all duration-200"
+            leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
+            <div v-if="nightCount > 0" class="mb-5 p-4 bg-(--color-savannah-mist) rounded-xl space-y-2">
+              <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
+                <span>K{{ room.price.toLocaleString() }} &times; {{ nightCount }} night{{ nightCount !== 1 ? 's' : '' }}</span>
                 <span>K{{ Number(baseTotal.toFixed(0)).toLocaleString() }}</span>
               </div>
-              <div class="flex justify-between text-(--color-on-surface-variant) font-sans text-sm">
+              <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
                 <span>Conservation Levy</span>
                 <span>K{{ Number((baseTotal * 0.12).toFixed(0)).toLocaleString() }}</span>
               </div>
-              <div class="flex justify-between font-bold text-lg pt-2 font-sans">
-                <span>Total</span>
+              <div class="flex justify-between font-sans text-sm font-bold text-(--color-on-surface) pt-2 border-t border-(--color-outline-variant)">
+                <span>Estimated Total</span>
                 <span>K{{ Number(grandTotal.toFixed(0)).toLocaleString() }}</span>
               </div>
             </div>
           </Transition>
-        </div>
 
-        <!-- Info note -->
-        <div class="p-4 bg-(--color-tertiary-fixed) rounded-lg flex items-start gap-3">
-          <span class="material-symbols-outlined text-(--color-primary)">info</span>
-          <p class="font-sans text-sm text-(--color-on-tertiary-fixed-variant)">
-            Our prices include full-board dining and guided experiences daily.
-          </p>
+          <!-- Book button -->
+          <button
+            :disabled="!canBook"
+            class="w-full py-3.5 rounded-full font-sans text-base font-semibold flex items-center justify-center gap-2 transition-all"
+            :class="canBook
+              ? 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth) shadow-md active:scale-95'
+              : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant) cursor-not-allowed'"
+            @click="openBooking">
+            <span class="material-symbols-outlined text-base">event_available</span>
+            {{ canBook ? 'Book Now' : 'Select Dates to Book' }}
+          </button>
         </div>
       </aside>
     </div>

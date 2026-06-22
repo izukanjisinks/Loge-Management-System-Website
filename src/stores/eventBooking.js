@@ -94,7 +94,16 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
   // ── Attendants ────────────────────────────────────────────────────────────────
 
   function addAttendant()     { attendants.value.push(blankAttendant()) }
-  function removeAttendant(i) { if (attendants.value.length > 1) attendants.value.splice(i, 1) }
+  function removeAttendant(i) {
+    if (attendants.value.length > 1) {
+      const wasLead = attendants.value[i]?.isLead
+      attendants.value.splice(i, 1)
+      if (wasLead) attendants.value[0].isLead = true
+    }
+  }
+  function setLead(i) {
+    attendants.value.forEach((a, idx) => { a.isLead = idx === i })
+  }
 
   // ── Event session management ──────────────────────────────────────────────────
 
@@ -258,7 +267,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
     reasonForBooking, startDate, endDate, scheduleMode, masterSessions, dayOverrides,
     notes,
     setLodge, fillFromAuth,
-    addAttendant, removeAttendant,
+    addAttendant, removeAttendant, setLead,
     addMasterSession, removeMasterSession,
     setDayOverride, clearDayOverride, toggleDayExcluded,
     addOverrideSession, removeOverrideSession,

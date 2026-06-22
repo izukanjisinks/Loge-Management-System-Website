@@ -159,7 +159,7 @@ const filtered = computed(() => lodges.value)
 
             <div class="flex items-center justify-end pt-4 border-t border-(--color-outline-variant) mt-auto">
               <span class="inline-flex items-center gap-1 bg-(--color-primary) text-white px-5 py-2 rounded-full font-sans text-sm font-semibold group-hover:bg-(--color-primary-container) transition-colors">
-                View Rooms
+                View Services
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
               </span>
             </div>

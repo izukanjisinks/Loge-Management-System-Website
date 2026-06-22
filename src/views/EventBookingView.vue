@@ -196,14 +196,12 @@ function validate() {
 
   if (eb.participantMode === 'detailed') {
     eb.attendants.forEach((a, i) => {
-      if (i === 0) {
-        if (!a.fullName)  e[`att_${i}_name`]  = 'Required'
-        if (!a.email)     e[`att_${i}_email`]  = 'Required'
+      if (!a.fullName) e[`att_${i}_name`] = 'Required'
+      if (a.isLead) {
+        if (!a.email)    e[`att_${i}_email`]  = 'Required'
         else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
-        if (!a.phone)     e[`att_${i}_phone`]  = 'Required'
-        if (!a.idNumber)  e[`att_${i}_id`]     = 'Required'
-      } else {
-        if (!a.fullName)  e[`att_${i}_name`]   = 'Required'
+        if (!a.phone)    e[`att_${i}_phone`]  = 'Required'
+        if (!a.idNumber) e[`att_${i}_id`]     = 'Required'
       }
     })
   }
@@ -634,11 +632,19 @@ onMounted(async () => {
                       <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
                       <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Guest ${i + 1}` }}</span>
                     </div>
-                    <button type="button" :disabled="eb.attendants.length === 1"
-                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
-                      @click="eb.removeAttendant(i)">
-                      <span class="material-symbols-outlined text-base">delete</span>
-                    </button>
+                    <div class="flex items-center gap-1">
+                      <button v-if="!att.isLead" type="button"
+                        class="h-8 px-2 flex items-center gap-1 rounded-lg font-sans text-xs font-semibold text-(--color-on-surface-variant) hover:text-(--color-primary) hover:bg-(--color-savannah-mist) transition-colors"
+                        @click="eb.setLead(i)">
+                        <span class="material-symbols-outlined text-base">star</span>
+                        Make Lead
+                      </button>
+                      <button type="button" :disabled="eb.attendants.length === 1"
+                        class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                        @click="eb.removeAttendant(i)">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    </div>
                   </div>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div class="flex flex-col gap-1">
@@ -652,7 +658,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Email <span v-if="i === 0" class="text-(--color-error)">*</span>
+                        Email <span v-if="att.isLead" class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.email" type="email"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -661,7 +667,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Phone <span v-if="i === 0" class="text-(--color-error)">*</span>
+                        Phone <span v-if="att.isLead" class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.phone" type="tel"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -670,7 +676,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Passport / ID <span v-if="i === 0" class="text-(--color-error)">*</span>
+                        Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -758,11 +764,19 @@ onMounted(async () => {
                       <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
                       <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Delegate ${i + 1}` }}</span>
                     </div>
-                    <button type="button" :disabled="eb.attendants.length === 1"
-                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
-                      @click="eb.removeAttendant(i)">
-                      <span class="material-symbols-outlined text-base">delete</span>
-                    </button>
+                    <div class="flex items-center gap-1">
+                      <button v-if="!att.isLead" type="button"
+                        class="h-8 px-2 flex items-center gap-1 rounded-lg font-sans text-xs font-semibold text-(--color-on-surface-variant) hover:text-(--color-primary) hover:bg-(--color-savannah-mist) transition-colors"
+                        @click="eb.setLead(i)">
+                        <span class="material-symbols-outlined text-base">star</span>
+                        Make Lead
+                      </button>
+                      <button type="button" :disabled="eb.attendants.length === 1"
+                        class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                        @click="eb.removeAttendant(i)">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    </div>
                   </div>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div class="flex flex-col gap-1">
@@ -776,7 +790,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Email <span v-if="i === 0" class="text-(--color-error)">*</span>
+                        Email <span v-if="att.isLead" class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.email" type="email"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -785,7 +799,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Phone <span v-if="i === 0" class="text-(--color-error)">*</span>
+                        Phone <span v-if="att.isLead" class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.phone" type="tel"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -794,7 +808,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        ID / Passport <span v-if="i === 0" class="text-(--color-error)">*</span>
+                        ID / Passport <span v-if="att.isLead" class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
