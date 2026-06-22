@@ -99,15 +99,14 @@ const orgId = computed(() => venue.value?.org_id)
 
 const bookingModalOpen = ref(false)
 
-function onBookingTypeConfirmed(type) {
-  const routeName = type === 'individual' ? 'individual-booking' : 'corporate-booking'
+function onBookingTypeConfirmed() {
   router.push({
-    name:   routeName,
+    name:   'event-booking',
     params: { id: orgId.value },
     query:  {
-      venueId:   venue.value.id,
-      venueName: venue.value.name,
-      venueType: venue.value.type ?? '',
+      venueId:       venue.value.id,
+      venueName:     venue.value.name,
+      venueCapacity: venue.value.max_capacity ?? undefined,
     },
   })
 }

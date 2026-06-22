@@ -1,0 +1,1178 @@
+<script setup>
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useLodgesStore } from '@/stores/lodges'
+import { useAuthStore } from '@/stores/auth'
+import { useAccommodationBookingStore } from '@/stores/accommodationBooking'
+import api from '@/lib/api'
+
+const route       = useRoute()
+const router      = useRouter()
+const lodgesStore = useLodgesStore()
+const auth        = useAuthStore()
+const ab          = useAccommodationBookingStore()
+
+const lodgeId        = route.params.id
+const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) === String(lodgeId)))
+const branches       = computed(() => lodgesStore.branchesFor(lodgeId))
+const selectedBranch = computed(() => branches.value.find(b => String(b.id) === String(ab.branchId)) ?? null)
+
+// ── Multi-step ─────────────────────────────────────────────────────────────
+const step        = ref(1)
+const loading     = ref(false)
+const success     = ref(false)
+const errors      = ref({})
+const submitError = ref('')
+
+// ── UI state ───────────────────────────────────────────────────────────────
+const attendantsExpanded = ref(false)
+const bookedByEditing    = ref(false)
+
+// ── Room availability ──────────────────────────────────────────────────────
+const availableRooms   = ref([])
+const roomsLoading     = ref(false)
+const roomsError       = ref(false)
+const expandedPickerIdx  = ref(null)
+const headcountRoomSlots = ref([0])
+
+async function fetchAvailableRooms() {
+  if (!ab.checkIn || !ab.checkOut || ab.checkOut <= ab.checkIn) {
+    availableRooms.value = []
+    return
+  }
+  roomsLoading.value = true
+  roomsError.value   = false
+  try {
+    const params = { org_id: lodgeId, check_in: ab.checkIn, check_out: ab.checkOut, page_size: 100 }
+    if (ab.branchId) params.branch_id = ab.branchId
+    const { data } = await api.get('/guest/rooms', { params })
+    availableRooms.value = (data.data ?? data).filter(r => r.available !== false)
+  } catch {
+    roomsError.value   = true
+    availableRooms.value = []
+  } finally {
+    roomsLoading.value = false
+  }
+}
+
+function togglePicker(idx) {
+  expandedPickerIdx.value = expandedPickerIdx.value === idx ? null : idx
+  if (expandedPickerIdx.value !== null && !availableRooms.value.length && !roomsLoading.value) {
+    if (ab.checkIn && ab.checkOut && ab.checkOut > ab.checkIn) fetchAvailableRooms()
+  }
+}
+
+function selectRoom(idx, room) {
+  ab.setAttendantRoom(idx, room)
+  expandedPickerIdx.value = null
+}
+
+function addHeadcountRoom() {
+  const next = headcountRoomSlots.value.length > 0 ? Math.max(...headcountRoomSlots.value) + 1 : 0
+  headcountRoomSlots.value.push(next)
+}
+
+function removeHeadcountRoom(slotIdx) {
+  ab.clearAttendantRoom(slotIdx)
+  headcountRoomSlots.value = headcountRoomSlots.value.filter(i => i !== slotIdx)
+  if (expandedPickerIdx.value === slotIdx) expandedPickerIdx.value = null
+}
+
+watch(
+  () => [ab.checkIn, ab.checkOut],
+  ([ci, co]) => {
+    ab.clearAllRooms()
+    expandedPickerIdx.value  = null
+    headcountRoomSlots.value = [0]
+    if (ci && co && co > ci) fetchAvailableRooms()
+    else availableRooms.value = []
+  }
+)
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function nights(a, b) {
+  if (!a || !b) return 0
+  return Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000))
+}
+
+function fmt(iso) {
+  if (!iso) return '—'
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// ── Validation ─────────────────────────────────────────────────────────────
+function validate() {
+  const e = {}
+
+  if (!ab.bookedBy.name)  e.bookedByName  = 'Required'
+  if (!ab.bookedBy.email) e.bookedByEmail = 'Required'
+  else if (!/\S+@\S+\.\S+/.test(ab.bookedBy.email)) e.bookedByEmail = 'Enter a valid email'
+
+  if (!ab.checkIn)  e.checkIn  = 'Required'
+  if (!ab.checkOut) e.checkOut = 'Required'
+
+  if (ab.isCorporate) {
+    if (!ab.companyName) e.companyName = 'Required'
+    if (ab.roomCount < 1) e.roomCount = 'Enter at least 1 room'
+  }
+
+  if (!ab.isCorporate && ab.checkIn && ab.checkOut && ab.attendantRooms.length === 0) {
+    e.roomSelection = 'Please select at least one room before continuing'
+  }
+
+  if (!ab.isCorporate && ab.participantMode === 'detailed') {
+    ab.attendants.forEach((a, i) => {
+      if (!a.fullName) e[`att_${i}_name`] = 'Required'
+    })
+  }
+
+  errors.value = e
+  return Object.keys(e).length === 0
+}
+
+function goToReview() {
+  if (!validate()) {
+    if (Object.keys(errors.value).some(k => k.startsWith('att_'))) attendantsExpanded.value = true
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
+  step.value = 2
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function handleSubmit() {
+  loading.value     = true
+  submitError.value = ''
+  try {
+    await ab.submit()
+    success.value = true
+    ab.reset()
+    setTimeout(() => router.push({ name: 'bookings' }), 2500)
+  } catch (err) {
+    submitError.value = err.response?.data?.error?.message || 'Something went wrong. Please try again.'
+  } finally {
+    loading.value = false
+  }
+}
+
+function goBack() {
+  if (step.value === 2) { step.value = 1; return }
+  router.push({ name: 'lodge-detail', params: { id: lodgeId } })
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+onMounted(async () => {
+  await lodgesStore.fetchLodges()
+  lodgesStore.fetchLodgeDetail(lodgeId)
+  ab.setLodge(lodgeId, lodge.value?.name ?? '')
+
+  const q = route.query
+  if (q.branchId && !ab.branchId) ab.branchId = q.branchId
+  if (q.context === 'corporate') ab.bookingContext = 'corporate'
+
+  ab.fillFromAuth(auth.user)
+
+  // Restore room availability if dates already set
+  if (ab.checkIn && ab.checkOut && ab.checkOut > ab.checkIn) fetchAvailableRooms()
+
+  // Pre-populate from room query params (e.g. from RoomDetailView)
+  if (q.roomId) {
+    if (q.checkIn)  ab.checkIn  = q.checkIn
+    if (q.checkOut) ab.checkOut = q.checkOut
+    await nextTick()
+    ab.setAttendantRoom(0, {
+      id:              q.roomId,
+      name:            q.roomName || 'Selected Room',
+      type:            q.roomType || '',
+      price_per_night: q.rate     || '0',
+    })
+  }
+})
+</script>
+
+<template>
+  <!-- ── Success overlay ──────────────────────────────────────────────────── -->
+  <Transition enter-active-class="transition duration-500" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+    <div v-if="success" class="fixed inset-0 z-50 bg-(--color-background) flex items-center justify-center px-5">
+      <div class="text-center max-w-sm">
+        <span class="material-symbols-outlined text-6xl text-(--color-primary) mb-6 block" style="font-variation-settings: 'FILL' 1">check_circle</span>
+        <h2 class="font-serif text-3xl text-(--color-on-surface) mb-3">Booking Submitted</h2>
+        <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">Your accommodation request has been received. The property team will be in touch to confirm your reservation. Redirecting…</p>
+      </div>
+    </div>
+  </Transition>
+
+  <div class="w-full max-w-[1280px] mx-auto px-5 md:px-16 py-8 pb-24">
+
+    <!-- Back -->
+    <button type="button"
+      class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) mb-6 transition-colors"
+      @click="goBack">
+      <span class="material-symbols-outlined text-base">arrow_back</span>
+      {{ step === 2 ? 'Back to Details' : (lodge?.name ?? 'Lodge') }}
+    </button>
+
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">bed</span>
+        <h1 class="font-serif text-3xl font-semibold text-(--color-on-surface)">Accommodation Booking</h1>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <p v-if="lodge" class="font-sans text-sm text-(--color-on-surface-variant)">{{ lodge.name }}</p>
+        <span v-if="selectedBranch" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+          <span class="material-symbols-outlined text-sm">location_on</span>{{ selectedBranch.name }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Stepper -->
+    <nav class="flex items-center gap-4 mb-8">
+      <div v-for="(s, i) in [{ label: 'Details' }, { label: 'Confirm' }]" :key="s.label" class="flex items-center gap-4">
+        <div class="flex items-center gap-2"
+          :class="step === i + 1 ? 'text-(--color-primary)' : step > i + 1 ? 'text-(--color-primary)' : 'text-(--color-outline)'">
+          <span v-if="step > i + 1" class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">check_circle</span>
+          <span v-else class="material-symbols-outlined">{{ step === i + 1 ? 'radio_button_checked' : 'radio_button_unchecked' }}</span>
+          <span class="font-sans text-sm font-semibold">{{ s.label }}</span>
+        </div>
+        <div v-if="i === 0" class="h-px w-10 bg-(--color-outline-variant)"></div>
+      </div>
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ── Main column ─────────────────────────────────────────────────── -->
+      <div class="lg:col-span-8 space-y-5">
+
+        <!-- ══════════════ STEP 1: DETAILS ════════════════════════════════ -->
+        <template v-if="step === 1">
+
+          <!-- ─── Context selector ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Booking Type</p>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button"
+                @click="ab.bookingContext = 'individual'"
+                class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                :class="!ab.isCorporate
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                  :class="!ab.isCorporate ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">person</span>
+                <div>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual / Guest</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5 leading-snug">Personal travel, family stays, small groups</p>
+                </div>
+              </button>
+              <button type="button"
+                @click="ab.bookingContext = 'corporate'"
+                class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                :class="ab.isCorporate
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                  :class="ab.isCorporate ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">corporate_fare</span>
+                <div>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Corporate / Group</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5 leading-snug">Company stays, conferences, delegate accommodation</p>
+                </div>
+              </button>
+            </div>
+          </section>
+
+          <!-- ─── Corporate: Company Information ─── -->
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary)">business</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Information</h2>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1 sm:col-span-2">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Name <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.companyName" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.companyName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN</label>
+                <input v-model="ab.tpin" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry</label>
+                <input v-model="ab.industry" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Billing Email</label>
+                <input v-model="ab.companyEmail" type="email"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone</label>
+                <input v-model="ab.companyPhone" type="tel"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
+                <input v-model="ab.branchName" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
+                <input v-model="ab.departmentName" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre</label>
+                <input v-model="ab.costCenter" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
+                <input v-model="ab.glCode" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+            </div>
+          </section>
+
+                    <!-- ─── Booked By ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-4 px-6 py-5">
+              <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">account_circle</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
+                  <button type="button"
+                    class="font-sans text-xs font-semibold text-(--color-primary) hover:underline shrink-0"
+                    @click="bookedByEditing = !bookedByEditing">
+                    {{ bookedByEditing ? 'Done' : 'Edit' }}
+                  </button>
+                </div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                  {{ ab.isCorporate ? 'Company representative submitting this booking.' : 'Auto-filled from your account — you are the booking contact.' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Read-only -->
+            <div v-if="!bookedByEditing" class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-(--color-outline-variant) pt-4">
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Full Name</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.name || '—' }}</p>
+                <p v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error) mt-0.5">{{ errors.bookedByName }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Email</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.email || '—' }}</p>
+                <p v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error) mt-0.5">{{ errors.bookedByEmail }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Phone</p>
+                <p class="font-sans text-sm" :class="ab.bookedBy.phone ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ ab.bookedBy.phone || 'Not provided' }}
+                </p>
+              </div>
+              <div v-if="ab.isCorporate">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Job Title</p>
+                <p class="font-sans text-sm" :class="ab.bookedBy.jobTitle ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ ab.bookedBy.jobTitle || 'Not provided' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Editable -->
+            <div v-else class="px-6 pb-6 border-t border-(--color-outline-variant) pt-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                  <input v-model="ab.bookedBy.name" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByName }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span class="text-(--color-error)">*</span></label>
+                  <input v-model="ab.bookedBy.email" type="email"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByEmail }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                  <input v-model="ab.bookedBy.phone" type="tel"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div v-if="ab.isCorporate" class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                  <input v-model="ab.bookedBy.jobTitle" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+
+          <!-- ─── Corporate: Approver ─── -->
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary)">verified_user</span>
+              <div>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Approver</h2>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Person authorising this booking on behalf of the company</p>
+              </div>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name</label>
+                <input v-model="ab.approverName" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                <input v-model="ab.approverTitle" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                <input v-model="ab.approverEmail" type="email"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                <input v-model="ab.approverPhone" type="tel"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Individual: Additional Guests ─── -->
+          <section v-if="!ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-stretch">
+              <button type="button"
+                class="flex items-center gap-2 flex-1 px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors min-w-0"
+                @click="attendantsExpanded = !attendantsExpanded">
+                <span class="material-symbols-outlined text-(--color-primary) shrink-0">group</span>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Guests</h2>
+                  <p v-if="!attendantsExpanded" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                    {{ ab.participantMode === 'headcount'
+                      ? (ab.participantCount > 1 ? 'Party of ' + ab.participantCount : 'Just you — expand to add travel companions')
+                      : (ab.attendants.filter(a => a.fullName).length + ' guest' + (ab.attendants.filter(a => a.fullName).length !== 1 ? 's' : '') + ' registered') }}
+                  </p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 mr-2">
+                  <span v-if="!attendantsExpanded && ab.participantCount > 1"
+                    class="px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                    {{ ab.participantMode === 'headcount' ? ab.participantCount : ab.attendants.filter(a => a.fullName).length }}
+                  </span>
+                  <span class="material-symbols-outlined text-(--color-on-surface-variant) transition-transform duration-200"
+                    :style="{ transform: attendantsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }">expand_more</span>
+                </div>
+              </button>
+              <div v-if="attendantsExpanded && ab.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
+                <button type="button"
+                  class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0"
+                  @click="ab.addAttendant()">
+                  <span class="material-symbols-outlined text-base">person_add</span> Add Guest
+                </button>
+              </div>
+            </div>
+
+            <div v-if="attendantsExpanded" class="px-6 pb-6 border-t border-(--color-outline-variant)">
+              <!-- Mode cards -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
+                <button type="button"
+                  @click="ab.participantMode = 'headcount'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="ab.participantMode === 'headcount'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="ab.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">group</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Total party size — no individual details required</p>
+                  </div>
+                </button>
+                <button type="button"
+                  @click="ab.participantMode = 'detailed'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="ab.participantMode === 'detailed'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="ab.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Register each guest with name and contact details</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Headcount -->
+              <div v-if="ab.participantMode === 'headcount'">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Party Size (including yourself)</label>
+                <div class="flex items-center gap-3 mt-2">
+                  <input type="number" min="1" v-model.number="ab.participantCount"
+                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Includes you as the primary guest</p>
+                </div>
+              </div>
+
+              <!-- Detailed -->
+              <div v-else class="space-y-3">
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register all guests. The lead contact receives all booking communications.</p>
+                <div v-for="(att, i) in ab.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
+                        :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                      <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
+                      <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Guest ${i + 1}` }}</span>
+                    </div>
+                    <button type="button" :disabled="ab.attendants.length === 1"
+                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                      @click="ab.removeAttendant(i)">
+                      <span class="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                      <input v-model="att.fullName" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <input v-model="att.email" type="email"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                      <input v-model="att.phone" type="tel"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID</label>
+                      <input v-model="att.idNumber" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1 sm:col-span-2">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
+                      <input v-model="att.dietaryNotes" type="text" placeholder="e.g. Vegetarian, halal, nut allergy"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Corporate: Delegates ─── -->
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-stretch">
+              <div class="flex items-center gap-3 flex-1 px-6 py-5">
+                <span class="material-symbols-outlined text-(--color-primary) shrink-0">groups</span>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Delegates</h2>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                    {{ ab.participantMode === 'headcount'
+                      ? ab.participantCount + ' delegate' + (ab.participantCount !== 1 ? 's' : '') + ' — headcount only'
+                      : ab.attendants.length + ' delegate' + (ab.attendants.length !== 1 ? 's' : '') + ' registered' }}
+                  </p>
+                </div>
+              </div>
+              <div v-if="ab.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
+                <button type="button"
+                  class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0"
+                  @click="ab.addAttendant()">
+                  <span class="material-symbols-outlined text-base">person_add</span> Add Delegate
+                </button>
+              </div>
+            </div>
+
+            <div class="px-6 pb-6 border-t border-(--color-outline-variant)">
+              <!-- Mode toggle -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
+                <button type="button"
+                  @click="ab.participantMode = 'headcount'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="ab.participantMode === 'headcount'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="ab.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">groups</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Total delegate count — the property assigns rooms by type</p>
+                  </div>
+                </button>
+                <button type="button"
+                  @click="ab.participantMode = 'detailed'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="ab.participantMode === 'detailed'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="ab.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Register each delegate and assign their room directly</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Headcount -->
+              <div v-if="ab.participantMode === 'headcount'" class="flex items-center gap-4">
+                <input type="number" min="1" v-model.number="ab.participantCount"
+                  class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
+                <p class="font-sans text-sm text-(--color-on-surface-variant)">Total number of delegates requiring accommodation</p>
+              </div>
+
+              <!-- Detailed -->
+              <div v-else class="space-y-3">
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each delegate. The lead contact receives all booking communications.</p>
+                <div v-for="(att, i) in ab.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
+                        :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                      <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
+                      <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Delegate ${i + 1}` }}</span>
+                    </div>
+                    <button type="button" :disabled="ab.attendants.length === 1"
+                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                      @click="ab.removeAttendant(i)">
+                      <span class="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                      <input v-model="att.fullName" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <input v-model="att.email" type="email"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                      <input v-model="att.phone" type="tel"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">ID / Passport</label>
+                      <input v-model="att.idNumber" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                      <input v-model="att.company" type="text" placeholder="e.g. Senior Engineer"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1 sm:col-span-2">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
+                      <input v-model="att.dietaryNotes" type="text" placeholder="e.g. Vegetarian, halal, nut allergy"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Accommodation Details ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary)">bed</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Accommodation Details</h2>
+            </div>
+            <div class="px-6 py-5 space-y-7">
+
+              <!-- Date pickers -->
+              <div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in <span class="text-(--color-error)">*</span></label>
+                    <input v-model="ab.checkIn" type="date"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.checkIn ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.checkIn" class="font-sans text-xs text-(--color-error)">{{ errors.checkIn }}</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out <span class="text-(--color-error)">*</span></label>
+                    <input v-model="ab.checkOut" type="date" :min="ab.checkIn || undefined"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.checkOut ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.checkOut" class="font-sans text-xs text-(--color-error)">{{ errors.checkOut }}</span>
+                  </div>
+                </div>
+                <div v-if="nights(ab.checkIn, ab.checkOut) > 0"
+                  class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-(--color-savannah-mist) border border-(--color-primary)">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">nights_stay</span>
+                  <span class="font-sans text-xs font-semibold text-(--color-primary)">
+                    {{ nights(ab.checkIn, ab.checkOut) }} night{{ nights(ab.checkIn, ab.checkOut) !== 1 ? 's' : '' }}
+                    · {{ fmt(ab.checkIn) }} – {{ fmt(ab.checkOut) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- ══ INDIVIDUAL: Room assignments ══ -->
+              <div v-if="!ab.isCorporate && ab.checkIn && ab.checkOut && ab.checkOut > ab.checkIn">
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-(--color-primary)">meeting_room</span>
+                    <h3 class="font-serif text-lg text-(--color-on-surface)">Room Selection</h3>
+                  </div>
+                  <button v-if="!roomsLoading" type="button"
+                    class="flex items-center gap-1 font-sans text-xs font-semibold text-(--color-primary) hover:underline"
+                    @click="fetchAvailableRooms">
+                    <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                  </button>
+                </div>
+
+                <!-- Loading -->
+                <div v-if="roomsLoading" class="space-y-3">
+                  <div class="h-16 rounded-xl bg-(--color-surface-container-low) animate-pulse"></div>
+                  <p class="font-sans text-xs text-center text-(--color-on-surface-variant) pt-1">Checking availability…</p>
+                </div>
+
+                <!-- Error -->
+                <div v-else-if="roomsError" class="flex items-start gap-3 p-4 rounded-xl bg-(--color-error-container) text-(--color-on-error-container)">
+                  <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold">Could not load available rooms</p>
+                    <button type="button" class="font-sans text-xs hover:underline mt-1" @click="fetchAvailableRooms">Try again</button>
+                  </div>
+                </div>
+
+                <!-- Headcount mode: multi-room slots -->
+                <div v-else-if="ab.participantMode === 'headcount'" class="space-y-3">
+                  <div v-for="(slotIdx, position) in headcountRoomSlots" :key="slotIdx"
+                    class="border rounded-xl overflow-hidden transition-all"
+                    :class="expandedPickerIdx === slotIdx ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
+                    <div class="flex items-center justify-between gap-3 px-4 py-3 bg-(--color-surface-container)">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-bold text-(--color-primary) shrink-0">{{ position + 1 }}</span>
+                        <div v-if="ab.getAttendantRoom(slotIdx)" class="min-w-0">
+                          <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ ab.getAttendantRoom(slotIdx).roomName }}</p>
+                          <p class="font-sans text-xs text-(--color-primary)">K {{ Number(ab.getAttendantRoom(slotIdx).rate).toLocaleString() }}/night</p>
+                        </div>
+                        <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">No Room Selected</p>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <button v-if="headcountRoomSlots.length > 1" type="button" @click="removeHeadcountRoom(slotIdx)"
+                          class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                          <span class="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                        <button v-else-if="ab.getAttendantRoom(slotIdx)" type="button" @click="ab.clearAttendantRoom(slotIdx)"
+                          class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                          <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                        <button type="button" @click="togglePicker(slotIdx)"
+                          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
+                          :class="expandedPickerIdx === slotIdx
+                            ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
+                            : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
+                          <span class="material-symbols-outlined text-sm">{{ expandedPickerIdx === slotIdx ? 'expand_less' : 'add' }}</span>
+                          {{ expandedPickerIdx === slotIdx ? 'Close' : (ab.getAttendantRoom(slotIdx) ? 'Change' : 'Select Room') }}
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Inline picker -->
+                    <div v-if="expandedPickerIdx === slotIdx" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
+                      <div v-if="!availableRooms.length" class="py-8 text-center">
+                        <span class="material-symbols-outlined text-3xl text-(--color-outline) mb-2 block opacity-40">bed_time</span>
+                        <p class="font-sans text-sm text-(--color-on-surface-variant)">No rooms available for these dates</p>
+                      </div>
+                      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button v-for="room in availableRooms" :key="room.id" type="button"
+                          class="group text-left rounded-xl border-2 transition-all overflow-hidden"
+                          :class="ab.getAttendantRoom(slotIdx)?.roomId === room.id
+                            ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                            : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest)'"
+                          @click="selectRoom(slotIdx, room)">
+                          <div v-if="room.images?.[0]" class="w-full h-28 overflow-hidden">
+                            <img :src="room.images[0]" :alt="room.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          </div>
+                          <div class="p-3">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                              <p class="font-sans text-sm font-semibold text-(--color-on-surface) leading-tight">{{ room.name }}</p>
+                              <span v-if="ab.getAttendantRoom(slotIdx)?.roomId === room.id"
+                                class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                              <span v-else class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs font-semibold text-(--color-on-surface-variant) capitalize shrink-0">{{ room.type }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                              <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
+                                <span class="material-symbols-outlined text-sm">person</span>Sleeps {{ room.capacity }}
+                              </span>
+                              <span class="font-sans text-xs font-bold text-(--color-primary)">K {{ Number(room.price_per_night).toLocaleString() }}/night</span>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Add another room -->
+                  <button type="button"
+                    class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors"
+                    @click="addHeadcountRoom">
+                    <span class="material-symbols-outlined text-base">add</span>
+                    Add Another Room
+                  </button>
+
+                  <!-- Tally -->
+                  <p v-if="headcountRoomSlots.length > 1" class="font-sans text-xs text-(--color-on-surface-variant) text-center">
+                    {{ ab.attendantRooms.length }} of {{ headcountRoomSlots.length }} rooms selected
+                  </p>
+                </div>
+
+                <!-- Detailed mode: per-attendant -->
+                <div v-else class="space-y-3">
+                  <div v-for="(att, i) in ab.attendants" :key="i"
+                    class="border rounded-xl overflow-hidden transition-all"
+                    :class="expandedPickerIdx === i ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
+                    <div class="flex items-center justify-between gap-3 px-4 py-3 bg-(--color-surface-container)">
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
+                          :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                        <div class="min-w-0">
+                          <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ att.fullName || `Guest ${i + 1}` }}</p>
+                          <p v-if="ab.getAttendantRoom(i)" class="font-sans text-xs text-(--color-primary)">{{ ab.getAttendantRoom(i).roomName }}</p>
+                          <p v-else class="font-sans text-xs text-(--color-on-surface-variant)">No room selected</p>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <button v-if="ab.getAttendantRoom(i)" type="button" @click="ab.clearAttendantRoom(i)"
+                          class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                          <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                        <button type="button" @click="togglePicker(i)"
+                          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
+                          :class="expandedPickerIdx === i
+                            ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
+                            : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
+                          <span class="material-symbols-outlined text-sm">{{ expandedPickerIdx === i ? 'expand_less' : 'add' }}</span>
+                          {{ expandedPickerIdx === i ? 'Close' : (ab.getAttendantRoom(i) ? 'Change' : 'Select Room') }}
+                        </button>
+                      </div>
+                    </div>
+                    <div v-if="expandedPickerIdx === i" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
+                      <div v-if="!availableRooms.length" class="py-8 text-center">
+                        <span class="material-symbols-outlined text-3xl text-(--color-outline) mb-2 block opacity-40">bed_time</span>
+                        <p class="font-sans text-sm text-(--color-on-surface-variant)">No rooms available for these dates</p>
+                      </div>
+                      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button v-for="room in availableRooms" :key="room.id" type="button"
+                          class="group text-left rounded-xl border-2 transition-all overflow-hidden"
+                          :class="ab.getAttendantRoom(i)?.roomId === room.id
+                            ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                            : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest)'"
+                          @click="selectRoom(i, room)">
+                          <div v-if="room.images?.[0]" class="w-full h-28 overflow-hidden">
+                            <img :src="room.images[0]" :alt="room.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          </div>
+                          <div class="p-3">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                              <p class="font-sans text-sm font-semibold text-(--color-on-surface) leading-tight">{{ room.name }}</p>
+                              <span v-if="ab.getAttendantRoom(i)?.roomId === room.id"
+                                class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                              <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
+                                <span class="material-symbols-outlined text-sm">person</span>Sleeps {{ room.capacity }}
+                              </span>
+                              <span class="font-sans text-xs font-bold text-(--color-primary)">K {{ Number(room.price_per_night).toLocaleString() }}/night</span>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ CORPORATE: Room preference ══ -->
+              <div v-if="ab.isCorporate">
+                <div class="flex items-start gap-3 p-4 rounded-xl bg-(--color-savannah-mist) border border-(--color-primary) mb-5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0 mt-0.5">info</span>
+                  <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">The property team will confirm exact room assignments based on availability prior to your event. Specify your preference and required quantity below.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Number of Rooms <span class="text-(--color-error)">*</span></label>
+                    <input type="number" min="1" v-model.number="ab.roomCount"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.roomCount ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.roomCount" class="font-sans text-xs text-(--color-error)">{{ errors.roomCount }}</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Type Preference</label>
+                    <select v-model="ab.roomTypePreference"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors">
+                      <option value="">No preference</option>
+                      <option value="single">Single</option>
+                      <option value="double">Double</option>
+                      <option value="twin">Twin</option>
+                      <option value="suite">Suite</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- ─── Notes ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="material-symbols-outlined text-(--color-primary)">notes</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Requests</h2>
+            </div>
+            <textarea v-model="ab.notes" rows="3" placeholder="Special requests, accessibility needs, floor preferences, early check-in requirements…"
+              class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
+          </section>
+
+          <!-- Continue -->
+          <div class="flex flex-col items-end gap-3 pt-2">
+            <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+              <div v-if="errors.roomSelection"
+                class="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-(--color-error-container) text-(--color-on-error-container)">
+                <span class="material-symbols-outlined text-base shrink-0">bed_time</span>
+                <p class="font-sans text-sm">{{ errors.roomSelection }}</p>
+              </div>
+            </Transition>
+            <button type="button" @click="goToReview"
+              class="flex items-center gap-2 px-8 py-3 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
+              Review Booking
+              <span class="material-symbols-outlined text-base">arrow_forward</span>
+            </button>
+          </div>
+
+
+        </template>
+
+        <!-- ══════════════ STEP 2: REVIEW ════════════════════════════════ -->
+        <template v-else>
+
+          <!-- Submit error -->
+          <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+            <div v-if="submitError" class="flex items-center gap-2 p-4 rounded-xl bg-(--color-error-container) text-(--color-on-error-container)">
+              <span class="material-symbols-outlined text-base shrink-0">error</span>
+              <p class="font-sans text-sm">{{ submitError }}</p>
+            </div>
+          </Transition>
+
+          <!-- Booking type badge -->
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-semibold"
+              :class="ab.isCorporate ? 'bg-(--color-primary) text-white' : 'bg-(--color-savannah-mist) text-(--color-primary) border border-(--color-primary)'">
+              <span class="material-symbols-outlined text-sm">{{ ab.isCorporate ? 'corporate_fare' : 'person' }}</span>
+              {{ ab.isCorporate ? 'Corporate Accommodation' : 'Individual Accommodation' }}
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+              <span class="material-symbols-outlined text-sm">bed</span>
+              Accommodation Booking
+            </span>
+          </div>
+
+          <!-- Booked By summary -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">{{ ab.isCorporate ? 'Booking Representative' : 'Guest Details' }}</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p>
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.bookedBy.name || '—' }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.email || '—' }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.phone || '—' }}</p>
+              </div>
+              <div v-if="ab.isCorporate">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Job Title</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.jobTitle || '—' }}</p>
+              </div>
+              <div v-if="!ab.isCorporate">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Party Size</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">
+                  {{ ab.participantMode === 'headcount'
+                    ? ab.participantCount + ' guest' + (ab.participantCount !== 1 ? 's' : '')
+                    : ab.attendants.length + ' guest' + (ab.attendants.length !== 1 ? 's' : '') + ' (detailed)' }}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Corporate: Company summary -->
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Company</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+              <div class="sm:col-span-2">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Company Name</p>
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.companyName || '—' }}</p>
+              </div>
+              <div v-if="ab.departmentName">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Department</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.departmentName }}</p>
+              </div>
+              <div v-if="ab.costCenter">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Cost Centre</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.costCenter }}</p>
+              </div>
+            </div>
+            <div v-if="ab.approverName" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Approver</p>
+              <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.approverName }}
+                <span v-if="ab.approverTitle" class="font-sans text-xs font-normal text-(--color-on-surface-variant)"> · {{ ab.approverTitle }}</span>
+              </p>
+              <p v-if="ab.approverEmail" class="font-sans text-sm text-(--color-on-surface)">{{ ab.approverEmail }}</p>
+            </div>
+          </section>
+
+          <!-- Accommodation summary -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Accommodation</p>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Check-in</p>
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(ab.checkIn) }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Check-out</p>
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(ab.checkOut) }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Duration</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ nights(ab.checkIn, ab.checkOut) }} night{{ nights(ab.checkIn, ab.checkOut) !== 1 ? 's' : '' }}</p>
+              </div>
+              <div v-if="ab.isCorporate">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Rooms Required</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.roomCount }} room{{ ab.roomCount !== 1 ? 's' : '' }}
+                  <span v-if="ab.roomTypePreference" class="capitalize"> · {{ ab.roomTypePreference }}</span>
+                </p>
+              </div>
+            </div>
+            <!-- Individual room assignments -->
+            <div v-if="!ab.isCorporate && ab.attendantRooms.length" class="space-y-2 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Selected Rooms</p>
+              <div v-for="(r, i) in ab.attendantRooms" :key="i" class="flex items-center justify-between py-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">bed</span>
+                  <span class="font-sans text-sm text-(--color-on-surface)">{{ r.roomName }}</span>
+                  <span v-if="r.roomType" class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs capitalize text-(--color-on-surface-variant)">{{ r.roomType }}</span>
+                </div>
+                <span v-if="r.rate" class="font-sans text-xs font-semibold text-(--color-primary)">K {{ Number(r.rate).toLocaleString() }}/night</span>
+              </div>
+            </div>
+            <div v-if="ab.isCorporate" class="mt-3 p-3 rounded-lg bg-(--color-savannah-mist)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant)">Room assignments will be confirmed by the property team prior to arrival.</p>
+            </div>
+            <div v-if="ab.notes" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Additional Requests</p>
+              <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.notes }}</p>
+            </div>
+          </section>
+
+          <!-- Submit -->
+          <div class="flex gap-3 pt-2">
+            <button type="button" @click="step = 1"
+              class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
+              Edit Details
+            </button>
+            <button type="button" @click="handleSubmit" :disabled="loading"
+              class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
+              <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              <span class="material-symbols-outlined text-base" v-else>check</span>
+              {{ loading ? 'Submitting…' : 'Confirm Booking' }}
+            </button>
+          </div>
+
+        </template>
+      </div>
+
+      <!-- ── Summary sidebar ──────────────────────────────────────────────── -->
+      <aside class="lg:col-span-4 lg:sticky lg:top-8 space-y-4">
+        <div class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+          <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Summary</p>
+
+          <!-- Property -->
+          <div class="flex items-center gap-3 mb-4 pb-4 border-b border-(--color-outline-variant)">
+            <span class="material-symbols-outlined text-(--color-primary)">villa</span>
+            <div class="min-w-0">
+              <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ lodge?.name ?? '—' }}</p>
+              <p v-if="selectedBranch" class="font-sans text-xs text-(--color-on-surface-variant)">{{ selectedBranch.name }}</p>
+            </div>
+          </div>
+
+          <!-- Context badge -->
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-sm" :class="ab.isCorporate ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">
+              {{ ab.isCorporate ? 'corporate_fare' : 'person' }}
+            </span>
+            <span class="font-sans text-sm text-(--color-on-surface)">{{ ab.isCorporate ? 'Corporate Booking' : 'Individual Booking' }}</span>
+          </div>
+
+          <!-- Dates -->
+          <div v-if="ab.checkIn || ab.checkOut" class="space-y-2 mb-4 pb-4 border-b border-(--color-outline-variant)">
+            <div class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Check-in</span>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(ab.checkIn) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Check-out</span>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(ab.checkOut) }}</span>
+            </div>
+            <div v-if="nights(ab.checkIn, ab.checkOut) > 0" class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Duration</span>
+              <span class="font-sans text-sm text-(--color-primary) font-semibold">{{ nights(ab.checkIn, ab.checkOut) }} night{{ nights(ab.checkIn, ab.checkOut) !== 1 ? 's' : '' }}</span>
+            </div>
+          </div>
+          <div v-else class="mb-4 pb-4 border-b border-(--color-outline-variant)">
+            <p class="font-sans text-sm text-(--color-outline) italic">No dates selected yet</p>
+          </div>
+
+          <!-- Room summary: individual -->
+          <div v-if="!ab.isCorporate">
+            <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant) mb-2">
+              {{ ab.attendantRooms.length > 0 ? 'Selected Rooms' : 'No rooms selected yet' }}
+            </p>
+            <div v-for="(r, i) in ab.attendantRooms" :key="i" class="flex items-center gap-2 py-1.5">
+              <span class="material-symbols-outlined text-sm text-(--color-primary)">bed</span>
+              <div class="min-w-0 flex-1">
+                <p class="font-sans text-xs font-semibold text-(--color-on-surface) truncate">{{ r.roomName }}</p>
+                <p v-if="r.rate" class="font-sans text-xs text-(--color-primary)">K {{ Number(r.rate).toLocaleString() }}/night</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Room summary: corporate headcount -->
+          <div v-else>
+            <div class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Rooms required</span>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.roomCount }}</span>
+            </div>
+            <div v-if="ab.roomTypePreference" class="flex justify-between items-center mt-1">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Type preference</span>
+              <span class="font-sans text-sm text-(--color-on-surface) capitalize">{{ ab.roomTypePreference }}</span>
+            </div>
+            <p v-if="ab.participantCount" class="font-sans text-xs text-(--color-on-surface-variant) mt-2">{{ ab.participantCount }} delegate{{ ab.participantCount !== 1 ? 's' : '' }}</p>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</template>

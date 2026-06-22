@@ -1,0 +1,1170 @@
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useLodgesStore } from '@/stores/lodges'
+import { useAuthStore } from '@/stores/auth'
+import { useEventBookingStore } from '@/stores/eventBooking'
+import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS } from '@/data/bookingConstants'
+import api from '@/lib/api'
+
+const route       = useRoute()
+const router      = useRouter()
+const lodgesStore = useLodgesStore()
+const auth        = useAuthStore()
+const eb          = useEventBookingStore()
+
+const lodgeId        = route.params.id
+const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) === String(lodgeId)))
+const branches       = computed(() => lodgesStore.branchesFor(lodgeId))
+const selectedBranch = computed(() => branches.value?.find(b => String(b.id) === String(eb.branchId)) ?? null)
+
+// ── Multi-step ─────────────────────────────────────────────────────────────
+const step        = ref(1)
+const loading     = ref(false)
+const success     = ref(false)
+const errors      = ref({})
+const submitError = ref('')
+
+// ── UI state ───────────────────────────────────────────────────────────────
+const attendantsExpanded = ref(false)
+
+// ── Venue availability ─────────────────────────────────────────────────────
+const availableVenues  = ref([])
+const venuesLoading    = ref(false)
+const venuesError      = ref(false)
+const expandedVenueKey = ref(null)
+const expandedDayOverride = ref(null)
+
+async function fetchAvailableVenues() {
+  if (!lodgeId) return
+  venuesLoading.value = true
+  venuesError.value   = false
+  try {
+    const params = { org_id: lodgeId, page_size: 100 }
+    if (eb.branchId)   params.branch_id = eb.branchId
+    if (eb.startDate)  params.check_in  = eb.startDate
+    if (eb.endDate)    params.check_out = eb.endDate
+    const { data } = await api.get('/guest/venues', { params })
+    availableVenues.value = data.data ?? data
+  } catch {
+    venuesError.value     = true
+    availableVenues.value = []
+  } finally {
+    venuesLoading.value = false
+  }
+}
+
+function toggleVenuePicker(key) {
+  expandedVenueKey.value = expandedVenueKey.value === key ? null : key
+  if (expandedVenueKey.value !== null && !availableVenues.value.length && !venuesLoading.value) {
+    fetchAvailableVenues()
+  }
+}
+
+function selectVenueForSession(session, venue) {
+  session.venueId       = venue.id
+  session.venueName     = venue.name
+  session.venueCapacity = venue.max_capacity ?? null
+  expandedVenueKey.value = null
+}
+
+function clearVenueFromSession(session) {
+  session.venueId       = ''
+  session.venueName     = ''
+  session.venueCapacity = null
+}
+
+watch(
+  () => [eb.startDate, eb.endDate],
+  () => {
+    expandedVenueKey.value  = null
+    availableVenues.value   = []
+  }
+)
+
+// ── Day-range helpers ───────────────────────────────────────────────────────
+const dayRange = computed(() => {
+  if (!eb.startDate || !eb.endDate || eb.endDate < eb.startDate) return []
+  const [sy, sm, sd] = eb.startDate.split('-').map(Number)
+  const [ey, em, ed] = eb.endDate.split('-').map(Number)
+  const start = new Date(Date.UTC(sy, sm - 1, sd))
+  const end   = new Date(Date.UTC(ey, em - 1, ed))
+  const dates = []
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1))
+    dates.push(d.toISOString().slice(0, 10))
+  return dates
+})
+
+watch(dayRange, range => { if (range.length <= 1) eb.scheduleMode = 'uniform' })
+
+const eventDaySummary = computed(() => {
+  const total      = dayRange.value.length
+  const skipped    = Object.values(eb.dayOverrides).filter(o =>  o.excluded).length
+  const customised = Object.values(eb.dayOverrides).filter(o => !o.excluded).length
+  return { total, skipped, customised, defaultCount: total - skipped - customised }
+})
+
+function fmtDayLabel(iso) {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+}
+
+function fmt(iso) {
+  if (!iso) return '—'
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function dayStatus(date) {
+  const ov = eb.dayOverrides[date]
+  if (!ov) return 'default'
+  return ov.excluded ? 'skipped' : 'overridden'
+}
+
+function startDayOverride(date) {
+  eb.setDayOverride(date)
+  expandedDayOverride.value = expandedDayOverride.value === date ? null : date
+}
+
+function collapseDayOverride(date) {
+  eb.clearDayOverride(date)
+  if (expandedDayOverride.value === date) expandedDayOverride.value = null
+}
+
+function sessionLabel(s, i) {
+  return s.sessionName || (s.eventType
+    ? (EVENT_TYPES.find(t => t.value === s.eventType)?.label ?? s.eventType)
+    : `Session ${i + 1}`)
+}
+
+// ── Validation ──────────────────────────────────────────────────────────────
+function validate() {
+  const e = {}
+
+  if (!eb.bookedBy.name)  e.bookedByName  = 'Required'
+  if (!eb.bookedBy.email) e.bookedByEmail = 'Required'
+  else if (!/\S+@\S+\.\S+/.test(eb.bookedBy.email)) e.bookedByEmail = 'Enter a valid email'
+
+  if (!eb.startDate) e.startDate = 'Required'
+  if (!eb.endDate)   e.endDate   = 'Required'
+
+  if (eb.isCorporate && !eb.companyName) e.companyName = 'Required'
+
+  eb.masterSessions.forEach((s, i) => {
+    if (!s.startTime) e[`ms_${i}_start`] = 'Required'
+    if (!s.endTime)   e[`ms_${i}_end`]   = 'Required'
+  })
+
+  Object.entries(eb.dayOverrides).forEach(([date, ov]) => {
+    if (ov.excluded) return
+    ov.sessions.forEach((s, si) => {
+      if (!s.startTime) e[`ov_${date}_${si}_start`] = 'Required'
+      if (!s.endTime)   e[`ov_${date}_${si}_end`]   = 'Required'
+    })
+  })
+
+  errors.value = e
+  return Object.keys(e).length === 0
+}
+
+function goToReview() {
+  if (!validate()) {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
+  step.value = 2
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function handleSubmit() {
+  loading.value     = true
+  submitError.value = ''
+  try {
+    await eb.submit()
+    success.value = true
+    eb.reset()
+    setTimeout(() => router.push({ name: 'bookings' }), 2500)
+  } catch (err) {
+    submitError.value = err.response?.data?.error?.message || 'Something went wrong. Please try again.'
+  } finally {
+    loading.value = false
+  }
+}
+
+function goBack() {
+  if (step.value === 2) { step.value = 1; return }
+  router.push({ name: 'lodge-detail', params: { id: lodgeId } })
+}
+
+// ── Session panel component (reusable inline) ───────────────────────────────
+// (rendered inline via template; no separate component needed at this scale)
+
+// ── Init ────────────────────────────────────────────────────────────────────
+onMounted(async () => {
+  await lodgesStore.fetchLodges()
+  lodgesStore.fetchLodgeDetail(lodgeId)
+  eb.setLodge(lodgeId, lodge.value?.name ?? '')
+
+  const q = route.query
+  if (q.branchId && !eb.branchId) eb.branchId = q.branchId
+  if (q.context === 'corporate')  eb.bookingContext = 'corporate'
+
+  eb.fillFromAuth(auth.user)
+
+  // Pre-populate venue from VenueDetailView
+  if (q.venueId && eb.masterSessions.length) {
+    const s = eb.masterSessions[0]
+    if (!s.venueId) {
+      s.venueId       = q.venueId
+      s.venueName     = q.venueName || ''
+      s.venueCapacity = q.venueCapacity ? Number(q.venueCapacity) : null
+    }
+  }
+})
+</script>
+
+<template>
+  <!-- Success overlay -->
+  <Transition enter-active-class="transition duration-500" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100">
+    <div v-if="success" class="fixed inset-0 z-50 bg-(--color-background) flex items-center justify-center px-5">
+      <div class="text-center max-w-sm">
+        <span class="material-symbols-outlined text-6xl text-(--color-primary) mb-6 block" style="font-variation-settings: 'FILL' 1">check_circle</span>
+        <h2 class="font-serif text-3xl text-(--color-on-surface) mb-3">Event Booking Submitted</h2>
+        <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">Your event booking request has been received. The property team will confirm your schedule and venue arrangements. Redirecting…</p>
+      </div>
+    </div>
+  </Transition>
+
+  <div class="w-full max-w-[1280px] mx-auto px-5 md:px-16 py-8 pb-24">
+
+    <!-- Back -->
+    <button type="button"
+      class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) mb-6 transition-colors"
+      @click="goBack">
+      <span class="material-symbols-outlined text-base">arrow_back</span>
+      {{ step === 2 ? 'Back to Details' : (lodge?.name ?? 'Lodge') }}
+    </button>
+
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">event</span>
+        <h1 class="font-serif text-3xl font-semibold text-(--color-on-surface)">Event Booking</h1>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <p v-if="lodge" class="font-sans text-sm text-(--color-on-surface-variant)">{{ lodge.name }}</p>
+        <span v-if="selectedBranch" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+          <span class="material-symbols-outlined text-sm">location_on</span>{{ selectedBranch.name }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Stepper -->
+    <nav class="flex items-center gap-4 mb-8">
+      <div v-for="(s, i) in [{ label: 'Details' }, { label: 'Confirm' }]" :key="s.label" class="flex items-center gap-4">
+        <div class="flex items-center gap-2"
+          :class="step > i ? 'text-(--color-primary)' : 'text-(--color-outline)'">
+          <span v-if="step > i + 1" class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">check_circle</span>
+          <span v-else class="material-symbols-outlined">{{ step === i + 1 ? 'radio_button_checked' : 'radio_button_unchecked' }}</span>
+          <span class="font-sans text-sm font-semibold">{{ s.label }}</span>
+        </div>
+        <div v-if="i === 0" class="h-px w-10 bg-(--color-outline-variant)"></div>
+      </div>
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ── Main column ─────────────────────────────────────────────────── -->
+      <div class="lg:col-span-8 space-y-5">
+
+        <!-- ══ STEP 1 ══ -->
+        <template v-if="step === 1">
+
+          <!-- ─── Booking context ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Booking Type</p>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" @click="eb.bookingContext = 'individual'"
+                class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                :class="!eb.isCorporate
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                  :class="!eb.isCorporate ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">person</span>
+                <div>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual / Guest</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5 leading-snug">Personal event, small group, or private function</p>
+                </div>
+              </button>
+              <button type="button" @click="eb.bookingContext = 'corporate'"
+                class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                :class="eb.isCorporate
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                  :class="eb.isCorporate ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">corporate_fare</span>
+                <div>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Corporate / Group</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5 leading-snug">Conference, training, board meeting, delegate event</p>
+                </div>
+              </button>
+            </div>
+          </section>
+
+          <!-- ─── Corporate: Company ─── -->
+          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary)">business</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Information</h2>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1 sm:col-span-2">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Name <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.companyName" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.companyName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN / Reg No.</label>
+                <input v-model="eb.tpin" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry</label>
+                <input v-model="eb.industry" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Billing Email</label>
+                <input v-model="eb.companyEmail" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone</label>
+                <input v-model="eb.companyPhone" type="tel" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
+                <input v-model="eb.departmentName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre</label>
+                <input v-model="eb.costCenter" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
+                <input v-model="eb.glCode" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Corporate: Approver ─── -->
+          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary)">verified_user</span>
+              <div>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Approver</h2>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Person authorising this booking on behalf of the company</p>
+              </div>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name</label>
+                <input v-model="eb.approverName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                <input v-model="eb.approverTitle" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                <input v-model="eb.approverEmail" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                <input v-model="eb.approverPhone" type="tel" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Booked By ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-4 px-6 py-5 border-b border-(--color-outline-variant)">
+              <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">account_circle</span>
+              </div>
+              <div>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Primary contact for this booking</p>
+              </div>
+            </div>
+            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.bookedBy.name" type="text"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.bookedByName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByName }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.bookedBy.email" type="email"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.bookedByEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByEmail }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                <input v-model="eb.bookedBy.phone" type="tel" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div v-if="eb.isCorporate" class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                <input v-model="eb.bookedBy.jobTitle" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Individual: Attendees ─── -->
+          <section v-if="!eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-stretch">
+              <button type="button"
+                class="flex items-center gap-2 flex-1 px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors min-w-0"
+                @click="attendantsExpanded = !attendantsExpanded">
+                <span class="material-symbols-outlined text-(--color-primary) shrink-0">group</span>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Attendees</h2>
+                  <p v-if="!attendantsExpanded" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                    {{ eb.participantMode === 'headcount'
+                      ? 'Party of ' + eb.participantCount
+                      : eb.attendants.filter(a => a.fullName).length + ' registered' }}
+                  </p>
+                </div>
+                <span class="material-symbols-outlined text-(--color-on-surface-variant) transition-transform duration-200 shrink-0 mr-2"
+                  :style="{ transform: attendantsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }">expand_more</span>
+              </button>
+            </div>
+            <div v-if="attendantsExpanded" class="px-6 pb-6 border-t border-(--color-outline-variant)">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
+                <button type="button" @click="eb.participantMode = 'headcount'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="eb.participantMode === 'headcount'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="eb.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">group</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Total attendee count — no individual details</p>
+                  </div>
+                </button>
+                <button type="button" @click="eb.participantMode = 'detailed'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="eb.participantMode === 'detailed'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="eb.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Register each attendee with name and contact</p>
+                  </div>
+                </button>
+              </div>
+              <div v-if="eb.participantMode === 'headcount'">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Attendees</label>
+                <div class="flex items-center gap-3 mt-2">
+                  <input type="number" min="1" v-model.number="eb.participantCount"
+                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
+                </div>
+              </div>
+              <div v-else class="space-y-3">
+                <div v-for="(att, i) in eb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
+                        :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                      <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
+                    </div>
+                    <button type="button" :disabled="eb.attendants.length === 1"
+                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                      @click="eb.removeAttendant(i)">
+                      <span class="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name</label>
+                      <input v-model="att.fullName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <input v-model="att.email" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                  </div>
+                </div>
+                <button type="button" @click="eb.addAttendant()"
+                  class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline">
+                  <span class="material-symbols-outlined text-base">person_add</span> Add Attendee
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ─── Corporate: Delegates ─── -->
+          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="material-symbols-outlined text-(--color-primary)">groups</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Expected Delegates</h2>
+            </div>
+            <div class="flex items-center gap-4">
+              <input type="number" min="1" v-model.number="eb.participantCount"
+                class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
+              <p class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates attending across all sessions</p>
+            </div>
+          </section>
+
+          <!-- ─── Event Schedule ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary)">event_note</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Event Schedule</h2>
+            </div>
+            <div class="px-6 py-5 space-y-6">
+
+              <!-- Reason -->
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Reason for Booking</label>
+                <textarea v-model="eb.reasonForBooking" rows="2"
+                  placeholder="e.g. Annual strategy conference, product launch, board meeting, team retreat…"
+                  class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
+              </div>
+
+              <!-- Date range -->
+              <div class="p-4 bg-(--color-surface-container) rounded-xl border border-(--color-outline-variant)">
+                <div class="flex items-start gap-2 mb-4">
+                  <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0 mt-0.5">date_range</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Event Date Range</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Generates one session per day. All sessions remain fully editable.</p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Date <span class="text-(--color-error)">*</span></label>
+                    <input v-model="eb.startDate" type="date"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.startDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.startDate" class="font-sans text-xs text-(--color-error)">{{ errors.startDate }}</span>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">End Date <span class="text-(--color-error)">*</span></label>
+                    <input v-model="eb.endDate" type="date" :min="eb.startDate || undefined"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.endDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.endDate" class="font-sans text-xs text-(--color-error)">{{ errors.endDate }}</span>
+                  </div>
+                </div>
+                <div v-if="dayRange.length > 0" class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-(--color-savannah-mist) border border-(--color-primary)">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">event</span>
+                  <span class="font-sans text-xs font-semibold text-(--color-primary)">
+                    {{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }} · {{ fmt(eb.startDate) }}
+                    <template v-if="eb.endDate && eb.endDate !== eb.startDate"> – {{ fmt(eb.endDate) }}</template>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Schedule mode (multi-day only) -->
+              <div v-if="dayRange.length > 1" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="button" @click="eb.scheduleMode = 'uniform'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="eb.scheduleMode === 'uniform' ? 'border-(--color-primary) bg-(--color-savannah-mist)' : 'border-(--color-outline-variant) hover:border-(--color-outline)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5"
+                    :class="eb.scheduleMode === 'uniform' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">calendar_view_week</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Uniform Schedule</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Same schedule repeated across all event days</p>
+                  </div>
+                </button>
+                <button type="button" @click="eb.scheduleMode = 'per_day'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="eb.scheduleMode === 'per_day' ? 'border-(--color-primary) bg-(--color-savannah-mist)' : 'border-(--color-outline-variant) hover:border-(--color-outline)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5"
+                    :class="eb.scheduleMode === 'per_day' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">event_note</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Per-Day Schedule</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Start from a default, then customise or skip individual days</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Scope banner -->
+              <div class="p-4 rounded-xl border"
+                :class="dayRange.length > 0 ? 'bg-(--color-savannah-mist) border-(--color-primary)' : 'bg-(--color-surface-container) border-(--color-outline-variant)'">
+                <div class="flex items-start gap-2">
+                  <span class="material-symbols-outlined text-base shrink-0 mt-0.5"
+                    :class="dayRange.length > 0 ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">copy_all</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                      {{ eb.scheduleMode === 'per_day' ? 'Default Daily Schedule' : 'Daily Schedule Template' }}
+                    </p>
+                    <template v-if="dayRange.length > 0">
+                      <p v-if="eb.scheduleMode === 'uniform'" class="font-sans text-xs text-(--color-on-surface-variant) mt-1">
+                        Applied to all <strong class="text-(--color-on-surface)">{{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }}</strong>
+                        · {{ fmt(eb.startDate) }}<template v-if="eb.endDate && eb.endDate !== eb.startDate"> – {{ fmt(eb.endDate) }}</template>.
+                      </p>
+                      <p v-else class="font-sans text-xs text-(--color-on-surface-variant) mt-1">
+                        Fallback for days without a custom plan — covering
+                        <strong class="text-(--color-on-surface)">{{ eventDaySummary.defaultCount }} of {{ eventDaySummary.total }}</strong> day{{ eventDaySummary.total !== 1 ? 's' : '' }}.
+                      </p>
+                    </template>
+                    <p v-else class="font-sans text-xs text-(--color-on-surface-variant) mt-1">Set a date range above to see how this schedule is applied.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Master sessions ── -->
+              <div class="space-y-4">
+                <div v-for="(session, i) in eb.masterSessions" :key="i"
+                  class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
+                    <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ sessionLabel(session, i) }}</span>
+                    <div class="flex items-center gap-2">
+                      <span v-if="dayRange.length > 0 && eb.scheduleMode === 'uniform'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                        × {{ dayRange.length }} days
+                      </span>
+                      <span v-else-if="dayRange.length > 0 && eb.scheduleMode === 'per_day'"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-surface-container-high) font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                        default
+                      </span>
+                      <span v-else class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                        Session {{ i + 1 }}
+                      </span>
+                      <button type="button" :disabled="eb.masterSessions.length === 1"
+                        class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                        @click="eb.removeMasterSession(i)">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="p-4 bg-(--color-surface-container-low) space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div class="flex flex-col gap-1 md:col-span-2">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name</label>
+                        <input v-model="session.sessionName" type="text" placeholder="e.g. Plenary, Workshop A, Closing Ceremony"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Type</label>
+                        <select v-model="session.eventType"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+                        </select>
+                      </div>
+                      <!-- Venue picker -->
+                      <div class="flex flex-col gap-1 md:col-span-2">
+                        <div class="flex items-center justify-between">
+                          <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Venue</label>
+                          <button v-if="!venuesLoading" type="button"
+                            class="flex items-center gap-1 font-sans text-xs text-(--color-primary) hover:underline"
+                            @click="fetchAvailableVenues">
+                            <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                          </button>
+                        </div>
+                        <div class="border rounded-xl overflow-hidden transition-all"
+                          :class="expandedVenueKey === `master_${i}` ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
+                          <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-(--color-surface-container)">
+                            <div v-if="session.venueId" class="flex items-center gap-2 min-w-0">
+                              <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                              <div class="min-w-0">
+                                <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ session.venueName }}</p>
+                                <p v-if="session.venueCapacity" class="font-sans text-xs text-(--color-on-surface-variant)">Cap. {{ session.venueCapacity }}</p>
+                              </div>
+                            </div>
+                            <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">No preference / TBC</p>
+                            <div class="flex items-center gap-2 shrink-0">
+                              <button v-if="session.venueId" type="button" @click="clearVenueFromSession(session)"
+                                class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                                <span class="material-symbols-outlined text-sm">close</span>
+                              </button>
+                              <button type="button" @click="toggleVenuePicker(`master_${i}`)"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
+                                :class="expandedVenueKey === `master_${i}`
+                                  ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
+                                  : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
+                                <span class="material-symbols-outlined text-sm">{{ expandedVenueKey === `master_${i}` ? 'expand_less' : 'add' }}</span>
+                                {{ expandedVenueKey === `master_${i}` ? 'Close' : (session.venueId ? 'Change' : 'Browse') }}
+                              </button>
+                            </div>
+                          </div>
+                          <!-- Venue list -->
+                          <div v-if="expandedVenueKey === `master_${i}`" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
+                            <div v-if="venuesLoading" class="flex items-center justify-center py-6 gap-2 text-(--color-on-surface-variant)">
+                              <span class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                              <p class="font-sans text-sm">Loading venues…</p>
+                            </div>
+                            <div v-else-if="venuesError" class="flex items-start gap-2 p-3 rounded-lg bg-(--color-error-container) text-(--color-on-error-container)">
+                              <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
+                              <p class="font-sans text-sm">Could not load venues. <button type="button" class="underline" @click="fetchAvailableVenues">Try again</button></p>
+                            </div>
+                            <div v-else-if="!availableVenues.length" class="flex flex-col items-center py-6 text-center">
+                              <span class="material-symbols-outlined text-3xl text-(--color-outline) mb-2 opacity-40">meeting_room</span>
+                              <p class="font-sans text-sm text-(--color-on-surface-variant)">No venues found at this property</p>
+                            </div>
+                            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <button v-for="venue in availableVenues" :key="venue.id" type="button"
+                                class="group text-left rounded-xl border-2 transition-all overflow-hidden"
+                                :class="session.venueId === venue.id
+                                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                                  : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest)'"
+                                @click="selectVenueForSession(session, venue)">
+                                <div v-if="venue.images?.[0]" class="w-full h-24 overflow-hidden">
+                                  <img :src="venue.images[0]" :alt="venue.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                </div>
+                                <div class="p-3">
+                                  <div class="flex items-start justify-between gap-2 mb-1">
+                                    <p class="font-sans text-sm font-semibold text-(--color-on-surface) leading-tight">{{ venue.name }}</p>
+                                    <span v-if="session.venueId === venue.id"
+                                      class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                                  </div>
+                                  <div class="flex items-center gap-3 flex-wrap">
+                                    <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
+                                      <span class="material-symbols-outlined text-sm">group</span>Cap. {{ venue.max_capacity }}
+                                    </span>
+                                    <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ (venue.type ?? '').replace(/_/g, ' ') }}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Time <span class="text-(--color-error)">*</span></label>
+                        <input v-model="session.startTime" type="time"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`ms_${i}_start`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`ms_${i}_start`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_start`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">End Time <span class="text-(--color-error)">*</span></label>
+                        <input v-model="session.endTime" type="time"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`ms_${i}_end`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`ms_${i}_end`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_end`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Expected Attendees</label>
+                        <input v-model.number="session.expectedAttendees" type="number" min="1"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup</label>
+                        <select v-model="session.setupType"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          <option v-for="s in SETUP_TYPES" :key="s.value" :value="s.value">{{ s.label }}</option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Pricing Basis</label>
+                        <select v-model="session.pricingBasis"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          <option v-for="p in PRICING_BASIS" :key="p.value" :value="p.value">{{ p.label }}</option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1 md:col-span-2">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Special Requirements</label>
+                        <textarea v-model="session.specialRequirements" rows="2"
+                          placeholder="AV equipment, branding, flowers, signage, live streaming…"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors resize-none"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button"
+                class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline"
+                @click="eb.addMasterSession()">
+                <span class="material-symbols-outlined text-base">add</span>
+                {{ eb.scheduleMode === 'per_day' ? 'Add Session to Default Schedule' : 'Add Another Session' }}
+              </button>
+
+              <!-- ── Per-day overrides ── -->
+              <div v-if="eb.scheduleMode === 'per_day' && dayRange.length > 0" class="mt-6 pt-6 border-t border-(--color-outline-variant)">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-1">
+                  Day-by-Day Schedule
+                  <span class="text-(--color-outline) font-normal normal-case tracking-normal">({{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }})</span>
+                </p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mb-3">Skip days your event doesn't run, or customise sessions for individual days.</p>
+                <!-- Status strip -->
+                <div class="flex items-center gap-2 flex-wrap mb-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--color-surface-container) font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-(--color-outline) inline-block"></span>
+                    {{ eventDaySummary.defaultCount }} using default
+                  </span>
+                  <span v-if="eventDaySummary.customised > 0"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                    <span class="w-1.5 h-1.5 rounded-full bg-(--color-primary) inline-block"></span>
+                    {{ eventDaySummary.customised }} customised
+                  </span>
+                  <span v-if="eventDaySummary.skipped > 0"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--color-outline-variant) font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                    {{ eventDaySummary.skipped }} skipped
+                  </span>
+                </div>
+                <div class="space-y-2">
+                  <div v-for="date in dayRange" :key="date" class="border rounded-xl overflow-hidden"
+                    :class="dayStatus(date) === 'skipped' ? 'border-(--color-outline-variant) opacity-60' : 'border-(--color-outline-variant)'">
+                    <!-- Day row -->
+                    <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="font-sans text-sm font-semibold text-(--color-on-surface) shrink-0">{{ fmtDayLabel(date) }}</span>
+                        <span v-if="dayStatus(date) === 'overridden'"
+                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary) shrink-0">
+                          {{ eb.dayOverrides[date].sessions.length }} override{{ eb.dayOverrides[date].sessions.length !== 1 ? 's' : '' }}
+                        </span>
+                        <span v-else-if="dayStatus(date) === 'skipped'"
+                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--color-outline-variant) font-sans text-xs font-semibold text-(--color-on-surface-variant) shrink-0">
+                          Skipped
+                        </span>
+                        <span v-else class="font-sans text-xs text-(--color-on-surface-variant) hidden sm:inline">Using default schedule</span>
+                      </div>
+                      <div class="flex items-center gap-1 shrink-0 ml-2">
+                        <button v-if="dayStatus(date) !== 'skipped'" type="button"
+                          class="font-sans text-xs font-semibold text-(--color-primary) hover:underline px-2 py-1"
+                          @click="startDayOverride(date)">
+                          {{ dayStatus(date) === 'overridden' ? (expandedDayOverride === date ? 'Collapse' : 'Edit') : 'Customise' }}
+                        </button>
+                        <button v-if="dayStatus(date) === 'overridden'" type="button"
+                          class="font-sans text-xs text-(--color-on-surface-variant) hover:text-(--color-error) hover:underline px-2 py-1"
+                          @click="collapseDayOverride(date)">
+                          Reset
+                        </button>
+                        <button type="button"
+                          class="h-7 w-7 flex items-center justify-center rounded-lg transition-colors"
+                          :class="dayStatus(date) === 'skipped'
+                            ? 'text-(--color-primary) bg-(--color-savannah-mist)'
+                            : 'text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container)'"
+                          :title="dayStatus(date) === 'skipped' ? 'Restore day' : 'Skip this day'"
+                          @click="eb.toggleDayExcluded(date)">
+                          <span class="material-symbols-outlined text-base">{{ dayStatus(date) === 'skipped' ? 'undo' : 'block' }}</span>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Expanded override editor -->
+                    <div v-if="expandedDayOverride === date && dayStatus(date) === 'overridden'"
+                      class="p-4 bg-(--color-surface-container-low) space-y-3">
+                      <div v-for="(s, si) in eb.dayOverrides[date].sessions" :key="si"
+                        class="border border-(--color-outline-variant) rounded-xl overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-2.5 bg-(--color-surface-container)">
+                          <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ sessionLabel(s, si) }}</span>
+                          <button type="button" :disabled="eb.dayOverrides[date].sessions.length === 1"
+                            class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                            @click="eb.removeOverrideSession(date, si)">
+                            <span class="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
+                        <div class="p-4 bg-(--color-savannah-mist) space-y-3">
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1 md:col-span-2">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name</label>
+                              <input v-model="s.sessionName" type="text" placeholder="e.g. Keynote, Breakout, Gala Dinner"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Type</label>
+                              <select v-model="s.eventType"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+                              </select>
+                            </div>
+                            <!-- Venue picker (override) -->
+                            <div class="flex flex-col gap-1 md:col-span-2">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Venue</label>
+                              <div class="border rounded-xl overflow-hidden transition-all"
+                                :class="expandedVenueKey === `ov_${date}_${si}` ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
+                                <div class="flex items-center justify-between gap-3 px-3 py-2.5 bg-(--color-surface-container)">
+                                  <div v-if="s.venueId" class="flex items-center gap-2 min-w-0">
+                                    <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                                    <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ s.venueName }}</p>
+                                  </div>
+                                  <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">No preference / TBC</p>
+                                  <div class="flex items-center gap-2 shrink-0">
+                                    <button v-if="s.venueId" type="button" @click="clearVenueFromSession(s)"
+                                      class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
+                                      <span class="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                    <button type="button" @click="toggleVenuePicker(`ov_${date}_${si}`)"
+                                      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
+                                      :class="expandedVenueKey === `ov_${date}_${si}`
+                                        ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
+                                        : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
+                                      <span class="material-symbols-outlined text-sm">{{ expandedVenueKey === `ov_${date}_${si}` ? 'expand_less' : 'add' }}</span>
+                                      {{ expandedVenueKey === `ov_${date}_${si}` ? 'Close' : (s.venueId ? 'Change' : 'Browse') }}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div v-if="expandedVenueKey === `ov_${date}_${si}`" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
+                                  <div v-if="venuesLoading" class="flex items-center justify-center py-4 gap-2 text-(--color-on-surface-variant)">
+                                    <span class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                                    <p class="font-sans text-sm">Loading venues…</p>
+                                  </div>
+                                  <div v-else-if="!availableVenues.length" class="py-4 text-center">
+                                    <p class="font-sans text-sm text-(--color-on-surface-variant)">No venues found</p>
+                                  </div>
+                                  <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button v-for="venue in availableVenues" :key="venue.id" type="button"
+                                      class="group text-left rounded-xl border-2 transition-all overflow-hidden"
+                                      :class="s.venueId === venue.id
+                                        ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                                        : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest)'"
+                                      @click="selectVenueForSession(s, venue)">
+                                      <div class="p-3">
+                                        <p class="font-sans text-sm font-semibold text-(--color-on-surface) leading-tight">{{ venue.name }}</p>
+                                        <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Cap. {{ venue.max_capacity }}</p>
+                                      </div>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Time <span class="text-(--color-error)">*</span></label>
+                              <input v-model="s.startTime" type="time"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                                :class="errors[`ov_${date}_${si}_start`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">End Time <span class="text-(--color-error)">*</span></label>
+                              <input v-model="s.endTime" type="time"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                                :class="errors[`ov_${date}_${si}_end`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Expected Attendees</label>
+                              <input v-model.number="s.expectedAttendees" type="number" min="1"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup</label>
+                              <select v-model="s.setupType"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                <option v-for="st in SETUP_TYPES" :key="st.value" :value="st.value">{{ st.label }}</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <button type="button"
+                        class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline"
+                        @click="eb.addOverrideSession(date)">
+                        <span class="material-symbols-outlined text-base">add</span> Add Session to {{ fmtDayLabel(date) }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- ─── Notes ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="material-symbols-outlined text-(--color-primary)">notes</span>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Requests</h2>
+            </div>
+            <textarea v-model="eb.notes" rows="3"
+              placeholder="Dietary requirements for catering, decoration preferences, branding guidelines, accessibility needs…"
+              class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
+          </section>
+
+          <!-- Continue -->
+          <div class="flex justify-end pt-2">
+            <button type="button" @click="goToReview"
+              class="flex items-center gap-2 px-8 py-3 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
+              Review Booking
+              <span class="material-symbols-outlined text-base">arrow_forward</span>
+            </button>
+          </div>
+
+        </template>
+
+        <!-- ══ STEP 2: REVIEW ══ -->
+        <template v-else>
+
+          <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
+            <div v-if="submitError" class="flex items-center gap-2 p-4 rounded-xl bg-(--color-error-container) text-(--color-on-error-container)">
+              <span class="material-symbols-outlined text-base shrink-0">error</span>
+              <p class="font-sans text-sm">{{ submitError }}</p>
+            </div>
+          </Transition>
+
+          <!-- Type badges -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-sans text-xs font-semibold"
+              :class="eb.isCorporate ? 'bg-(--color-primary) text-white' : 'bg-(--color-savannah-mist) text-(--color-primary) border border-(--color-primary)'">
+              <span class="material-symbols-outlined text-sm">{{ eb.isCorporate ? 'corporate_fare' : 'person' }}</span>
+              {{ eb.isCorporate ? 'Corporate Event' : 'Individual Event' }}
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+              <span class="material-symbols-outlined text-sm">event</span>
+              Event Booking
+            </span>
+          </div>
+
+          <!-- Booked By -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Contact</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.bookedBy.name || '—' }}</p></div>
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.email || '—' }}</p></div>
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.phone || '—' }}</p></div>
+              <div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ eb.isCorporate ? 'Delegates' : 'Attendees' }}</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">
+                  {{ eb.participantMode === 'headcount'
+                    ? eb.participantCount + ' attendee' + (eb.participantCount !== 1 ? 's' : '')
+                    : eb.attendants.length + ' registered' }}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Corporate company -->
+          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Company</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+              <div class="sm:col-span-2"><p class="font-sans text-xs text-(--color-on-surface-variant)">Company Name</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.companyName || '—' }}</p></div>
+              <div v-if="eb.departmentName"><p class="font-sans text-xs text-(--color-on-surface-variant)">Department</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.departmentName }}</p></div>
+              <div v-if="eb.costCenter"><p class="font-sans text-xs text-(--color-on-surface-variant)">Cost Centre</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.costCenter }}</p></div>
+            </div>
+            <div v-if="eb.approverName" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Approver</p>
+              <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.approverName }}
+                <span v-if="eb.approverTitle" class="font-sans text-xs font-normal text-(--color-on-surface-variant)"> · {{ eb.approverTitle }}</span>
+              </p>
+            </div>
+          </section>
+
+          <!-- Event schedule summary -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Event Schedule</p>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Start Date</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(eb.startDate) }}</p></div>
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">End Date</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(eb.endDate) }}</p></div>
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Days</p><p class="font-sans text-sm text-(--color-on-surface)">{{ dayRange.length || '—' }}</p></div>
+              <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Schedule</p><p class="font-sans text-sm text-(--color-on-surface) capitalize">{{ eb.scheduleMode.replace('_', '-') }}</p></div>
+            </div>
+            <div v-if="eb.reasonForBooking" class="mb-4 pb-4 border-b border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Reason</p>
+              <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.reasonForBooking }}</p>
+            </div>
+            <!-- Sessions summary -->
+            <div class="space-y-3 pt-2">
+              <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Sessions ({{ eb.masterSessions.length }} template{{ eb.masterSessions.length !== 1 ? 's' : '' }})</p>
+              <div v-for="(s, i) in eb.masterSessions" :key="i"
+                class="flex items-start justify-between gap-3 py-2 border-b border-(--color-outline-variant) last:border-0">
+                <div class="min-w-0">
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ sessionLabel(s, i) }}</p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">
+                    {{ s.startTime }} – {{ s.endTime }}
+                    <template v-if="s.setupType"> · {{ SETUP_TYPES.find(st => st.value === s.setupType)?.label ?? s.setupType }}</template>
+                  </p>
+                  <p v-if="s.venueName" class="font-sans text-xs text-(--color-primary) mt-0.5">
+                    <span class="material-symbols-outlined text-sm align-[-4px]">location_on</span> {{ s.venueName }}
+                  </p>
+                </div>
+                <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0 mt-0.5">
+                  {{ s.expectedAttendees }} attendee{{ s.expectedAttendees !== 1 ? 's' : '' }}
+                </span>
+              </div>
+            </div>
+            <div v-if="eventDaySummary.customised > 0" class="mt-3 flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-(--color-primary)">event_note</span>
+              <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ eventDaySummary.customised }} day{{ eventDaySummary.customised !== 1 ? 's' : '' }} with custom schedule</p>
+            </div>
+            <div v-if="eventDaySummary.skipped > 0" class="mt-1 flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm text-(--color-outline)">block</span>
+              <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ eventDaySummary.skipped }} day{{ eventDaySummary.skipped !== 1 ? 's' : '' }} skipped</p>
+            </div>
+            <div v-if="eb.notes" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Additional Requests</p>
+              <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.notes }}</p>
+            </div>
+          </section>
+
+          <!-- Submit -->
+          <div class="flex gap-3 pt-2">
+            <button type="button" @click="step = 1"
+              class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
+              Edit Details
+            </button>
+            <button type="button" @click="handleSubmit" :disabled="loading"
+              class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
+              <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              <span v-else class="material-symbols-outlined text-base">check</span>
+              {{ loading ? 'Submitting…' : 'Confirm Booking' }}
+            </button>
+          </div>
+
+        </template>
+      </div>
+
+      <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+      <aside class="lg:col-span-4 lg:sticky lg:top-8 space-y-4">
+        <div class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+          <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Summary</p>
+
+          <div class="flex items-center gap-3 mb-4 pb-4 border-b border-(--color-outline-variant)">
+            <span class="material-symbols-outlined text-(--color-primary)">villa</span>
+            <div class="min-w-0">
+              <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ lodge?.name ?? '—' }}</p>
+              <p v-if="selectedBranch" class="font-sans text-xs text-(--color-on-surface-variant)">{{ selectedBranch.name }}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-sm" :class="eb.isCorporate ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">
+              {{ eb.isCorporate ? 'corporate_fare' : 'person' }}
+            </span>
+            <span class="font-sans text-sm text-(--color-on-surface)">{{ eb.isCorporate ? 'Corporate Event' : 'Individual Event' }}</span>
+          </div>
+
+          <div v-if="eb.startDate || eb.endDate" class="space-y-2 mb-4 pb-4 border-b border-(--color-outline-variant)">
+            <div class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Start</span>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(eb.startDate) }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">End</span>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(eb.endDate) }}</span>
+            </div>
+            <div v-if="dayRange.length > 0" class="flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Duration</span>
+              <span class="font-sans text-sm text-(--color-primary) font-semibold">{{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }}</span>
+            </div>
+          </div>
+          <div v-else class="mb-4 pb-4 border-b border-(--color-outline-variant)">
+            <p class="font-sans text-sm text-(--color-outline) italic">No dates selected yet</p>
+          </div>
+
+          <div class="space-y-1">
+            <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Sessions</p>
+            <div v-for="(s, i) in eb.masterSessions" :key="i" class="flex items-center gap-2 py-1">
+              <span class="material-symbols-outlined text-sm text-(--color-primary)">event</span>
+              <div class="min-w-0 flex-1">
+                <p class="font-sans text-xs font-semibold text-(--color-on-surface) truncate">{{ sessionLabel(s, i) }}</p>
+                <p v-if="s.startTime && s.endTime" class="font-sans text-xs text-(--color-on-surface-variant)">{{ s.startTime }} – {{ s.endTime }}</p>
+              </div>
+            </div>
+            <p v-if="eb.masterSessions.length === 0" class="font-sans text-sm text-(--color-outline) italic">No sessions yet</p>
+          </div>
+
+          <div v-if="eb.participantCount" class="mt-4 pt-4 border-t border-(--color-outline-variant) flex justify-between items-center">
+            <span class="font-sans text-xs text-(--color-on-surface-variant)">{{ eb.isCorporate ? 'Delegates' : 'Attendees' }}</span>
+            <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.participantCount }}</span>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</template>

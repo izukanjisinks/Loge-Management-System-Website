@@ -149,18 +149,17 @@ function openBooking() {
   bookingModalOpen.value = true
 }
 
-function onBookingTypeConfirmed(type) {
-  const routeName = type === 'individual' ? 'individual-booking' : 'corporate-booking'
+function onBookingTypeConfirmed() {
   router.push({
-    name:   routeName,
+    name:   'accommodation-booking',
     params: { id: room.value.orgId },
     query:  {
       roomId:   room.value.id,
       roomName: room.value.name,
       roomType: room.value.type,
       rate:     room.value.price,
-      checkIn:  checkIn.value,
-      checkOut: checkOut.value,
+      checkIn:  checkIn.value  || undefined,
+      checkOut: checkOut.value || undefined,
     },
   })
 }

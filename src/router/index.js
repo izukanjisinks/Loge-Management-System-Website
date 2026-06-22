@@ -8,8 +8,26 @@ const routes = [
     children: [
       { path: '', name: 'home', component: () => import('@/views/HomeView.vue') },
       { path: 'about', name: 'about', component: () => import('@/views/AboutView.vue') },
-      { path: 'lodges', name: 'lodges', component: () => import('@/views/LodgesView.vue') },
-      { path: 'lodges/:id', name: 'lodge-detail', component: () => import('@/views/LodgeDetailView.vue') },
+      { path: 'lodges', name: 'lodges', component: () => import('@/views/LodgesView.vue'), meta: { keepAlive: true } },
+      { path: 'lodges/:id', name: 'lodge-detail', component: () => import('@/views/LodgeDetailView.vue'), meta: { keepAlive: true } },
+      {
+        path: 'lodges/:id/book/accommodation',
+        name: 'accommodation-booking',
+        component: () => import('@/views/AccommodationBookingView.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'lodges/:id/book/events',
+        name: 'event-booking',
+        component: () => import('@/views/EventBookingView.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'lodges/:id/book/meals',
+        name: 'meal-booking',
+        component: () => import('@/views/MealBookingView.vue'),
+        meta: { requiresAuth: true },
+      },
       {
         path: 'lodges/:id/corporate',
         name: 'corporate-booking',
@@ -22,10 +40,10 @@ const routes = [
         component: () => import('@/views/IndividualBookingView.vue'),
         meta: { requiresAuth: true },
       },
-      { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
-      { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
-      { path: 'venues', name: 'venues', component: () => import('@/views/VenuesView.vue') },
-      { path: 'venues/:id', name: 'venue-detail', component: () => import('@/views/VenueDetailView.vue') },
+      { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue'), meta: { keepAlive: true } },
+      { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue'), meta: { keepAlive: true } },
+      { path: 'venues', name: 'venues', component: () => import('@/views/VenuesView.vue'), meta: { keepAlive: true } },
+      { path: 'venues/:id', name: 'venue-detail', component: () => import('@/views/VenueDetailView.vue'), meta: { keepAlive: true } },
       { path: 'explore', name: 'explore', component: () => import('@/views/ExploreView.vue') },
       {
         path: 'reserve/:roomId',

@@ -11,10 +11,10 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'confirm'])
 
-const selectedType = ref('individual')
+const selectedService = ref('accommodation')
 
 function close() { emit('update:modelValue', false) }
-function confirm() { emit('confirm', selectedType.value); close() }
+function confirm() { emit('confirm', selectedService.value); close() }
 </script>
 
 <template>
@@ -41,8 +41,8 @@ function confirm() { emit('confirm', selectedType.value); close() }
               @click="close">
               <span class="material-symbols-outlined text-xl">close</span>
             </button>
-            <h2 class="font-serif text-2xl text-(--color-on-surface) pr-10">Start Your Booking</h2>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1.5 leading-relaxed">
+            <h2 class="font-serif text-2xl text-(--color-on-surface) pr-10">What would you like to book?</h2>
+            <p v-if="context.name" class="font-sans text-sm text-(--color-on-surface-variant) mt-1.5 leading-relaxed">
               <span class="font-semibold text-(--color-on-surface)">{{ context.name }}</span>
               <template v-if="context.lodgeName"> &mdash; {{ context.lodgeName }}</template>
             </p>
@@ -50,42 +50,82 @@ function confirm() { emit('confirm', selectedType.value); close() }
 
           <!-- Options -->
           <div class="px-8 py-6 space-y-3">
-            <label v-for="opt in [
-              {
-                value: 'individual',
-                icon: 'person',
-                label: 'Individual Booking',
-                description: 'For personal travel, leisure stays, event attendance, and independent guests.',
-              },
-              {
-                value: 'corporate',
-                icon: 'corporate_fare',
-                label: 'Corporate Booking',
-                description: 'For companies, conference groups, training workshops, and organisational events.',
-              },
-            ]" :key="opt.value"
+
+            <!-- Accommodation (active) -->
+            <label
               class="flex items-start gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all select-none"
-              :class="selectedType === opt.value
+              :class="selectedService === 'accommodation'
                 ? 'border-(--color-primary) bg-(--color-savannah-mist)'
                 : 'border-(--color-outline-variant) hover:border-(--color-outline)'"
-              @click="selectedType = opt.value"
+              @click="selectedService = 'accommodation'"
             >
               <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors"
-                :class="selectedType === opt.value
+                :class="selectedService === 'accommodation'
                   ? 'bg-(--color-primary) text-white'
                   : 'bg-(--color-surface-container) text-(--color-on-surface-variant)'">
-                <span class="material-symbols-outlined text-xl">{{ opt.icon }}</span>
+                <span class="material-symbols-outlined text-xl">bed</span>
               </div>
               <div class="flex-1 min-w-0">
-                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ opt.label }}</p>
-                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-1 leading-relaxed">{{ opt.description }}</p>
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Accommodation</p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-1 leading-relaxed">Book rooms for individual stays, family trips, group accommodation, or corporate delegates.</p>
               </div>
               <span class="material-symbols-outlined text-lg shrink-0 mt-1 transition-colors"
-                :class="selectedType === opt.value ? 'text-(--color-primary)' : 'text-(--color-outline)'"
+                :class="selectedService === 'accommodation' ? 'text-(--color-primary)' : 'text-(--color-outline)'"
                 style="font-variation-settings: 'FILL' 1">
-                {{ selectedType === opt.value ? 'radio_button_checked' : 'radio_button_unchecked' }}
+                {{ selectedService === 'accommodation' ? 'radio_button_checked' : 'radio_button_unchecked' }}
               </span>
             </label>
+
+            <!-- Event Booking (active) -->
+            <label
+              class="flex items-start gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all select-none"
+              :class="selectedService === 'event'
+                ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                : 'border-(--color-outline-variant) hover:border-(--color-outline)'"
+              @click="selectedService = 'event'"
+            >
+              <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors"
+                :class="selectedService === 'event'
+                  ? 'bg-(--color-primary) text-white'
+                  : 'bg-(--color-surface-container) text-(--color-on-surface-variant)'">
+                <span class="material-symbols-outlined text-xl">event</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Event Booking</p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-1 leading-relaxed">Conferences, workshops, training sessions, meetings, and venue hire.</p>
+              </div>
+              <span class="material-symbols-outlined text-lg shrink-0 mt-1 transition-colors"
+                :class="selectedService === 'event' ? 'text-(--color-primary)' : 'text-(--color-outline)'"
+                style="font-variation-settings: 'FILL' 1">
+                {{ selectedService === 'event' ? 'radio_button_checked' : 'radio_button_unchecked' }}
+              </span>
+            </label>
+
+            <!-- Meal Booking (active) -->
+            <label
+              class="flex items-start gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all select-none"
+              :class="selectedService === 'meal'
+                ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                : 'border-(--color-outline-variant) hover:border-(--color-outline)'"
+              @click="selectedService = 'meal'"
+            >
+              <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors"
+                :class="selectedService === 'meal'
+                  ? 'bg-(--color-primary) text-white'
+                  : 'bg-(--color-surface-container) text-(--color-on-surface-variant)'">
+                <span class="material-symbols-outlined text-xl">restaurant</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Meal Booking</p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-1 leading-relaxed">Catering, group meals, banquets, and standalone dining reservations.</p>
+              </div>
+              <span class="material-symbols-outlined text-lg shrink-0 mt-1 transition-colors"
+                :class="selectedService === 'meal' ? 'text-(--color-primary)' : 'text-(--color-outline)'"
+                style="font-variation-settings: 'FILL' 1">
+                {{ selectedService === 'meal' ? 'radio_button_checked' : 'radio_button_unchecked' }}
+              </span>
+            </label>
+
           </div>
 
           <!-- Actions -->
