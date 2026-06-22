@@ -231,7 +231,10 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
       },
     }
 
-    const { data } = await api.post('/guest/bookings/event', payload)
+    const endpoint = bookingContext.value === 'corporate'
+      ? '/guest/bookings/corporate-event'
+      : '/guest/bookings/event'
+    const { data } = await api.post(endpoint, payload)
     return data
   }
 
