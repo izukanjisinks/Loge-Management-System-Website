@@ -30,7 +30,7 @@ export const useReservationsStore = defineStore('reservations', () => {
   async function fetchAll() {
     loading.value = true
     try {
-      const { data } = await api.get('/guest/bookings')
+      const { data } = await api.get('/web/bookings')
       const bookings = (Array.isArray(data) ? data : (data.data ?? [])).map(normalise)
 
       // Fetch room images in parallel — bookings list doesn't include them
@@ -56,7 +56,7 @@ export const useReservationsStore = defineStore('reservations', () => {
   }
 
   async function cancel(id) {
-    await api.patch(`/guest/bookings/${id}/cancel`)
+    await api.patch(`/web/bookings/${id}/cancel`)
     await fetchAll()
   }
 
