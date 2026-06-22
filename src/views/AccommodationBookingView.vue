@@ -28,6 +28,38 @@ const submitError = ref('')
 const attendantsExpanded = ref(false)
 const bookedByEditing    = ref(false)
 
+// ── Approval documents (corporate only) ───────────────────────────────────
+const approvalDocs  = ref([])   // [{ file: File, id: string }]
+const docDragOver   = ref(false)
+const ACCEPTED_TYPES = ['application/pdf', 'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg', 'image/png']
+const MAX_FILE_SIZE  = 10 * 1024 * 1024 // 10 MB
+
+function addDocFiles(files) {
+  for (const file of files) {
+    if (!ACCEPTED_TYPES.includes(file.type)) continue
+    if (file.size > MAX_FILE_SIZE) continue
+    if (approvalDocs.value.some(d => d.file.name === file.name && d.file.size === file.size)) continue
+    approvalDocs.value.push({ file, id: `${file.name}-${file.size}-${Date.now()}` })
+  }
+}
+
+function onDocInput(e) { addDocFiles(e.target.files); e.target.value = '' }
+function onDocDrop(e)  { docDragOver.value = false; addDocFiles(e.dataTransfer.files) }
+function removeDoc(id) { approvalDocs.value = approvalDocs.value.filter(d => d.id !== id) }
+
+function docIcon(type) {
+  if (type === 'application/pdf') return 'picture_as_pdf'
+  if (type.startsWith('image/')) return 'image'
+  return 'description'
+}
+function docSize(bytes) {
+  return bytes < 1024 * 1024
+    ? (bytes / 1024).toFixed(1) + ' KB'
+    : (bytes / 1024 / 1024).toFixed(1) + ' MB'
+}
+
 // ── Room availability ──────────────────────────────────────────────────────
 const availableRooms   = ref([])
 const roomsLoading     = ref(false)
@@ -124,6 +156,31 @@ function validate() {
     ab.attendants.forEach((a, i) => {
       if (!a.fullName) e[`att_${i}_name`] = 'Required'
     })
+  }
+
+  if (ab.isCorporate) {
+    if (!ab.tpin)         e.tpin         = 'Required'
+    if (!ab.industry)     e.industry     = 'Required'
+    if (!ab.companyEmail) e.companyEmail = 'Required'
+    else if (!/\S+@\S+\.\S+/.test(ab.companyEmail)) e.companyEmail = 'Enter a valid email'
+    if (!ab.companyPhone) e.companyPhone = 'Required'
+
+    if (!ab.approverName)  e.approverName  = 'Required'
+    if (!ab.approverTitle) e.approverTitle = 'Required'
+    if (!ab.approverEmail) e.approverEmail = 'Required'
+    else if (!/\S+@\S+\.\S+/.test(ab.approverEmail)) e.approverEmail = 'Enter a valid email'
+    if (!ab.approverPhone) e.approverPhone = 'Required'
+
+    if (ab.participantMode === 'headcount') {
+      if (!ab.participantCount || ab.participantCount < 1)
+        e.participantCount = 'Enter the number of delegates'
+    } else {
+      ab.attendants.forEach((a, i) => {
+        if (!a.fullName) e[`att_${i}_name`] = 'Required'
+      })
+      if (!ab.attendants.some(a => a.fullName))
+        e.delegateRecords = 'At least one delegate record must be completed'
+    }
   }
 
   errors.value = e
@@ -295,24 +352,56 @@ onMounted(async () => {
                 <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN</label>
-                <input v-model="ab.tpin" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.tpin" type="text" placeholder="e.g. 1234567890"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.tpin ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.tpin" class="font-sans text-xs text-(--color-error)">{{ errors.tpin }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry</label>
-                <input v-model="ab.industry" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry <span class="text-(--color-error)">*</span></label>
+                <select v-model="ab.industry"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm border-2 focus:outline-none transition-colors appearance-none"
+                  :class="errors.industry
+                    ? 'border-(--color-error) text-(--color-on-surface)'
+                    : 'border-transparent focus:border-(--color-primary) text-(--color-on-surface)'"
+                  :style="!ab.industry ? 'color: var(--color-on-surface-variant)' : ''">
+                  <option value="" disabled>Select industry…</option>
+                  <option value="Agriculture & Agribusiness">Agriculture & Agribusiness</option>
+                  <option value="Banking & Finance">Banking & Finance</option>
+                  <option value="Construction & Infrastructure">Construction & Infrastructure</option>
+                  <option value="Education & Training">Education & Training</option>
+                  <option value="Energy & Utilities">Energy & Utilities</option>
+                  <option value="Government & Public Sector">Government & Public Sector</option>
+                  <option value="Healthcare & Medical">Healthcare & Medical</option>
+                  <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="Legal & Professional Services">Legal & Professional Services</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                  <option value="Media & Communications">Media & Communications</option>
+                  <option value="Mining & Extractives">Mining & Extractives</option>
+                  <option value="NGO & Non-profit">NGO & Non-profit</option>
+                  <option value="Real Estate">Real Estate</option>
+                  <option value="Retail & Trade">Retail & Trade</option>
+                  <option value="Telecommunications">Telecommunications</option>
+                  <option value="Transportation & Logistics">Transportation & Logistics</option>
+                  <option value="Other">Other</option>
+                </select>
+                <span v-if="errors.industry" class="font-sans text-xs text-(--color-error)">{{ errors.industry }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Billing Email</label>
-                <input v-model="ab.companyEmail" type="email"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Billing Email <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.companyEmail" type="email" placeholder="e.g. accounts@company.com"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.companyEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.companyEmail" class="font-sans text-xs text-(--color-error)">{{ errors.companyEmail }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone</label>
-                <input v-model="ab.companyPhone" type="tel"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.companyPhone" type="tel" placeholder="e.g. +260 211 000000"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.companyPhone ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.companyPhone" class="font-sans text-xs text-(--color-error)">{{ errors.companyPhone }}</span>
               </div>
               <div class="flex flex-col gap-1">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
@@ -427,24 +516,32 @@ onMounted(async () => {
             </div>
             <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name</label>
-                <input v-model="ab.approverName" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.approverName" type="text" placeholder="e.g. John Banda"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverName" class="font-sans text-xs text-(--color-error)">{{ errors.approverName }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
-                <input v-model="ab.approverTitle" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.approverTitle" type="text" placeholder="e.g. Finance Manager"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverTitle ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverTitle" class="font-sans text-xs text-(--color-error)">{{ errors.approverTitle }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
-                <input v-model="ab.approverEmail" type="email"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.approverEmail" type="email" placeholder="e.g. approver@company.com"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverEmail" class="font-sans text-xs text-(--color-error)">{{ errors.approverEmail }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
-                <input v-model="ab.approverPhone" type="tel"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone <span class="text-(--color-error)">*</span></label>
+                <input v-model="ab.approverPhone" type="tel" placeholder="e.g. +260 97 0000000"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverPhone ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverPhone" class="font-sans text-xs text-(--color-error)">{{ errors.approverPhone }}</span>
               </div>
             </div>
           </section>
@@ -562,11 +659,6 @@ onMounted(async () => {
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                     </div>
-                    <div class="flex flex-col gap-1 sm:col-span-2">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
-                      <input v-model="att.dietaryNotes" type="text" placeholder="e.g. Vegetarian, halal, nut allergy"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                    </div>
                   </div>
                 </div>
               </div>
@@ -628,14 +720,22 @@ onMounted(async () => {
               </div>
 
               <!-- Headcount -->
-              <div v-if="ab.participantMode === 'headcount'" class="flex items-center gap-4">
-                <input type="number" min="1" v-model.number="ab.participantCount"
-                  class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
-                <p class="font-sans text-sm text-(--color-on-surface-variant)">Total number of delegates requiring accommodation</p>
+              <div v-if="ab.participantMode === 'headcount'">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  Number of Delegates <span class="text-(--color-error)">*</span>
+                </label>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="number" min="1" v-model.number="ab.participantCount"
+                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none text-center transition-colors"
+                    :class="errors.participantCount ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <p class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates requiring accommodation</p>
+                </div>
+                <span v-if="errors.participantCount" class="font-sans text-xs text-(--color-error) mt-1 block">{{ errors.participantCount }}</span>
               </div>
 
               <!-- Detailed -->
               <div v-else class="space-y-3">
+                <p v-if="errors.delegateRecords" class="font-sans text-sm text-(--color-error) font-semibold">{{ errors.delegateRecords }}</p>
                 <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each delegate. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in ab.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
@@ -676,11 +776,6 @@ onMounted(async () => {
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
                       <input v-model="att.company" type="text" placeholder="e.g. Senior Engineer"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                    </div>
-                    <div class="flex flex-col gap-1 sm:col-span-2">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
-                      <input v-model="att.dietaryNotes" type="text" placeholder="e.g. Vegetarian, halal, nut allergy"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                     </div>
                   </div>
@@ -932,6 +1027,70 @@ onMounted(async () => {
             </div>
           </section>
 
+                    <!-- ─── Approval Documents (corporate only) ─── -->
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-start gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary) mt-0.5">attach_file</span>
+              <div>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Supporting Documents</h2>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                  Attach any internal approval documents — LPOs, authorisation letters, budget approvals, or travel requests. Accepted: PDF, Word, JPG, PNG · Max 10 MB per file.
+                </p>
+              </div>
+            </div>
+
+            <div class="px-6 py-5 space-y-4">
+              <!-- Drop zone -->
+              <label
+                class="flex flex-col items-center justify-center gap-3 w-full rounded-xl border-2 border-dashed py-10 cursor-pointer transition-all"
+                :class="docDragOver
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) hover:border-(--color-primary) hover:bg-(--color-surface-container-low)'"
+                @dragover.prevent="docDragOver = true"
+                @dragleave.prevent="docDragOver = false"
+                @drop.prevent="onDocDrop">
+                <span class="material-symbols-outlined text-4xl"
+                  :class="docDragOver ? 'text-(--color-primary)' : 'text-(--color-outline)'"
+                  style="font-variation-settings: 'FILL' 1">upload_file</span>
+                <div class="text-center">
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Drop files here or <span class="text-(--color-primary)">browse</span></p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">PDF, Word, JPG or PNG up to 10 MB each</p>
+                </div>
+                <input type="file" class="hidden" multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  @change="onDocInput" />
+              </label>
+
+              <!-- Attached files list -->
+              <TransitionGroup
+                enter-active-class="transition duration-150"
+                enter-from-class="opacity-0 -translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+                tag="div" class="space-y-2">
+                <div v-for="doc in approvalDocs" :key="doc.id"
+                  class="flex items-center gap-3 px-4 py-3 bg-(--color-surface-container-low) rounded-xl">
+                  <span class="material-symbols-outlined text-xl text-(--color-primary) shrink-0"
+                    style="font-variation-settings: 'FILL' 1">{{ docIcon(doc.file.type) }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ doc.file.name }}</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ docSize(doc.file.size) }}</p>
+                  </div>
+                  <button type="button" @click="removeDoc(doc.id)"
+                    class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors shrink-0">
+                    <span class="material-symbols-outlined text-base">delete</span>
+                  </button>
+                </div>
+              </TransitionGroup>
+
+              <p v-if="approvalDocs.length" class="font-sans text-xs text-(--color-on-surface-variant) text-center">
+                {{ approvalDocs.length }} file{{ approvalDocs.length !== 1 ? 's' : '' }} attached
+              </p>
+            </div>
+          </section>
+
           <!-- ─── Notes ─── -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center gap-2 mb-4">
@@ -941,6 +1100,8 @@ onMounted(async () => {
             <textarea v-model="ab.notes" rows="3" placeholder="Special requests, accessibility needs, floor preferences, early check-in requirements…"
               class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
           </section>
+
+
 
           <!-- Continue -->
           <div class="flex flex-col items-end gap-3 pt-2">
@@ -1083,6 +1244,16 @@ onMounted(async () => {
             <div v-if="ab.notes" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
               <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Additional Requests</p>
               <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.notes }}</p>
+            </div>
+            <div v-if="ab.isCorporate && approvalDocs.length" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-2">Supporting Documents</p>
+              <div class="space-y-1.5">
+                <div v-for="doc in approvalDocs" :key="doc.id" class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)" style="font-variation-settings: 'FILL' 1">{{ docIcon(doc.file.type) }}</span>
+                  <span class="font-sans text-sm text-(--color-on-surface) truncate">{{ doc.file.name }}</span>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0">{{ docSize(doc.file.size) }}</span>
+                </div>
+              </div>
             </div>
           </section>
 

@@ -87,9 +87,11 @@ const router = createRouter({
   routes,
 })
 
-router.afterEach(() => {
-  const main = document.querySelector('main')
-  if (main) main.scrollTop = 0
+router.afterEach((to, from) => {
+  if (to.path !== from.path) {
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = 0
+  }
 })
 
 router.beforeEach((to) => {

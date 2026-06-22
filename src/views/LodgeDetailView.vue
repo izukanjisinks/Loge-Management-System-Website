@@ -398,11 +398,14 @@ function bookRoom(room) {
     </div>
 
     <!-- ── Step 3: Tab content ────────────────────────────────────────────── -->
-    <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8">
+    <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 min-h-[70vh]">
       <Transition
-        enter-active-class="transition duration-200"
-        enter-from-class="opacity-0 translate-y-1"
-        enter-to-class="opacity-100 translate-y-0"
+        enter-active-class="transition-opacity duration-150"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-100"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
         mode="out-in">
 
         <!-- ════════════ ACCOMMODATION ════════════ -->

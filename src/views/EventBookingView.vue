@@ -27,6 +27,39 @@ const submitError = ref('')
 
 // ── UI state ───────────────────────────────────────────────────────────────
 const attendantsExpanded = ref(false)
+const bookedByEditing    = ref(false)
+
+// ── Approval documents (corporate only) ───────────────────────────────────
+const approvalDocs   = ref([])
+const docDragOver    = ref(false)
+const ACCEPTED_TYPES = ['application/pdf', 'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg', 'image/png']
+const MAX_FILE_SIZE  = 10 * 1024 * 1024
+
+function addDocFiles(files) {
+  for (const file of files) {
+    if (!ACCEPTED_TYPES.includes(file.type)) continue
+    if (file.size > MAX_FILE_SIZE) continue
+    if (approvalDocs.value.some(d => d.file.name === file.name && d.file.size === file.size)) continue
+    approvalDocs.value.push({ file, id: `${file.name}-${file.size}-${Date.now()}` })
+  }
+}
+
+function onDocInput(e) { addDocFiles(e.target.files); e.target.value = '' }
+function onDocDrop(e)  { docDragOver.value = false; addDocFiles(e.dataTransfer.files) }
+function removeDoc(id) { approvalDocs.value = approvalDocs.value.filter(d => d.id !== id) }
+
+function docIcon(type) {
+  if (type === 'application/pdf') return 'picture_as_pdf'
+  if (type.startsWith('image/')) return 'image'
+  return 'description'
+}
+function docSize(bytes) {
+  return bytes < 1024 * 1024
+    ? (bytes / 1024).toFixed(1) + ' KB'
+    : (bytes / 1024 / 1024).toFixed(1) + ' MB'
+}
 
 // ── Venue availability ─────────────────────────────────────────────────────
 const availableVenues  = ref([])
@@ -146,7 +179,34 @@ function validate() {
   if (!eb.startDate) e.startDate = 'Required'
   if (!eb.endDate)   e.endDate   = 'Required'
 
-  if (eb.isCorporate && !eb.companyName) e.companyName = 'Required'
+  if (eb.isCorporate) {
+    if (!eb.companyName)  e.companyName  = 'Required'
+    if (!eb.tpin)         e.tpin         = 'Required'
+    if (!eb.industry)     e.industry     = 'Required'
+    if (!eb.companyEmail) e.companyEmail = 'Required'
+    else if (!/\S+@\S+\.\S+/.test(eb.companyEmail)) e.companyEmail = 'Enter a valid email'
+    if (!eb.companyPhone) e.companyPhone = 'Required'
+
+    if (!eb.approverName)  e.approverName  = 'Required'
+    if (!eb.approverTitle) e.approverTitle = 'Required'
+    if (!eb.approverEmail) e.approverEmail = 'Required'
+    else if (!/\S+@\S+\.\S+/.test(eb.approverEmail)) e.approverEmail = 'Enter a valid email'
+    if (!eb.approverPhone) e.approverPhone = 'Required'
+  }
+
+  if (eb.participantMode === 'detailed') {
+    eb.attendants.forEach((a, i) => {
+      if (i === 0) {
+        if (!a.fullName)  e[`att_${i}_name`]  = 'Required'
+        if (!a.email)     e[`att_${i}_email`]  = 'Required'
+        else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
+        if (!a.phone)     e[`att_${i}_phone`]  = 'Required'
+        if (!a.idNumber)  e[`att_${i}_id`]     = 'Required'
+      } else {
+        if (!a.fullName)  e[`att_${i}_name`]   = 'Required'
+      }
+    })
+  }
 
   eb.masterSessions.forEach((s, i) => {
     if (!s.startTime) e[`ms_${i}_start`] = 'Required'
@@ -167,6 +227,7 @@ function validate() {
 
 function goToReview() {
   if (!validate()) {
+    if (Object.keys(errors.value).some(k => k.startsWith('att_'))) attendantsExpanded.value = true
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
@@ -324,20 +385,56 @@ onMounted(async () => {
                 <span v-if="errors.companyName" class="font-sans text-xs text-(--color-error)">{{ errors.companyName }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN / Reg No.</label>
-                <input v-model="eb.tpin" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.tpin" type="text" placeholder="e.g. 1234567890"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.tpin ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.tpin" class="font-sans text-xs text-(--color-error)">{{ errors.tpin }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry</label>
-                <input v-model="eb.industry" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Industry <span class="text-(--color-error)">*</span></label>
+                <select v-model="eb.industry"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm border-2 focus:outline-none transition-colors appearance-none"
+                  :class="errors.industry
+                    ? 'border-(--color-error) text-(--color-on-surface)'
+                    : 'border-transparent focus:border-(--color-primary) text-(--color-on-surface)'"
+                  :style="!eb.industry ? 'color: var(--color-on-surface-variant)' : ''">
+                  <option value="" disabled>Select industry…</option>
+                  <option value="Agriculture & Agribusiness">Agriculture & Agribusiness</option>
+                  <option value="Banking & Finance">Banking & Finance</option>
+                  <option value="Construction & Infrastructure">Construction & Infrastructure</option>
+                  <option value="Education & Training">Education & Training</option>
+                  <option value="Energy & Utilities">Energy & Utilities</option>
+                  <option value="Government & Public Sector">Government & Public Sector</option>
+                  <option value="Healthcare & Medical">Healthcare & Medical</option>
+                  <option value="Hospitality & Tourism">Hospitality & Tourism</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="Legal & Professional Services">Legal & Professional Services</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                  <option value="Media & Communications">Media & Communications</option>
+                  <option value="Mining & Extractives">Mining & Extractives</option>
+                  <option value="NGO & Non-profit">NGO & Non-profit</option>
+                  <option value="Real Estate">Real Estate</option>
+                  <option value="Retail & Trade">Retail & Trade</option>
+                  <option value="Telecommunications">Telecommunications</option>
+                  <option value="Transportation & Logistics">Transportation & Logistics</option>
+                  <option value="Other">Other</option>
+                </select>
+                <span v-if="errors.industry" class="font-sans text-xs text-(--color-error)">{{ errors.industry }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Billing Email</label>
-                <input v-model="eb.companyEmail" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Billing Email <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.companyEmail" type="email" placeholder="e.g. accounts@company.com"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.companyEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.companyEmail" class="font-sans text-xs text-(--color-error)">{{ errors.companyEmail }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone</label>
-                <input v-model="eb.companyPhone" type="tel" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Company Phone <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.companyPhone" type="tel" placeholder="e.g. +260 211 000000"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.companyPhone ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.companyPhone" class="font-sans text-xs text-(--color-error)">{{ errors.companyPhone }}</span>
               </div>
               <div class="flex flex-col gap-1">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
@@ -354,6 +451,84 @@ onMounted(async () => {
             </div>
           </section>
 
+                    <!-- ─── Booked By ─── -->
+          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-center gap-4 px-6 py-5">
+              <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">account_circle</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
+                  <button type="button"
+                    class="font-sans text-xs font-semibold text-(--color-primary) hover:underline shrink-0"
+                    @click="bookedByEditing = !bookedByEditing">
+                    {{ bookedByEditing ? 'Done' : 'Edit' }}
+                  </button>
+                </div>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                  {{ eb.isCorporate ? 'Company representative submitting this booking.' : 'Auto-filled from your account — you are the booking contact.' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Read-only -->
+            <div v-if="!bookedByEditing" class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-(--color-outline-variant) pt-4">
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Full Name</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.name || '—' }}</p>
+                <p v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error) mt-0.5">{{ errors.bookedByName }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Email</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.email || '—' }}</p>
+                <p v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error) mt-0.5">{{ errors.bookedByEmail }}</p>
+              </div>
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Phone</p>
+                <p class="font-sans text-sm" :class="eb.bookedBy.phone ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ eb.bookedBy.phone || 'Not provided' }}
+                </p>
+              </div>
+              <div v-if="eb.isCorporate">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Job Title</p>
+                <p class="font-sans text-sm" :class="eb.bookedBy.jobTitle ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ eb.bookedBy.jobTitle || 'Not provided' }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Editable -->
+            <div v-else class="px-6 pb-6 border-t border-(--color-outline-variant) pt-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                  <input v-model="eb.bookedBy.name" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByName }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span class="text-(--color-error)">*</span></label>
+                  <input v-model="eb.bookedBy.email" type="email"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByEmail }}</span>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                  <input v-model="eb.bookedBy.phone" type="tel"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div v-if="eb.isCorporate" class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                  <input v-model="eb.bookedBy.jobTitle" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- ─── Corporate: Approver ─── -->
           <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
@@ -365,60 +540,37 @@ onMounted(async () => {
             </div>
             <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name</label>
-                <input v-model="eb.approverName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.approverName" type="text" placeholder="e.g. John Banda"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverName" class="font-sans text-xs text-(--color-error)">{{ errors.approverName }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
-                <input v-model="eb.approverTitle" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.approverTitle" type="text" placeholder="e.g. Finance Manager"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverTitle ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverTitle" class="font-sans text-xs text-(--color-error)">{{ errors.approverTitle }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
-                <input v-model="eb.approverEmail" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.approverEmail" type="email" placeholder="e.g. approver@company.com"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverEmail" class="font-sans text-xs text-(--color-error)">{{ errors.approverEmail }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
-                <input v-model="eb.approverPhone" type="tel" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone <span class="text-(--color-error)">*</span></label>
+                <input v-model="eb.approverPhone" type="tel" placeholder="e.g. +260 97 0000000"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.approverPhone ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.approverPhone" class="font-sans text-xs text-(--color-error)">{{ errors.approverPhone }}</span>
               </div>
             </div>
           </section>
 
-          <!-- ─── Booked By ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
-            <div class="flex items-center gap-4 px-6 py-5 border-b border-(--color-outline-variant)">
-              <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">account_circle</span>
-              </div>
-              <div>
-                <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
-                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Primary contact for this booking</p>
-              </div>
-            </div>
-            <div class="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name <span class="text-(--color-error)">*</span></label>
-                <input v-model="eb.bookedBy.name" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                  :class="errors.bookedByName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.bookedByName" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByName }}</span>
-              </div>
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email <span class="text-(--color-error)">*</span></label>
-                <input v-model="eb.bookedBy.email" type="email"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
-                  :class="errors.bookedByEmail ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                <span v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByEmail }}</span>
-              </div>
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
-                <input v-model="eb.bookedBy.phone" type="tel" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-              </div>
-              <div v-if="eb.isCorporate" class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
-                <input v-model="eb.bookedBy.jobTitle" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-              </div>
-            </div>
-          </section>
+
 
           <!-- ─── Individual: Attendees ─── -->
           <section v-if="!eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
@@ -480,6 +632,7 @@ onMounted(async () => {
                       <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
                         :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
                       <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
+                      <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Guest ${i + 1}` }}</span>
                     </div>
                     <button type="button" :disabled="eb.attendants.length === 1"
                       class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
@@ -487,14 +640,42 @@ onMounted(async () => {
                       <span class="material-symbols-outlined text-base">delete</span>
                     </button>
                   </div>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Full Name</label>
-                      <input v-model="att.fullName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Full Name <span class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.fullName" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
-                      <input v-model="att.email" type="email" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Email <span v-if="i === 0" class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.email" type="email"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Phone <span v-if="i === 0" class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.phone" type="tel"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Passport / ID <span v-if="i === 0" class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.idNumber" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_id`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_id`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_id`] }}</span>
                     </div>
                   </div>
                 </div>
@@ -507,15 +688,127 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Corporate: Delegates ─── -->
-          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
-            <div class="flex items-center gap-2 mb-4">
-              <span class="material-symbols-outlined text-(--color-primary)">groups</span>
-              <h2 class="font-serif text-xl text-(--color-on-surface)">Expected Delegates</h2>
+          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-stretch">
+              <div class="flex items-center gap-3 flex-1 px-6 py-5">
+                <span class="material-symbols-outlined text-(--color-primary) shrink-0">groups</span>
+                <div class="min-w-0 flex-1">
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Delegates</h2>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                    {{ eb.participantMode === 'headcount'
+                      ? eb.participantCount + ' delegate' + (eb.participantCount !== 1 ? 's' : '') + ' — headcount only'
+                      : eb.attendants.length + ' delegate' + (eb.attendants.length !== 1 ? 's' : '') + ' registered' }}
+                  </p>
+                </div>
+              </div>
+              <div v-if="eb.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
+                <button type="button"
+                  class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0"
+                  @click="eb.addAttendant()">
+                  <span class="material-symbols-outlined text-base">person_add</span> Add Delegate
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-4">
-              <input type="number" min="1" v-model.number="eb.participantCount"
-                class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
-              <p class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates attending across all sessions</p>
+
+            <div class="px-6 pb-6 border-t border-(--color-outline-variant)">
+              <!-- Mode toggle -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
+                <button type="button" @click="eb.participantMode = 'headcount'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="eb.participantMode === 'headcount'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="eb.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">groups</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Total delegate count — no individual details needed</p>
+                  </div>
+                </button>
+                <button type="button" @click="eb.participantMode = 'detailed'"
+                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
+                  :class="eb.participantMode === 'detailed'
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
+                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
+                    :class="eb.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
+                  <div>
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Register each delegate with their details</p>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Headcount -->
+              <div v-if="eb.participantMode === 'headcount'" class="flex items-center gap-4">
+                <input type="number" min="1" v-model.number="eb.participantCount"
+                  class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
+                <p class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates attending across all sessions</p>
+              </div>
+
+              <!-- Detailed -->
+              <div v-else class="space-y-3">
+                <p v-if="errors.delegateRecords" class="font-sans text-sm text-(--color-error) font-semibold">{{ errors.delegateRecords }}</p>
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each delegate. The lead contact receives all booking communications.</p>
+                <div v-for="(att, i) in eb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center w-7 h-7 rounded-full font-sans text-xs font-bold shrink-0"
+                        :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                      <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
+                      <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Delegate ${i + 1}` }}</span>
+                    </div>
+                    <button type="button" :disabled="eb.attendants.length === 1"
+                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                      @click="eb.removeAttendant(i)">
+                      <span class="material-symbols-outlined text-base">delete</span>
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Full Name <span class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.fullName" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Email <span v-if="i === 0" class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.email" type="email"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Phone <span v-if="i === 0" class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.phone" type="tel"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        ID / Passport <span v-if="i === 0" class="text-(--color-error)">*</span>
+                      </label>
+                      <input v-model="att.idNumber" type="text"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_id`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_id`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_id`] }}</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                      <input v-model="att.company" type="text" placeholder="e.g. Finance Analyst"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -965,6 +1258,65 @@ onMounted(async () => {
             </div>
           </section>
 
+          <!-- ─── Approval Documents (corporate only) ─── -->
+          <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+            <div class="flex items-start gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
+              <span class="material-symbols-outlined text-(--color-primary) mt-0.5">attach_file</span>
+              <div>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">Supporting Documents</h2>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                  Attach any internal approval documents — LPOs, authorisation letters, budget approvals, or travel requests. Accepted: PDF, Word, JPG, PNG · Max 10 MB per file.
+                </p>
+              </div>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+              <label
+                class="flex flex-col items-center justify-center gap-3 w-full rounded-xl border-2 border-dashed py-10 cursor-pointer transition-all"
+                :class="docDragOver
+                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                  : 'border-(--color-outline-variant) hover:border-(--color-primary) hover:bg-(--color-surface-container-low)'"
+                @dragover.prevent="docDragOver = true"
+                @dragleave.prevent="docDragOver = false"
+                @drop.prevent="onDocDrop">
+                <span class="material-symbols-outlined text-4xl"
+                  :class="docDragOver ? 'text-(--color-primary)' : 'text-(--color-outline)'"
+                  style="font-variation-settings: 'FILL' 1">upload_file</span>
+                <div class="text-center">
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Drop files here or <span class="text-(--color-primary)">browse</span></p>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">PDF, Word, JPG or PNG up to 10 MB each</p>
+                </div>
+                <input type="file" class="hidden" multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  @change="onDocInput" />
+              </label>
+              <TransitionGroup
+                enter-active-class="transition duration-150"
+                enter-from-class="opacity-0 -translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+                tag="div" class="space-y-2">
+                <div v-for="doc in approvalDocs" :key="doc.id"
+                  class="flex items-center gap-3 px-4 py-3 bg-(--color-surface-container-low) rounded-xl">
+                  <span class="material-symbols-outlined text-xl text-(--color-primary) shrink-0"
+                    style="font-variation-settings: 'FILL' 1">{{ docIcon(doc.file.type) }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ doc.file.name }}</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ docSize(doc.file.size) }}</p>
+                  </div>
+                  <button type="button" @click="removeDoc(doc.id)"
+                    class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors shrink-0">
+                    <span class="material-symbols-outlined text-base">delete</span>
+                  </button>
+                </div>
+              </TransitionGroup>
+              <p v-if="approvalDocs.length" class="font-sans text-xs text-(--color-on-surface-variant) text-center">
+                {{ approvalDocs.length }} file{{ approvalDocs.length !== 1 ? 's' : '' }} attached
+              </p>
+            </div>
+          </section>
+
           <!-- ─── Notes ─── -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
             <div class="flex items-center gap-2 mb-4">
@@ -1088,6 +1440,16 @@ onMounted(async () => {
             <div v-if="eb.notes" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
               <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Additional Requests</p>
               <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.notes }}</p>
+            </div>
+            <div v-if="eb.isCorporate && approvalDocs.length" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-2">Supporting Documents</p>
+              <div class="space-y-1.5">
+                <div v-for="doc in approvalDocs" :key="doc.id" class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)" style="font-variation-settings: 'FILL' 1">{{ docIcon(doc.file.type) }}</span>
+                  <span class="font-sans text-sm text-(--color-on-surface) truncate">{{ doc.file.name }}</span>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0">{{ docSize(doc.file.size) }}</span>
+                </div>
+              </div>
             </div>
           </section>
 

@@ -15,6 +15,7 @@ function blankMeal() {
     paxCount:          10,
     dietaryNotes:      '',
     arrangementsNotes: '',
+    individualOrders:  [],
   }
 }
 
@@ -131,7 +132,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
   // ── Submit ───────────────────────────────────────────────────────────────────
 
   async function submit() {
-    const useHeadcount = isCorporate.value || participantMode.value === 'headcount'
+    const useHeadcount = participantMode.value === 'headcount'
 
     const mealObj = {
       mealMode:      'standalone',
@@ -149,7 +150,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
       currency:        'ZMW',
       booking_context: bookingContext.value,
 
-      participant_mode:  isCorporate.value ? 'headcount' : participantMode.value,
+      participant_mode:  participantMode.value,
       participant_count: useHeadcount ? participantCount.value : null,
 
       booked_by: {
@@ -215,6 +216,14 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
           pax_count:          m.paxCount          || null,
           dietary_notes:      m.dietaryNotes      || null,
           arrangements_notes: m.arrangementsNotes || null,
+          individual_orders:  participantMode.value === 'detailed' && (m.individualOrders ?? []).filter(o => o.menuItemId).length
+            ? (m.individualOrders ?? []).filter(o => o.menuItemId).map(o => ({
+                attendant_idx: o.attendantIdx,
+                menu_item_id:  o.menuItemId,
+                quantity:      o.quantity,
+                notes:         o.notes || undefined,
+              }))
+            : undefined,
         })),
       },
     }
