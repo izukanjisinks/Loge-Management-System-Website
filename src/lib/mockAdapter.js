@@ -131,7 +131,7 @@ export function mockAdapter(config) {
     if (params.branch_id)     venues = venues.filter(v => v.branch_id     === params.branch_id)
     if (params.type)          venues = venues.filter(v => v.type          === params.type)
     if (params.location_type) venues = venues.filter(v => v.location_type === params.location_type)
-    if (params.min_capacity)  venues = venues.filter(v => v.max_capacity  >= Number(params.min_capacity))
+    if (params.min_capacity)  venues = venues.filter(v => v.capacity  >= Number(params.min_capacity))
     return ok(venues)
   }
 

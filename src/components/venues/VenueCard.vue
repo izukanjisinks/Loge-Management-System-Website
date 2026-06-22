@@ -10,7 +10,7 @@ const props = defineProps({
 const router = useRouter()
 
 function goToDetail() {
-  router.push({ name: 'venue-detail', params: { id: props.venue.id } })
+  router.push({ name: 'venue-detail', params: { id: props.venue.id }, query: { org_id: props.venue.org_id } })
 }
 
 const locationIcon = computed(() => {
@@ -84,7 +84,7 @@ function amenityIcon(label) {
       <!-- Capacity — top right -->
       <span class="absolute top-3 right-3 flex items-center gap-1 bg-white/90 text-(--color-on-surface) px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
         <span class="material-symbols-outlined text-sm text-(--color-primary)">group</span>
-        up to {{ venue.max_capacity }}
+        up to {{ venue.capacity }}
       </span>
 
       <!-- Venue type — bottom left -->
@@ -104,7 +104,7 @@ function amenityIcon(label) {
       <!-- Capacity line — mirrors "Sleeps X" on room cards -->
       <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
         <span class="material-symbols-outlined text-sm text-(--color-primary)">groups</span>
-        Up to {{ venue.max_capacity }} guests
+        Up to {{ venue.capacity }} guests
       </p>
 
       <!-- Description -->

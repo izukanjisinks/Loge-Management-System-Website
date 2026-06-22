@@ -57,7 +57,7 @@ onMounted(() => fetchVenues())
 const filtered = computed(() => {
   let result = venues.value
   if (filterMinCapacity.value > 1) {
-    result = result.filter(v => v.max_capacity >= filterMinCapacity.value)
+    result = result.filter(v => v.capacity >= filterMinCapacity.value)
   }
   if (filterEventType.value !== 'All Events') {
     result = result.filter(v =>

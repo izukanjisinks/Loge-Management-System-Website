@@ -97,7 +97,7 @@ function toggleVenuePicker(key) {
 function selectVenueForSession(session, venue) {
   session.venueId       = venue.id
   session.venueName     = venue.name
-  session.venueCapacity = venue.max_capacity ?? null
+  session.venueCapacity = venue.capacity ?? null
   expandedVenueKey.value = null
 }
 
@@ -1064,7 +1064,7 @@ onMounted(async () => {
                                   </div>
                                   <div class="flex items-center gap-3 flex-wrap">
                                     <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
-                                      <span class="material-symbols-outlined text-sm">group</span>Cap. {{ venue.max_capacity }}
+                                      <span class="material-symbols-outlined text-sm">group</span>Cap. {{ venue.capacity }}
                                     </span>
                                     <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ (venue.type ?? '').replace(/_/g, ' ') }}</span>
                                   </div>
@@ -1257,7 +1257,7 @@ onMounted(async () => {
                                       @click="selectVenueForSession(s, venue)">
                                       <div class="p-3">
                                         <p class="font-sans text-sm font-semibold text-(--color-on-surface) leading-tight">{{ venue.name }}</p>
-                                        <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Cap. {{ venue.max_capacity }}</p>
+                                        <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Cap. {{ venue.capacity }}</p>
                                       </div>
                                     </button>
                                   </div>
