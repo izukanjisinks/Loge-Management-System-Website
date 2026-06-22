@@ -219,6 +219,38 @@ function validate() {
     })
   })
 
+  if (eb.participantMode === 'detailed' && eb.attendants.length > 1) {
+    const emailsSeen = new Map()
+    const phonesSeen = new Map()
+    const idsSeen    = new Map()
+    eb.attendants.forEach((a, i) => {
+      if (a.email && !e[`att_${i}_email`]) {
+        const k = a.email.toLowerCase().trim()
+        if (emailsSeen.has(k)) {
+          const j = emailsSeen.get(k)
+          if (!e[`att_${j}_email`]) e[`att_${j}_email`] = `Duplicate — same as attendant ${i + 1}`
+          e[`att_${i}_email`] = `Duplicate — same as attendant ${j + 1}`
+        } else emailsSeen.set(k, i)
+      }
+      if (a.phone && !e[`att_${i}_phone`]) {
+        const k = a.phone.replace(/\s+/g, '')
+        if (phonesSeen.has(k)) {
+          const j = phonesSeen.get(k)
+          if (!e[`att_${j}_phone`]) e[`att_${j}_phone`] = `Duplicate — same as attendant ${i + 1}`
+          e[`att_${i}_phone`] = `Duplicate — same as attendant ${j + 1}`
+        } else phonesSeen.set(k, i)
+      }
+      if (a.idNumber && !e[`att_${i}_id`]) {
+        const k = a.idNumber.trim()
+        if (idsSeen.has(k)) {
+          const j = idsSeen.get(k)
+          if (!e[`att_${j}_id`]) e[`att_${j}_id`] = `Duplicate — same as attendant ${i + 1}`
+          e[`att_${i}_id`] = `Duplicate — same as attendant ${j + 1}`
+        } else idsSeen.set(k, i)
+      }
+    })
+  }
+
   errors.value = e
   return Object.keys(e).length === 0
 }
