@@ -10,7 +10,7 @@ const route = useRoute()
 <template>
   <div class="h-dvh flex flex-col overflow-hidden bg-(--color-background)">
     <AppNavbar />
-    <main class="flex-1 min-h-0 overflow-y-auto">
+    <main class="flex-1 min-h-0" :class="route.name === 'home' ? 'overflow-hidden' : 'overflow-y-auto'">
       <RouterView v-slot="{ Component }">
         <keep-alive>
           <component v-if="route.meta.keepAlive" :is="Component" :key="route.path" />

@@ -82,11 +82,17 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
 
   function removeAttendant(i) {
     if (attendants.value.length > 1) {
+      const wasLead = attendants.value[i]?.isLead
       attendants.value.splice(i, 1)
       attendantRooms.value = attendantRooms.value
         .filter(r => r.attendantIdx !== i)
         .map(r => r.attendantIdx > i ? { ...r, attendantIdx: r.attendantIdx - 1 } : r)
+      if (wasLead) attendants.value[0].isLead = true
     }
+  }
+
+  function setLead(i) {
+    attendants.value.forEach((a, idx) => { a.isLead = idx === i })
   }
 
   // ── Room assignment management ───────────────────────────────────────────────
@@ -231,7 +237,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
     checkIn, checkOut, notes,
     attendantRooms, roomCount, roomTypePreference,
     setLodge, fillFromAuth,
-    addAttendant, removeAttendant,
+    addAttendant, removeAttendant, setLead,
     setAttendantRoom, clearAttendantRoom, getAttendantRoom, clearAllRooms,
     submit, reset,
   }

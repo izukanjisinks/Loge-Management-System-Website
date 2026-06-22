@@ -155,6 +155,12 @@ function validate() {
   if (!ab.isCorporate && ab.participantMode === 'detailed') {
     ab.attendants.forEach((a, i) => {
       if (!a.fullName) e[`att_${i}_name`] = 'Required'
+      if (a.isLead) {
+        if (!a.email)    e[`att_${i}_email`] = 'Required'
+        else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
+        if (!a.phone)    e[`att_${i}_phone`] = 'Required'
+        if (!a.idNumber) e[`att_${i}_id`]    = 'Required'
+      }
     })
   }
 
@@ -177,6 +183,12 @@ function validate() {
     } else {
       ab.attendants.forEach((a, i) => {
         if (!a.fullName) e[`att_${i}_name`] = 'Required'
+        if (a.isLead) {
+          if (!a.email)    e[`att_${i}_email`] = 'Required'
+          else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
+          if (!a.phone)    e[`att_${i}_phone`] = 'Required'
+          if (!a.idNumber) e[`att_${i}_id`]    = 'Required'
+        }
       })
       if (!ab.attendants.some(a => a.fullName))
         e.delegateRecords = 'At least one delegate record must be completed'
@@ -631,11 +643,19 @@ onMounted(async () => {
                       <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
                       <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Guest ${i + 1}` }}</span>
                     </div>
-                    <button type="button" :disabled="ab.attendants.length === 1"
-                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
-                      @click="ab.removeAttendant(i)">
-                      <span class="material-symbols-outlined text-base">delete</span>
-                    </button>
+                    <div class="flex items-center gap-1">
+                      <button v-if="!att.isLead" type="button"
+                        class="h-8 px-2 flex items-center gap-1 rounded-lg font-sans text-xs font-semibold text-(--color-on-surface-variant) hover:text-(--color-primary) hover:bg-(--color-savannah-mist) transition-colors"
+                        @click="ab.setLead(i)">
+                        <span class="material-symbols-outlined text-base">star</span>
+                        Make Lead
+                      </button>
+                      <button type="button" :disabled="ab.attendants.length === 1"
+                        class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                        @click="ab.removeAttendant(i)">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    </div>
                   </div>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div class="flex flex-col gap-1">
@@ -643,21 +663,34 @@ onMounted(async () => {
                       <input v-model="att.fullName" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                         :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Email <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                      </label>
                       <input v-model="att.email" type="email"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Phone <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                      </label>
                       <input v-model="att.phone" type="tel"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Passport / ID</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                      </label>
                       <input v-model="att.idNumber" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_id`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_id`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_id`] }}</span>
                     </div>
                   </div>
                 </div>
@@ -745,11 +778,19 @@ onMounted(async () => {
                       <span v-if="att.isLead" class="font-sans text-xs font-semibold text-(--color-primary)">Lead Contact</span>
                       <span v-else class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ att.fullName || `Delegate ${i + 1}` }}</span>
                     </div>
-                    <button type="button" :disabled="ab.attendants.length === 1"
-                      class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
-                      @click="ab.removeAttendant(i)">
-                      <span class="material-symbols-outlined text-base">delete</span>
-                    </button>
+                    <div class="flex items-center gap-1">
+                      <button v-if="!att.isLead" type="button"
+                        class="h-8 px-2 flex items-center gap-1 rounded-lg font-sans text-xs font-semibold text-(--color-on-surface-variant) hover:text-(--color-primary) hover:bg-(--color-savannah-mist) transition-colors"
+                        @click="ab.setLead(i)">
+                        <span class="material-symbols-outlined text-base">star</span>
+                        Make Lead
+                      </button>
+                      <button type="button" :disabled="ab.attendants.length === 1"
+                        class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
+                        @click="ab.removeAttendant(i)">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                      </button>
+                    </div>
                   </div>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div class="flex flex-col gap-1">
@@ -757,21 +798,34 @@ onMounted(async () => {
                       <input v-model="att.fullName" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                         :class="errors[`att_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_name`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Email</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Email <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                      </label>
                       <input v-model="att.email" type="email"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_email`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_email`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_email`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        Phone <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                      </label>
                       <input v-model="att.phone" type="tel"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_phone`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_phone`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_phone`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
-                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">ID / Passport</label>
+                      <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                        ID / Passport <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                      </label>
                       <input v-model="att.idNumber" type="text"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors[`att_${i}_id`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors[`att_${i}_id`]" class="font-sans text-xs text-(--color-error)">{{ errors[`att_${i}_id`] }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
@@ -1108,7 +1162,7 @@ onMounted(async () => {
             <Transition enter-active-class="transition duration-150" enter-from-class="opacity-0 -translate-y-1" enter-to-class="opacity-100 translate-y-0">
               <div v-if="errors.roomSelection"
                 class="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-(--color-error-container) text-(--color-on-error-container)">
-                <span class="material-symbols-outlined text-base shrink-0">bed_time</span>
+                <span class="material-symbols-outlined text-base shrink-0">bed</span>
                 <p class="font-sans text-sm">{{ errors.roomSelection }}</p>
               </div>
             </Transition>

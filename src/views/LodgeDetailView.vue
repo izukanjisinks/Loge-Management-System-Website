@@ -545,7 +545,7 @@ function bookRoom(room) {
                   <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
                   <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
                     class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-                    {{ room.is_available ? 'Available' : 'Unavailable' }}
+                    {{ room.is_available ? 'In Service' : 'Out of Service' }}
                   </span>
                   <span class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
                     {{ room.type }}
@@ -582,10 +582,10 @@ function bookRoom(room) {
                       View Details
                     </button>
                     <button
-                      :disabled="!room.is_available"
+                      :disabled="!searched || !room.is_available"
                       class="flex-1 py-2.5 rounded-full font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       @click.stop="bookRoom(room)">
-                      {{ room.is_available ? 'Reserve' : 'Full' }}
+                      {{ room.is_available ? 'Reserve' : 'Unavailable' }}
                     </button>
                   </div>
                 </div>
@@ -752,16 +752,31 @@ function bookRoom(room) {
 
           <!-- Empty venues -->
           <div v-else-if="!venuesLoading"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event</span>
-            <p class="font-serif text-xl text-(--color-on-surface)">No venues listed</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no event spaces configured yet.</p>
-            <RouterLink
-              :to="{ name: 'event-booking', params: { id: lodgeId }, query: branchQuery() }"
-              class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
-              Book an Event Anyway
-              <span class="material-symbols-outlined text-base">arrow_forward</span>
-            </RouterLink>
+            class="py-20 flex flex-col items-center text-center px-6">
+            <div class="w-20 h-20 rounded-full bg-(--color-surface-container-low) flex items-center justify-center mb-6">
+              <span class="material-symbols-outlined text-4xl text-(--color-outline)"
+                style="font-variation-settings: 'FILL' 0">event_busy</span>
+            </div>
+            <h3 class="font-serif text-2xl text-(--color-on-surface) mb-3">No event spaces listed</h3>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed max-w-md mb-2">
+              {{ selectedBranchObj ? selectedBranchObj.name : lodge.name }} hasn't published any venue listings yet.
+            </p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed max-w-md mb-8">
+              You can still submit an event booking enquiry and the property team will get back to you with available options.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3">
+              <RouterLink
+                :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
+                <span class="material-symbols-outlined text-base">send</span>
+                Submit an Enquiry
+              </RouterLink>
+              <a v-if="lodge.phone" :href="`tel:${lodge.phone}`"
+                class="inline-flex items-center gap-2 px-6 py-3 border-2 border-(--color-outline-variant) text-(--color-on-surface) font-sans text-sm font-semibold rounded-full hover:border-(--color-primary) hover:text-(--color-primary) transition-colors">
+                <span class="material-symbols-outlined text-base">phone</span>
+                Call the Property
+              </a>
+            </div>
           </div>
         </div>
 
