@@ -118,7 +118,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
-  async function submit() {
+  async function submit(documents = []) {
     const useHeadcount = participantMode.value === 'headcount'
 
     const payload = {
@@ -128,6 +128,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
       source:          'web',
       currency:        'ZMW',
       booking_context: bookingContext.value,
+      documents,
 
       participant_mode:  participantMode.value,
       participant_count: useHeadcount ? participantCount.value : null,
