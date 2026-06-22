@@ -538,7 +538,7 @@ function bookRoom(room) {
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div v-for="room in rooms" :key="room.id"
                 class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-                @click="router.push({ name: 'room-detail', params: { id: room.id } })">
+                @click="router.push({ name: 'room-detail', params: { id: room.id }, query: { org_id: lodgeId } })">
                 <div class="relative h-48 overflow-hidden">
                   <img :src="roomImage(room)" :alt="room.name"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -578,7 +578,7 @@ function bookRoom(room) {
                   <div class="flex gap-2">
                     <button
                       class="flex-1 py-2.5 rounded-full font-sans text-sm font-semibold border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors"
-                      @click.stop="router.push({ name: 'room-detail', params: { id: room.id } })">
+                      @click.stop="router.push({ name: 'room-detail', params: { id: room.id }, query: { org_id: lodgeId } })">
                       View Details
                     </button>
                     <button

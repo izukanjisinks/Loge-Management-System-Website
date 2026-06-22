@@ -287,7 +287,8 @@ onMounted(async () => {
 
   const q = route.query
   if (q.branchId && !ab.branchId) ab.branchId = q.branchId
-  if (q.context === 'corporate') ab.bookingContext = 'corporate'
+  if (q.context === 'corporate')  ab.bookingContext = 'corporate'
+  if (q.context === 'individual') ab.bookingContext = 'individual'
 
   ab.fillFromAuth(auth.user)
 

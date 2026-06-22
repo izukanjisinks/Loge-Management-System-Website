@@ -162,6 +162,19 @@ function collapseDayOverride(date) {
   if (expandedDayOverride.value === date) expandedDayOverride.value = null
 }
 
+function timeToMin(t) {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+function sessionsOverlap(a, b) {
+  if (!a.startTime || !a.endTime || !b.startTime || !b.endTime) return false
+  const aStart = timeToMin(a.startTime), aEnd = timeToMin(a.endTime)
+  const bStart = timeToMin(b.startTime), bEnd = timeToMin(b.endTime)
+  if (aEnd <= aStart || bEnd <= bStart) return false
+  return aStart < bEnd && bStart < aEnd
+}
+
 function sessionLabel(s, i) {
   return s.sessionName || (s.eventType
     ? (EVENT_TYPES.find(t => t.value === s.eventType)?.label ?? s.eventType)
@@ -217,6 +230,31 @@ function validate() {
       if (!s.startTime) e[`ov_${date}_${si}_start`] = 'Required'
       if (!s.endTime)   e[`ov_${date}_${si}_end`]   = 'Required'
     })
+  })
+
+  // Overlap detection — master sessions
+  if (eb.masterSessions.length > 1) {
+    for (let i = 0; i < eb.masterSessions.length; i++) {
+      for (let j = i + 1; j < eb.masterSessions.length; j++) {
+        if (sessionsOverlap(eb.masterSessions[i], eb.masterSessions[j])) {
+          if (!e[`ms_${i}_start`]) e[`ms_${i}_start`] = `Time overlaps with session ${j + 1}`
+          if (!e[`ms_${j}_start`]) e[`ms_${j}_start`] = `Time overlaps with session ${i + 1}`
+        }
+      }
+    }
+  }
+
+  // Overlap detection — day override sessions
+  Object.entries(eb.dayOverrides).forEach(([date, ov]) => {
+    if (ov.excluded || ov.sessions.length < 2) return
+    for (let si = 0; si < ov.sessions.length; si++) {
+      for (let sj = si + 1; sj < ov.sessions.length; sj++) {
+        if (sessionsOverlap(ov.sessions[si], ov.sessions[sj])) {
+          if (!e[`ov_${date}_${si}_start`]) e[`ov_${date}_${si}_start`] = `Time overlaps with session ${sj + 1}`
+          if (!e[`ov_${date}_${sj}_start`]) e[`ov_${date}_${sj}_start`] = `Time overlaps with session ${si + 1}`
+        }
+      }
+    }
   })
 
   if (eb.participantMode === 'detailed' && eb.attendants.length > 1) {
@@ -300,7 +338,7 @@ onMounted(async () => {
 
   eb.fillFromAuth(auth.user)
 
-  // Pre-populate venue from VenueDetailView
+  // Pre-populate venue and dates from VenueDetailView
   if (q.venueId && eb.masterSessions.length) {
     const s = eb.masterSessions[0]
     if (!s.venueId) {
@@ -309,6 +347,8 @@ onMounted(async () => {
       s.venueCapacity = q.venueCapacity ? Number(q.venueCapacity) : null
     }
   }
+  if (q.startDate && !eb.startDate) eb.startDate = q.startDate
+  if (q.endDate   && !eb.endDate)   eb.endDate   = q.endDate
 })
 </script>
 
@@ -1269,12 +1309,14 @@ onMounted(async () => {
                               <input v-model="s.startTime" type="time"
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                                 :class="errors[`ov_${date}_${si}_start`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                              <span v-if="errors[`ov_${date}_${si}_start`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${si}_start`] }}</span>
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">End Time <span class="text-(--color-error)">*</span></label>
                               <input v-model="s.endTime" type="time"
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                                 :class="errors[`ov_${date}_${si}_end`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                              <span v-if="errors[`ov_${date}_${si}_end`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${si}_end`] }}</span>
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Expected Attendees</label>

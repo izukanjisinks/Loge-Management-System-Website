@@ -1,12 +1,11 @@
 ﻿<script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePricing }        from '@/composables/usePricing'
 import { Calendar }          from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import api                   from '@/lib/api'
-import BookingTypeModal      from '@/components/booking/BookingTypeModal.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -51,7 +50,7 @@ function normalise(r) {
     amenities:   (r.amenities || []).map(a => ({ icon: amenityIcon(a), label: a })),
     bookedDates: r.booked_dates ?? [],
     orgName:     r.organization?.name || '',
-    orgId:       r.organization?.id   || null,
+    orgId:       r.organization?.id   || r.org_id || null,
   }
 }
 
@@ -129,26 +128,54 @@ const dateError = computed(() => {
   return ''
 })
 
-const canBook = computed(() => !!checkIn.value && !!checkOut.value && !dateError.value)
+// null = not checked, 'checking' | 'available' | 'unavailable'
+const availabilityStatus = ref(null)
 
-const bookingModalOpen = ref(false)
+watch([checkIn, checkOut], async ([ci, co]) => {
+  if (!ci || !co || new Date(co) <= new Date(ci)) {
+    availabilityStatus.value = null
+    return
+  }
+  const orgId = room.value?.orgId || route.query.org_id
+  if (!orgId) return
+  availabilityStatus.value = 'checking'
+  try {
+    const { data } = await api.get('/guest/rooms/available', {
+      params: { org_id: orgId, check_in: ci, check_out: co },
+    })
+    const list = data.data ?? data
+    availabilityStatus.value = list.some(r => r.id === room.value.id) ? 'available' : 'unavailable'
+  } catch {
+    availabilityStatus.value = null
+  }
+})
+
+const canBook = computed(() =>
+  !!checkIn.value && !!checkOut.value && !dateError.value &&
+  availabilityStatus.value === 'available'
+)
+
+const bookButtonLabel = computed(() => {
+  if (!checkIn.value || !checkOut.value) return 'Select Dates to Book'
+  if (availabilityStatus.value === 'checking')    return 'Checking availability…'
+  if (availabilityStatus.value === 'unavailable') return 'Room Not Available'
+  if (availabilityStatus.value === 'available')   return 'Book Now'
+  return 'Select Dates to Book'
+})
 
 function openBooking() {
   if (!canBook.value) return
-  bookingModalOpen.value = true
-}
-
-function onBookingTypeConfirmed() {
   router.push({
     name:   'accommodation-booking',
     params: { id: room.value.orgId },
     query:  {
+      context:  'individual',
       roomId:   room.value.id,
       roomName: room.value.name,
       roomType: room.value.type,
       rate:     room.value.price,
-      checkIn:  checkIn.value  || undefined,
-      checkOut: checkOut.value || undefined,
+      checkIn:  checkIn.value,
+      checkOut: checkOut.value,
     },
   })
 }
@@ -468,24 +495,37 @@ function onBookingTypeConfirmed() {
 
           <!-- Book button -->
           <button
-            :disabled="!canBook"
+            :disabled="!canBook || availabilityStatus === 'checking'"
             class="w-full py-3.5 rounded-full font-sans text-base font-semibold flex items-center justify-center gap-2 transition-all"
             :class="canBook
               ? 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth) shadow-md active:scale-95'
-              : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant) cursor-not-allowed'"
+              : availabilityStatus === 'unavailable'
+                ? 'bg-rose-500/10 text-rose-700 cursor-not-allowed'
+                : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant) cursor-not-allowed'"
             @click="openBooking">
-            <span class="material-symbols-outlined text-base">event_available</span>
-            {{ canBook ? 'Book Now' : 'Select Dates to Book' }}
+            <span class="material-symbols-outlined text-base"
+              :class="{ 'animate-spin': availabilityStatus === 'checking' }">
+              {{ availabilityStatus === 'checking' ? 'sync' : availabilityStatus === 'unavailable' ? 'event_busy' : 'event_available' }}
+            </span>
+            {{ bookButtonLabel }}
           </button>
+
+          <!-- Unavailable notice -->
+          <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0" leave-active-class="transition-all duration-200"
+            leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
+            <div v-if="availabilityStatus === 'unavailable'"
+              class="mt-3 flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 text-rose-700">
+              <span class="material-symbols-outlined text-base mt-0.5 shrink-0">event_busy</span>
+              <p class="font-sans text-xs leading-relaxed">
+                This room is already booked for the selected dates. Please choose different dates.
+              </p>
+            </div>
+          </Transition>
         </div>
       </aside>
     </div>
 
   </div>
 
-  <BookingTypeModal
-    v-model="bookingModalOpen"
-    :context="room ? { itemType: 'room', name: room.name, lodgeName: room.orgName } : {}"
-    @confirm="onBookingTypeConfirmed"
-  />
 </template>

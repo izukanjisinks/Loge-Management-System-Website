@@ -1,8 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/lib/api'
 import BookingTypeModal from '@/components/booking/BookingTypeModal.vue'
+import { Calendar }          from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
+import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 
 const route  = useRoute()
 const router = useRouter()
@@ -97,8 +100,74 @@ function setupIcon(setup) {
   return m[setup] ?? 'event_seat'
 }
 
-const today = new Date().toISOString().split('T')[0]
-const orgId = computed(() => venue.value?.org_id)
+const orgId     = computed(() => venue.value?.org_id)
+const todayDate = today(getLocalTimeZone())
+
+// ── Booking widget ─────────────────────────────────────────────────────────────
+const startDate = ref('')
+const endDate   = ref('')
+const startOpen = ref(false)
+const endOpen   = ref(false)
+
+function toIso(cd) {
+  if (!cd) return ''
+  return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
+}
+
+const startDateValue = computed({
+  get: () => startDate.value ? parseDate(startDate.value) : undefined,
+  set: (v) => { startDate.value = toIso(v); startOpen.value = false },
+})
+const endDateValue = computed({
+  get: () => endDate.value ? parseDate(endDate.value) : undefined,
+  set: (v) => { endDate.value = toIso(v); endOpen.value = false },
+})
+const endDateMin = computed(() =>
+  startDate.value ? parseDate(startDate.value) : todayDate
+)
+
+function formatDisplay(iso) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const dateError = computed(() => {
+  if (!startDate.value || !endDate.value) return ''
+  if (new Date(endDate.value) < new Date(startDate.value)) return 'End date must be on or after start date'
+  return ''
+})
+
+// null | 'checking' | 'available' | 'unavailable'
+const availabilityStatus = ref(null)
+
+watch([startDate, endDate], async ([sd, ed]) => {
+  if (!sd || dateError.value) { availabilityStatus.value = null; return }
+  const effectiveEnd = ed || sd
+  const orgIdVal = orgId.value || route.query.org_id
+  if (!orgIdVal) return
+  availabilityStatus.value = 'checking'
+  try {
+    const { data } = await api.get('/guest/venues/available', {
+      params: { org_id: orgIdVal, start_date: sd, end_date: effectiveEnd },
+    })
+    const list = data.data ?? data
+    availabilityStatus.value = list.some(v => v.id === venue.value?.id) ? 'available' : 'unavailable'
+  } catch {
+    availabilityStatus.value = null
+  }
+})
+
+const canBook = computed(() =>
+  !!startDate.value && !dateError.value && availabilityStatus.value === 'available'
+)
+
+const bookButtonLabel = computed(() => {
+  if (!startDate.value)                           return 'Select a Date to Book'
+  if (availabilityStatus.value === 'checking')    return 'Checking availability…'
+  if (availabilityStatus.value === 'unavailable') return 'Venue Not Available'
+  if (availabilityStatus.value === 'available')   return 'Book This Venue'
+  return 'Select a Date to Book'
+})
 
 const bookingModalOpen = ref(false)
 
@@ -110,6 +179,8 @@ function onBookingTypeConfirmed() {
       venueId:       venue.value.id,
       venueName:     venue.value.name,
       venueCapacity: venue.value.capacity ?? undefined,
+      startDate:     startDate.value || undefined,
+      endDate:       endDate.value   || undefined,
     },
   })
 }
@@ -396,14 +467,87 @@ function onBookingTypeConfirmed() {
 
             <div class="h-px bg-(--color-outline-variant)"></div>
 
-            <button type="button"
-              class="w-full flex items-center justify-center gap-2 bg-(--color-primary) text-white py-3.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors shadow-md active:scale-95"
-              @click="bookingModalOpen = true">
-              <span class="material-symbols-outlined text-base">event_available</span>
-              Book This Venue
+            <!-- Event Start Date -->
+            <div>
+              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Start Date</label>
+              <Popover v-model:open="startOpen">
+                <PopoverTrigger as-child>
+                  <button type="button"
+                    class="mt-1.5 w-full bg-(--color-savannah-mist) rounded-xl px-3 py-3 flex items-center gap-2 text-left border-2 transition-colors focus:outline-none"
+                    :class="startDate ? 'border-(--color-primary)' : 'border-transparent hover:border-(--color-primary)'">
+                    <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">calendar_today</span>
+                    <span class="font-sans text-sm flex-1"
+                      :class="startDate ? 'text-(--color-on-surface) font-semibold' : 'text-(--color-outline)'">
+                      {{ startDate ? formatDisplay(startDate) : 'Select date' }}
+                    </span>
+                    <span v-if="startDate" class="material-symbols-outlined text-base text-(--color-outline) hover:text-(--color-error) shrink-0"
+                      @click.stop="startDate = ''; endDate = ''">close</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" class="w-auto">
+                  <Calendar v-model="startDateValue" :min-value="todayDate" layout="month-and-year" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <!-- Event End Date (optional for multi-day events) -->
+            <div>
+              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                End Date
+                <span class="font-normal normal-case tracking-normal text-(--color-outline)">— optional, for multi-day</span>
+              </label>
+              <Popover v-model:open="endOpen">
+                <PopoverTrigger as-child>
+                  <button type="button"
+                    class="mt-1.5 w-full bg-(--color-savannah-mist) rounded-xl px-3 py-3 flex items-center gap-2 text-left border-2 transition-colors focus:outline-none"
+                    :class="endDate ? 'border-(--color-primary)' : 'border-transparent hover:border-(--color-primary)'">
+                    <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">calendar_today</span>
+                    <span class="font-sans text-sm flex-1"
+                      :class="endDate ? 'text-(--color-on-surface) font-semibold' : 'text-(--color-outline)'">
+                      {{ endDate ? formatDisplay(endDate) : 'Same day as start' }}
+                    </span>
+                    <span v-if="endDate" class="material-symbols-outlined text-base text-(--color-outline) hover:text-(--color-error) shrink-0"
+                      @click.stop="endDate = ''">close</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" class="w-auto">
+                  <Calendar v-model="endDateValue" :min-value="endDateMin" layout="month-and-year" />
+                </PopoverContent>
+              </Popover>
+              <p v-if="dateError" class="mt-1.5 font-sans text-xs text-(--color-error)">{{ dateError }}</p>
+            </div>
+
+            <!-- Book button -->
+            <button
+              :disabled="!canBook || availabilityStatus === 'checking'"
+              class="w-full py-3.5 rounded-full font-sans text-base font-semibold flex items-center justify-center gap-2 transition-all"
+              :class="canBook
+                ? 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth) shadow-md active:scale-95'
+                : availabilityStatus === 'unavailable'
+                  ? 'bg-rose-500/10 text-rose-700 cursor-not-allowed'
+                  : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant) cursor-not-allowed'"
+              @click="canBook ? (bookingModalOpen = true) : undefined">
+              <span class="material-symbols-outlined text-base"
+                :class="{ 'animate-spin': availabilityStatus === 'checking' }">
+                {{ availabilityStatus === 'checking' ? 'sync' : availabilityStatus === 'unavailable' ? 'event_busy' : 'event_available' }}
+              </span>
+              {{ bookButtonLabel }}
             </button>
 
-            <p class="font-sans text-xs text-(--color-on-surface-variant) text-center flex items-center justify-center gap-1.5">
+            <!-- Unavailable notice -->
+            <Transition enter-active-class="transition-all duration-300" enter-from-class="opacity-0 -translate-y-1"
+              enter-to-class="opacity-100 translate-y-0" leave-active-class="transition-all duration-200"
+              leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-1">
+              <div v-if="availabilityStatus === 'unavailable'"
+                class="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 text-rose-700">
+                <span class="material-symbols-outlined text-base mt-0.5 shrink-0">event_busy</span>
+                <p class="font-sans text-xs leading-relaxed">
+                  This venue is already booked for the selected date(s). Please choose different dates.
+                </p>
+              </div>
+            </Transition>
+
+            <p v-if="canBook" class="font-sans text-xs text-(--color-on-surface-variant) text-center flex items-center justify-center gap-1.5">
               <span class="material-symbols-outlined text-sm text-(--color-primary)">info</span>
               Choose Individual or Corporate when prompted.
             </p>
