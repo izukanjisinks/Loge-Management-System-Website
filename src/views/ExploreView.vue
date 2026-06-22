@@ -84,7 +84,7 @@ const filteredRooms = computed(() => {
 const filteredVenues = computed(() => {
   if (activeTab.value === 'rooms') return []
   return venues.value.filter(v => {
-    if (filterCapacity.value > 1 && v.max_capacity < filterCapacity.value) return false
+    if (filterCapacity.value > 1 && v.capacity < filterCapacity.value) return false
     if (filterIndoor.value && v.location_type !== filterIndoor.value) return false
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()

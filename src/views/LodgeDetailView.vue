@@ -701,7 +701,7 @@ function bookRoom(room) {
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="venue in venues" :key="venue.id"
               class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-              @click="router.push({ name: 'venue-detail', params: { id: venue.id } })">
+              @click="router.push({ name: 'venue-detail', params: { id: venue.id }, query: { org_id: venue.org_id } })">
               <div class="relative h-48 overflow-hidden">
                 <img v-if="venue.images?.[0]" :src="venue.images[0]" :alt="venue.name"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" loading="lazy" />
@@ -715,7 +715,7 @@ function bookRoom(room) {
                 </span>
                 <span class="absolute top-3 right-3 flex items-center gap-1 bg-white/90 text-(--color-on-surface) px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
                   <span class="material-symbols-outlined text-sm text-(--color-primary)">group</span>
-                  up to {{ venue.max_capacity }}
+                  up to {{ venue.capacity }}
                 </span>
                 <span class="absolute bottom-3 left-3 flex items-center gap-1 bg-(--color-primary) text-white px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
                   <span class="material-symbols-outlined text-sm">{{ venueTypeIcon(venue.type) }}</span>
@@ -728,7 +728,7 @@ function bookRoom(room) {
                 </h3>
                 <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
                   <span class="material-symbols-outlined text-sm text-(--color-primary)">groups</span>
-                  Up to {{ venue.max_capacity }} guests
+                  Up to {{ venue.capacity }} guests
                 </p>
                 <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
                   {{ venue.description }}
@@ -743,7 +743,7 @@ function bookRoom(room) {
                 <button
                   type="button"
                   class="w-full py-2.5 rounded-full font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors"
-                  @click.stop="router.push({ name: 'venue-detail', params: { id: venue.id } })">
+                  @click.stop="router.push({ name: 'venue-detail', params: { id: venue.id }, query: { org_id: venue.org_id } })">
                   View Details
                 </button>
               </div>

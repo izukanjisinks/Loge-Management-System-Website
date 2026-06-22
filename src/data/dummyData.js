@@ -272,7 +272,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Banquet', capacity: 200 },
       { setup: 'Cocktail', capacity: 350 },
     ],
-    max_capacity: 350,
+    capacity: 350,
   },
   {
     id: 'venue-002',
@@ -291,7 +291,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Boardroom', capacity: 20 },
       { setup: 'U-Shape', capacity: 16 },
     ],
-    max_capacity: 20,
+    capacity: 20,
   },
   // ── Avani Victoria Falls Resort (lodge-002) ──────────────────────────────
   {
@@ -313,7 +313,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Cocktail', capacity: 600 },
       { setup: 'Classroom', capacity: 250 },
     ],
-    max_capacity: 600,
+    capacity: 600,
   },
   {
     id: 'venue-004',
@@ -333,7 +333,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Banquet', capacity: 200 },
       { setup: 'Theatre', capacity: 250 },
     ],
-    max_capacity: 300,
+    capacity: 300,
   },
   // ── Chaminuka Lodge (lodge-003) ───────────────────────────────────────────
   {
@@ -354,7 +354,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Banquet', capacity: 100 },
       { setup: 'Cocktail', capacity: 180 },
     ],
-    max_capacity: 180,
+    capacity: 180,
   },
   {
     id: 'venue-006',
@@ -374,7 +374,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'U-Shape', capacity: 30 },
       { setup: 'Boardroom', capacity: 25 },
     ],
-    max_capacity: 40,
+    capacity: 40,
   },
   // ── Radisson Blu Lusaka (lodge-004) ──────────────────────────────────────
   {
@@ -396,7 +396,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Cocktail', capacity: 1000 },
       { setup: 'Classroom', capacity: 400 },
     ],
-    max_capacity: 1000,
+    capacity: 1000,
   },
   {
     id: 'venue-008',
@@ -415,7 +415,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Boardroom', capacity: 18 },
       { setup: 'U-Shape', capacity: 14 },
     ],
-    max_capacity: 18,
+    capacity: 18,
   },
   // ── Royal Livingstone Hotel (lodge-005) ──────────────────────────────────
   {
@@ -436,7 +436,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Banquet', capacity: 200 },
       { setup: 'Theatre', capacity: 250 },
     ],
-    max_capacity: 300,
+    capacity: 300,
   },
   {
     id: 'venue-010',
@@ -455,7 +455,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Theatre', capacity: 500 },
       { setup: 'Standing', capacity: 700 },
     ],
-    max_capacity: 700,
+    capacity: 700,
   },
   // ── Lilayi Lodge (lodge-006) ─────────────────────────────────────────────
   {
@@ -476,7 +476,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Theatre', capacity: 180 },
       { setup: 'Cocktail', capacity: 250 },
     ],
-    max_capacity: 250,
+    capacity: 250,
   },
   {
     id: 'venue-012',
@@ -496,7 +496,7 @@ export const ALL_MOCK_VENUES = [
       { setup: 'Banquet', capacity: 80 },
       { setup: 'Theatre', capacity: 100 },
     ],
-    max_capacity: 120,
+    capacity: 120,
   },
 ]
 

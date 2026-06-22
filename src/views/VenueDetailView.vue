@@ -16,8 +16,11 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   apiLoading.value = true
   try {
-    const res = await api.get(`/guest/venues/${route.params.id}`)
-    venue.value = res.data
+    const params = route.query.org_id ? { org_id: route.query.org_id } : {}
+    const { data } = await api.get('/guest/venues', { params })
+    const list = data.data ?? data
+    venue.value = list.find(v => v.id === route.params.id) ?? null
+    if (!venue.value) apiError.value = 'Venue not found.'
   } catch {
     apiError.value = 'Unable to load venue details. Please try again.'
   } finally {
@@ -106,7 +109,7 @@ function onBookingTypeConfirmed() {
     query:  {
       venueId:       venue.value.id,
       venueName:     venue.value.name,
-      venueCapacity: venue.value.max_capacity ?? undefined,
+      venueCapacity: venue.value.capacity ?? undefined,
     },
   })
 }
@@ -144,34 +147,75 @@ function onBookingTypeConfirmed() {
       </button>
     </div>
 
-    <!-- ── Bento Gallery — same grid and heights as RoomDetailView ───────── -->
+    <!-- ── Gallery ───────────────────────────────────────────────────────── -->
     <section class="px-5 md:px-16 mt-4">
-      <div class="relative grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-[500px]">
 
-        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-xl cursor-pointer group/main"
+      <!-- No images: elegant hero placeholder -->
+      <div v-if="!images.length"
+        class="relative h-64 md:h-[420px] rounded-2xl overflow-hidden flex items-center justify-center"
+        style="background: linear-gradient(145deg, var(--color-savannah-mist) 0%, var(--color-surface-container-high) 55%, var(--color-savannah-mist) 100%)">
+        <div class="absolute inset-0 pointer-events-none opacity-[0.06]"
+          style="background-image: radial-gradient(circle, var(--color-primary) 1.5px, transparent 1.5px); background-size: 28px 28px"></div>
+        <div class="relative flex flex-col items-center gap-5 text-center px-8">
+          <div class="w-24 h-24 rounded-full flex items-center justify-center"
+            style="background: color-mix(in srgb, var(--color-primary) 10%, transparent); border: 2px solid color-mix(in srgb, var(--color-primary) 22%, transparent)">
+            <span class="material-symbols-outlined text-5xl text-(--color-primary)">{{ typeIcon(venue.type) }}</span>
+          </div>
+          <div>
+            <p class="font-serif text-3xl font-semibold text-(--color-on-surface)">{{ venue.name }}</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2 flex items-center justify-center gap-1.5">
+              <span class="material-symbols-outlined text-base">camera_alt</span>
+              Photography coming soon
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Has images: bento grid -->
+      <div v-else class="relative grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-[500px]">
+
+        <!-- Main image -->
+        <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-2xl cursor-pointer group/main"
           @click="openLightbox(0)">
-          <img v-if="images[0]" :src="images[0]" :alt="venue.name"
+          <img :src="images[0]" :alt="venue.name"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/main:scale-105"
             loading="eager" />
-          <div v-else class="absolute inset-0 flex items-center justify-center bg-(--color-surface-container)">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline)">event</span>
-          </div>
-          <div class="absolute inset-0 bg-black/0 group-hover/main:bg-black/10 transition-colors rounded-xl flex items-center justify-center">
+          <div class="absolute inset-0 bg-black/0 group-hover/main:bg-black/10 transition-colors rounded-2xl flex items-center justify-center">
             <span class="material-symbols-outlined text-4xl text-white opacity-0 group-hover/main:opacity-100 transition-opacity drop-shadow">zoom_in</span>
           </div>
         </div>
 
-        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(1)">
-          <img :src="images[1]" :alt="`${venue.name} 2`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+        <!-- Slot 2 -->
+        <div class="hidden md:block relative overflow-hidden rounded-2xl"
+          :class="images[1] ? 'cursor-pointer group/s2' : ''"
+          @click="images[1] ? openLightbox(1) : undefined">
+          <img v-if="images[1]" :src="images[1]" :alt="`${venue.name} 2`"
+            class="absolute inset-0 w-full h-full object-cover group-hover/s2:scale-105 transition-transform duration-700" loading="lazy" />
+          <div v-if="images[1]" class="absolute inset-0 bg-black/0 group-hover/s2:bg-black/15 transition-colors rounded-2xl"></div>
+          <div v-else class="absolute inset-0 rounded-2xl"
+            style="background: linear-gradient(135deg, var(--color-surface-container) 0%, var(--color-surface-container-high) 100%)"></div>
         </div>
-        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(2)">
-          <img :src="images[2]" :alt="`${venue.name} 3`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+
+        <!-- Slot 3 -->
+        <div class="hidden md:block relative overflow-hidden rounded-2xl"
+          :class="images[2] ? 'cursor-pointer group/s3' : ''"
+          @click="images[2] ? openLightbox(2) : undefined">
+          <img v-if="images[2]" :src="images[2]" :alt="`${venue.name} 3`"
+            class="absolute inset-0 w-full h-full object-cover group-hover/s3:scale-105 transition-transform duration-700" loading="lazy" />
+          <div v-if="images[2]" class="absolute inset-0 bg-black/0 group-hover/s3:bg-black/15 transition-colors rounded-2xl"></div>
+          <div v-else class="absolute inset-0 rounded-2xl"
+            style="background: linear-gradient(135deg, var(--color-surface-container-high) 0%, var(--color-surface-container) 100%)"></div>
         </div>
-        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-xl cursor-pointer group/s" @click="openLightbox(3)">
-          <img :src="images[3]" :alt="`${venue.name} 4`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-xl"></div>
+
+        <!-- Slot 4 -->
+        <div class="hidden md:block md:col-span-2 relative overflow-hidden rounded-2xl"
+          :class="images[3] ? 'cursor-pointer group/s4' : ''"
+          @click="images[3] ? openLightbox(3) : undefined">
+          <img v-if="images[3]" :src="images[3]" :alt="`${venue.name} 4`"
+            class="absolute inset-0 w-full h-full object-cover group-hover/s4:scale-105 transition-transform duration-700" loading="lazy" />
+          <div v-if="images[3]" class="absolute inset-0 bg-black/0 group-hover/s4:bg-black/15 transition-colors rounded-2xl"></div>
+          <div v-else class="absolute inset-0 rounded-2xl"
+            style="background: linear-gradient(135deg, var(--color-surface-container) 0%, var(--color-surface-container-high) 100%)"></div>
           <button v-if="images.length > 4" type="button"
             class="absolute bottom-4 right-4 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-(--color-on-surface) font-sans text-sm font-semibold px-4 py-2 rounded-full shadow hover:bg-white transition-colors"
             @click.stop="openLightbox(0)">
@@ -249,9 +293,9 @@ function onBookingTypeConfirmed() {
           </div>
         </div>
 
-        <!-- About — mirrors "About the Sanctuary" card in RoomDetailView -->
-        <div class="bg-(--color-surface-container-lowest) p-8 rounded-xl border border-(--color-savannah-mist) shadow-sm">
-          <h2 class="font-serif text-2xl mb-4">About This Venue</h2>
+        <!-- About -->
+        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant) shadow-sm">
+          <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-4">About This Venue</h2>
           <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">
             {{ venue.description }}
           </p>
@@ -262,7 +306,7 @@ function onBookingTypeConfirmed() {
             </div>
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-(--color-primary)">group</span>
-              Up to {{ venue.max_capacity }} guests
+              Up to {{ venue.capacity }} guests
             </div>
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined text-(--color-primary)">{{ locationIcon(venue.location_type) }}</span>
@@ -273,7 +317,7 @@ function onBookingTypeConfirmed() {
 
         <!-- Seating & Layout Configurations -->
         <div v-if="venue.capacities?.length">
-          <h2 class="font-serif text-2xl mb-6">Seating &amp; Layout Configurations</h2>
+          <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-6">Seating &amp; Layout Configurations</h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div v-for="cap in venue.capacities" :key="cap.setup"
               class="flex flex-col items-center gap-3 p-5 bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) text-center hover:border-(--color-primary) transition-colors">
@@ -288,9 +332,9 @@ function onBookingTypeConfirmed() {
           </div>
         </div>
 
-        <!-- Amenities — mirrors "World-Class Amenities" in RoomDetailView -->
-        <div v-if="venue.amenities?.length">
-          <h2 class="font-serif text-2xl mb-6">Venue Amenities</h2>
+        <!-- Amenities -->
+        <div v-if="venue.amenities?.length" class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant)">
+          <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-6">Venue Amenities</h2>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div v-for="a in venue.amenities" :key="a" class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center text-(--color-primary) shrink-0">
@@ -303,7 +347,7 @@ function onBookingTypeConfirmed() {
 
         <!-- Suitable Events -->
         <div v-if="venue.suitable_events?.length">
-          <h2 class="font-serif text-2xl mb-4">Suitable For</h2>
+          <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-4">Suitable For</h2>
           <div class="flex flex-wrap gap-3">
             <span v-for="event in venue.suitable_events" :key="event"
               class="flex items-center gap-2 bg-(--color-surface-container-lowest) border border-(--color-outline-variant) text-(--color-on-surface) px-4 py-2 rounded-full font-sans text-sm font-medium hover:border-(--color-primary) hover:text-(--color-primary) transition-colors">
@@ -319,7 +363,7 @@ function onBookingTypeConfirmed() {
       <aside class="lg:sticky lg:top-28 space-y-4">
 
         <!-- Booking widget -->
-        <div class="bg-(--color-surface-container-high) rounded-xl border border-(--color-outline-variant) shadow-lg overflow-hidden">
+        <div class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) shadow-lg overflow-hidden">
           <div class="px-6 pt-6 pb-4 border-b border-(--color-outline-variant)">
             <h3 class="font-serif text-xl text-(--color-on-surface)">Book This Venue</h3>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
@@ -332,7 +376,7 @@ function onBookingTypeConfirmed() {
             <div class="space-y-2.5">
               <div class="flex items-center gap-3 font-sans text-sm text-(--color-on-surface-variant)">
                 <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
-                Up to <span class="font-semibold text-(--color-on-surface)">{{ venue.max_capacity }}</span> guests
+                Up to <span class="font-semibold text-(--color-on-surface)">{{ venue.capacity }}</span> guests
               </div>
               <div class="flex items-center gap-3 font-sans text-sm text-(--color-on-surface-variant)">
                 <span class="material-symbols-outlined text-base text-(--color-primary)">{{ locationIcon(venue.location_type) }}</span>
@@ -353,7 +397,7 @@ function onBookingTypeConfirmed() {
             <div class="h-px bg-(--color-outline-variant)"></div>
 
             <button type="button"
-              class="w-full flex items-center justify-center gap-2 bg-(--color-primary) text-white py-4 rounded-lg font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors shadow-md"
+              class="w-full flex items-center justify-center gap-2 bg-(--color-primary) text-white py-3.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors shadow-md active:scale-95"
               @click="bookingModalOpen = true">
               <span class="material-symbols-outlined text-base">event_available</span>
               Book This Venue
@@ -368,7 +412,7 @@ function onBookingTypeConfirmed() {
 
         <!-- Hosted by card -->
         <div v-if="venue.organization"
-          class="p-5 bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant)">
+          class="p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
           <p class="font-sans text-xs text-(--color-on-surface-variant) uppercase tracking-wider font-semibold mb-2">Hosted by</p>
           <h4 class="font-serif text-base text-(--color-on-surface) mb-3">{{ venue.organization.name }}</h4>
           <RouterLink v-if="orgId" :to="{ name: 'lodge-detail', params: { id: orgId } }"

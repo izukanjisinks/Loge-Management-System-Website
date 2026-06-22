@@ -186,35 +186,75 @@ function onBookingTypeConfirmed() {
       </button>
     </div>
 
-    <!-- Bento Image Gallery -->
+    <!-- Gallery -->
     <section class="px-5 md:px-16 mt-4">
-      <div class="relative grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-[500px]">
+
+      <!-- No images: elegant hero placeholder -->
+      <div v-if="!images.length"
+        class="relative h-64 md:h-[420px] rounded-2xl overflow-hidden flex items-center justify-center"
+        style="background: linear-gradient(145deg, var(--color-savannah-mist) 0%, var(--color-surface-container-high) 55%, var(--color-savannah-mist) 100%)">
+        <div class="absolute inset-0 pointer-events-none opacity-[0.06]"
+          style="background-image: radial-gradient(circle, var(--color-primary) 1.5px, transparent 1.5px); background-size: 28px 28px"></div>
+        <div class="relative flex flex-col items-center gap-5 text-center px-8">
+          <div class="w-24 h-24 rounded-full flex items-center justify-center"
+            style="background: color-mix(in srgb, var(--color-primary) 10%, transparent); border: 2px solid color-mix(in srgb, var(--color-primary) 22%, transparent)">
+            <span class="material-symbols-outlined text-5xl text-(--color-primary)">hotel</span>
+          </div>
+          <div>
+            <p class="font-serif text-3xl font-semibold text-(--color-on-surface)">{{ room.name }}</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2 flex items-center justify-center gap-1.5">
+              <span class="material-symbols-outlined text-base">camera_alt</span>
+              Photography coming soon
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Has images: bento grid -->
+      <div v-else class="relative grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-4 h-96 md:h-[500px]">
+
         <!-- Main image -->
         <div class="md:col-span-2 md:row-span-2 relative overflow-hidden rounded-2xl cursor-pointer group/main"
           @click="openLightbox(0)">
-          <img v-if="images[0]" :src="images[0]" :alt="room.name"
+          <img :src="images[0]" :alt="room.name"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/main:scale-105"
             loading="eager" />
-          <div v-else class="absolute inset-0 w-full h-full bg-(--color-surface-container) flex items-center justify-center">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline)">image_not_supported</span>
-          </div>
           <div class="absolute inset-0 bg-black/0 group-hover/main:bg-black/10 transition-colors rounded-2xl flex items-center justify-center">
             <span class="material-symbols-outlined text-4xl text-white opacity-0 group-hover/main:opacity-100 transition-opacity drop-shadow">zoom_in</span>
           </div>
         </div>
 
-        <!-- Secondary images -->
-        <div v-if="images[1]" class="hidden md:block relative overflow-hidden rounded-2xl cursor-pointer group/s" @click="openLightbox(1)">
-          <img :src="images[1]" :alt="`${room.name} 2`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-2xl"></div>
+        <!-- Slot 2 -->
+        <div class="hidden md:block relative overflow-hidden rounded-2xl"
+          :class="images[1] ? 'cursor-pointer group/s2' : ''"
+          @click="images[1] ? openLightbox(1) : undefined">
+          <img v-if="images[1]" :src="images[1]" :alt="`${room.name} 2`"
+            class="absolute inset-0 w-full h-full object-cover group-hover/s2:scale-105 transition-transform duration-700" loading="lazy" />
+          <div v-if="images[1]" class="absolute inset-0 bg-black/0 group-hover/s2:bg-black/15 transition-colors rounded-2xl"></div>
+          <div v-else class="absolute inset-0 rounded-2xl"
+            style="background: linear-gradient(135deg, var(--color-surface-container) 0%, var(--color-surface-container-high) 100%)"></div>
         </div>
-        <div v-if="images[2]" class="hidden md:block relative overflow-hidden rounded-2xl cursor-pointer group/s" @click="openLightbox(2)">
-          <img :src="images[2]" :alt="`${room.name} 3`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-2xl"></div>
+
+        <!-- Slot 3 -->
+        <div class="hidden md:block relative overflow-hidden rounded-2xl"
+          :class="images[2] ? 'cursor-pointer group/s3' : ''"
+          @click="images[2] ? openLightbox(2) : undefined">
+          <img v-if="images[2]" :src="images[2]" :alt="`${room.name} 3`"
+            class="absolute inset-0 w-full h-full object-cover group-hover/s3:scale-105 transition-transform duration-700" loading="lazy" />
+          <div v-if="images[2]" class="absolute inset-0 bg-black/0 group-hover/s3:bg-black/15 transition-colors rounded-2xl"></div>
+          <div v-else class="absolute inset-0 rounded-2xl"
+            style="background: linear-gradient(135deg, var(--color-surface-container-high) 0%, var(--color-surface-container) 100%)"></div>
         </div>
-        <div v-if="images[3]" class="hidden md:block md:col-span-2 relative overflow-hidden rounded-2xl cursor-pointer group/s" @click="openLightbox(3)">
-          <img :src="images[3]" :alt="`${room.name} 4`" class="absolute inset-0 w-full h-full object-cover group-hover/s:scale-105 transition-transform duration-700" loading="lazy" />
-          <div class="absolute inset-0 bg-black/0 group-hover/s:bg-black/15 transition-colors rounded-2xl"></div>
+
+        <!-- Slot 4 -->
+        <div class="hidden md:block md:col-span-2 relative overflow-hidden rounded-2xl"
+          :class="images[3] ? 'cursor-pointer group/s4' : ''"
+          @click="images[3] ? openLightbox(3) : undefined">
+          <img v-if="images[3]" :src="images[3]" :alt="`${room.name} 4`"
+            class="absolute inset-0 w-full h-full object-cover group-hover/s4:scale-105 transition-transform duration-700" loading="lazy" />
+          <div v-if="images[3]" class="absolute inset-0 bg-black/0 group-hover/s4:bg-black/15 transition-colors rounded-2xl"></div>
+          <div v-else class="absolute inset-0 rounded-2xl"
+            style="background: linear-gradient(135deg, var(--color-surface-container) 0%, var(--color-surface-container-high) 100%)"></div>
           <button v-if="images.length > 4" type="button"
             class="absolute bottom-4 right-4 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm text-(--color-on-surface) font-sans text-sm font-semibold px-4 py-2 rounded-full shadow hover:bg-white transition-colors"
             @click.stop="openLightbox(0)">
