@@ -959,9 +959,6 @@ onMounted(async () => {
                   <div class="flex items-center justify-between px-4 py-3 bg-(--color-surface-container)">
                     <div class="flex items-center gap-2">
                       <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ mealLabel(meal, i) }}</span>
-                      <span class="px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary) capitalize">
-                        {{ MEAL_PERIODS.find(p => p.value === meal.mealPeriod)?.label ?? meal.mealPeriod }}
-                      </span>
                     </div>
                     <button type="button" :disabled="mb.masterMeals.length === 1"
                       class="h-8 w-8 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors disabled:opacity-30"
