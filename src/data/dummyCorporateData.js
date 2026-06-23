@@ -128,35 +128,6 @@ export const DUMMY_CONFERENCE_ROOMS = [
   { id: 'cr-005', name: 'Zambezi Ballroom', capacity: 350, halfDayPrice: 2500, fullDayPrice: 4500, hourlyPrice: 600, amenities: { projector: true, avSystem: true, paSystem: true, ac: true, stage: true } },
 ]
 
-export const DUMMY_MENU_ITEMS = [
-  // Breakfast
-  { id: 'mi-001', menuId: 'menu-001', name: 'Continental Breakfast', category: 'breakfast', price: 85, description: 'Assorted breads, pastries, cold cuts, fresh fruit, yogurt, coffee and tea', isAvailable: true, allergens: [] },
-  { id: 'mi-002', menuId: 'menu-001', name: 'Full English Breakfast', category: 'breakfast', price: 120, description: 'Eggs (your choice), grilled bacon, pork sausage, baked beans, grilled tomato, toast', isAvailable: true, allergens: ['gluten', 'dairy'] },
-  { id: 'mi-003', menuId: 'menu-001', name: 'Fruit Platter', category: 'breakfast', price: 60, description: 'Seasonal fresh fruits sliced and presented', isAvailable: true, allergens: [] },
-
-  // Lunch
-  { id: 'mi-004', menuId: 'menu-002', name: 'Buffet Lunch', category: 'lunch', price: 150, description: 'Three-course buffet — soup of the day, main selection, dessert', isAvailable: true, allergens: [] },
-  { id: 'mi-005', menuId: 'menu-002', name: 'Grilled Nile Perch', category: 'lunch', price: 180, description: 'With sautéed seasonal vegetables and steamed rice', isAvailable: true, allergens: ['fish'] },
-  { id: 'mi-006', menuId: 'menu-002', name: 'Chicken Stew', category: 'lunch', price: 145, description: 'Zambian-style chicken stew with nshima or rice, served with vegetables', isAvailable: true, allergens: [] },
-  { id: 'mi-007', menuId: 'menu-002', name: 'Vegetarian Stir Fry', category: 'lunch', price: 130, description: 'Mixed seasonal vegetables in a light ginger soy sauce with jasmine rice', isAvailable: true, allergens: ['soy'] },
-  { id: 'mi-008', menuId: 'menu-002', name: 'Beef & Mushroom Pie', category: 'lunch', price: 165, description: 'Slow-braised beef in a golden pastry crust with chips and salad', isAvailable: true, allergens: ['gluten', 'dairy'] },
-
-  // Dinner
-  { id: 'mi-009', menuId: 'menu-003', name: 'Grilled Beef Tenderloin', category: 'dinner', price: 320, description: 'With creamed mashed potato, seasonal greens and red wine jus', isAvailable: true, allergens: ['dairy'] },
-  { id: 'mi-010', menuId: 'menu-003', name: 'Pan-Seared Salmon', category: 'dinner', price: 280, description: 'With roasted root vegetables and a lemon caper butter sauce', isAvailable: true, allergens: ['fish', 'dairy'] },
-  { id: 'mi-011', menuId: 'menu-003', name: 'Rack of Lamb', category: 'dinner', price: 350, description: 'Herb-crusted rack of lamb with rosemary jus and gratin potatoes', isAvailable: true, allergens: ['dairy'] },
-  { id: 'mi-012', menuId: 'menu-003', name: 'Vegetarian Wellington', category: 'dinner', price: 210, description: 'Mushroom and spinach wellington with roasted vegetables and tomato coulis', isAvailable: true, allergens: ['gluten', 'dairy'] },
-
-  // Tea Break
-  { id: 'mi-013', menuId: 'menu-004', name: 'Morning Tea Break', category: 'tea_break', price: 65, description: 'Freshly brewed coffee and tea, assorted biscuits, mini croissants', isAvailable: true, allergens: ['gluten', 'dairy'] },
-  { id: 'mi-014', menuId: 'menu-004', name: 'Afternoon Tea', category: 'tea_break', price: 85, description: 'Selection of teas, finger sandwiches, scones with cream and jam', isAvailable: true, allergens: ['gluten', 'dairy'] },
-
-  // Beverages
-  { id: 'mi-015', menuId: 'menu-005', name: 'Soft Drinks Package', category: 'beverage', price: 40, description: 'Per person — assorted sodas and juices throughout the event', isAvailable: true, allergens: [] },
-  { id: 'mi-016', menuId: 'menu-005', name: 'Still & Sparkling Water', category: 'beverage', price: 25, description: 'Per person for the day', isAvailable: true, allergens: [] },
-  { id: 'mi-017', menuId: 'menu-005', name: 'Fresh Juice Bar', category: 'beverage', price: 55, description: 'Per person — freshly squeezed tropical juices on demand', isAvailable: true, allergens: [] },
-]
-
 export function searchCompanies(query) {
   if (!query || query.trim().length < 2) return []
   const q = query.toLowerCase().trim()

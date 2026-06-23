@@ -10,7 +10,6 @@ import {
   lookupByTpin,
   getBranchesForCompany,
   getProfilesForBranch,
-  DUMMY_MENU_ITEMS,
 } from '@/data/dummyCorporateData'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS, MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
 
@@ -358,10 +357,42 @@ function addOrderItem(session, attendantIdx) {
 function removeOrderItem(session, orderIdx) {
   session.individualOrders.splice(orderIdx, 1)
 }
+// ── Menu items (fetched from API) ───────────────────────────────────────────
+const menuItems   = ref([])
+const menuLoading = ref(false)
+
+async function fetchMenuItems() {
+  menuLoading.value = true
+  try {
+    const params = { org_id: lodgeId }
+    if (cb.branchId) params.branch_id = cb.branchId
+    const { data } = await api.get('/guest/menu', { params })
+    const wrapper    = data.items
+    const firstPage  = wrapper?.data ?? []
+    const total      = wrapper?.total     ?? firstPage.length
+    const pageSize   = wrapper?.page_size ?? 10
+    const totalPages = Math.ceil(total / pageSize)
+    let rest = []
+    if (totalPages > 1) {
+      const results = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          api.get('/guest/menu', { params: { ...params, page: i + 2, page_size: pageSize } })
+        )
+      )
+      rest = results.flatMap(r => r.data.items?.data ?? [])
+    }
+    menuItems.value = [...firstPage, ...rest]
+  } catch {
+    menuItems.value = []
+  } finally {
+    menuLoading.value = false
+  }
+}
+
 function menuItemsForPeriod(mealPeriod) {
   const catMap = { breakfast: 'breakfast', lunch: 'lunch', dinner: 'dinner', tea_break: 'tea_break', cocktail: 'beverage' }
   const cat = catMap[mealPeriod]
-  return cat ? DUMMY_MENU_ITEMS.filter(m => m.category === cat || m.category === 'beverage') : DUMMY_MENU_ITEMS
+  return cat ? menuItems.value.filter(m => m.category === cat || m.category === 'beverage') : menuItems.value
 }
 
 // ── Meal mode + bulk assignment ───────────────────────────────────────────
@@ -508,6 +539,7 @@ onMounted(async () => {
   cb.setLodge(lodgeId, lodge.value?.name ?? '')
   if (route.query.branchId && !cb.branchId) cb.branchId = route.query.branchId
   fetchRoomTypes()
+  fetchMenuItems()
   if (auth.user) {
     if (!cb.bookedBy.name && auth.user.firstName)
       cb.bookedBy.name = `${auth.user.firstName} ${auth.user.lastName ?? ''}`.trim()
@@ -541,7 +573,7 @@ onMounted(async () => {
   }
 })
 
-watch(() => cb.branchId, fetchRoomTypes)
+watch(() => cb.branchId, () => { fetchRoomTypes(); fetchMenuItems() })
 
 watch(dayRange, (range) => {
   if (range.length <= 1) cb.events.scheduleMode = 'uniform'

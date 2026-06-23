@@ -16,7 +16,6 @@ import {
 } from '@/data/dummyData'
 
 import {
-  DUMMY_MENU_ITEMS,
   searchCompanies,
 } from '@/data/dummyCorporateData'
 
@@ -187,11 +186,6 @@ export function mockAdapter(config) {
       status: 'pending',
       created_at: new Date().toISOString(),
     }, 400)
-  }
-
-  // ── Menu ──────────────────────────────────────────────────────────────────
-  if (method === 'get' && url.includes('/menu')) {
-    return ok(DUMMY_MENU_ITEMS)
   }
 
   // ── Companies (corporate booking search) ─────────────────────────────────

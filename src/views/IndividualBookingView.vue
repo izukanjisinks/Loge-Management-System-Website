@@ -5,7 +5,6 @@ import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useIndividualBookingStore } from '@/stores/individualBooking'
 import api from '@/lib/api'
-import { DUMMY_MENU_ITEMS } from '@/data/dummyCorporateData'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS, MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
 
 const route        = useRoute()
@@ -331,10 +330,42 @@ function setMealMode(mode) {
   expandedMealDayOverride.value = null
 }
 
+// ── Menu items (fetched from API) ───────────────────────────────────────────
+const menuItems   = ref([])
+const menuLoading = ref(false)
+
+async function fetchMenuItems() {
+  menuLoading.value = true
+  try {
+    const params = { org_id: lodgeId }
+    if (ib.branchId) params.branch_id = ib.branchId
+    const { data } = await api.get('/guest/menu', { params })
+    const wrapper    = data.items
+    const firstPage  = wrapper?.data ?? []
+    const total      = wrapper?.total     ?? firstPage.length
+    const pageSize   = wrapper?.page_size ?? 10
+    const totalPages = Math.ceil(total / pageSize)
+    let rest = []
+    if (totalPages > 1) {
+      const results = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          api.get('/guest/menu', { params: { ...params, page: i + 2, page_size: pageSize } })
+        )
+      )
+      rest = results.flatMap(r => r.data.items?.data ?? [])
+    }
+    menuItems.value = [...firstPage, ...rest]
+  } catch {
+    menuItems.value = []
+  } finally {
+    menuLoading.value = false
+  }
+}
+
 function menuItemsForPeriod(mealPeriod) {
   const catMap = { breakfast: 'breakfast', lunch: 'lunch', dinner: 'dinner', tea_break: 'tea_break', cocktail: 'beverage' }
   const cat = catMap[mealPeriod]
-  return cat ? DUMMY_MENU_ITEMS.filter(m => m.category === cat || m.category === 'beverage') : DUMMY_MENU_ITEMS
+  return cat ? menuItems.value.filter(m => m.category === cat || m.category === 'beverage') : menuItems.value
 }
 
 function addOrderItem(session, attendantIdx) {
@@ -448,6 +479,7 @@ onMounted(async () => {
   ib.setLodge(lodgeId, lodge.value?.name ?? '')
   if (route.query.branchId && !ib.branchId) ib.branchId = route.query.branchId
   ib.fillFromAuth(auth.user)
+  fetchMenuItems()
   // Restore room availability if dates were already set (e.g. navigating back)
   const { checkIn, checkOut } = ib.accommodation
   if (checkIn && checkOut && checkOut > checkIn) fetchAvailableRooms()
