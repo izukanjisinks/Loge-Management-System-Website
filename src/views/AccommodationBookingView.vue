@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useAccommodationBookingStore } from '@/stores/accommodationBooking'
 import { uploadBookingDocument } from '@/services/storage'
 import api from '@/lib/api'
+import { PDFDownloadLink } from '@ceereals/vue-pdf'
+import BookingInvoiceDocument from '@/components/reservation/BookingInvoiceDocument.vue'
 
 const route       = useRoute()
 const router      = useRouter()
@@ -67,7 +69,6 @@ const availableRooms   = ref([])
 const roomsLoading     = ref(false)
 const roomsError       = ref(false)
 const expandedPickerIdx  = ref(null)
-const headcountRoomSlots = ref([0])
 
 async function fetchAvailableRooms() {
   if (!ab.checkIn || !ab.checkOut || ab.checkOut <= ab.checkIn) {
@@ -101,23 +102,11 @@ function selectRoom(idx, room) {
   expandedPickerIdx.value = null
 }
 
-function addHeadcountRoom() {
-  const next = headcountRoomSlots.value.length > 0 ? Math.max(...headcountRoomSlots.value) + 1 : 0
-  headcountRoomSlots.value.push(next)
-}
-
-function removeHeadcountRoom(slotIdx) {
-  ab.clearAttendantRoom(slotIdx)
-  headcountRoomSlots.value = headcountRoomSlots.value.filter(i => i !== slotIdx)
-  if (expandedPickerIdx.value === slotIdx) expandedPickerIdx.value = null
-}
-
 watch(
   () => [ab.checkIn, ab.checkOut],
   ([ci, co]) => {
     ab.clearAllRooms()
-    expandedPickerIdx.value  = null
-    headcountRoomSlots.value = [0]
+    expandedPickerIdx.value = null
     if (ci && co && co > ci) fetchAvailableRooms()
     else availableRooms.value = []
   }
@@ -128,6 +117,46 @@ function nights(a, b) {
   if (!a || !b) return 0
   return Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000))
 }
+
+const invoiceData = computed(() => {
+  const nameParts = (ab.bookedBy.name || '').trim().split(' ')
+  return {
+    bookingType:      ab.isCorporate ? 'corporate' : 'individual',
+    lodgeName:        lodge.value?.name ?? '',
+    roomType:         ab.isCorporate ? (ab.roomTypePreference || 'Corporate Accommodation') : (ab.attendantRooms[0]?.roomName || 'Accommodation'),
+    checkIn:          ab.checkIn,
+    checkOut:         ab.checkOut,
+    nightCount:       nights(ab.checkIn, ab.checkOut),
+    guestCount:       ab.attendants.length,
+    baseRatePerNight: 0,
+    baseTotal:        0,
+    mealPlanName:     '',
+    mealCost:         0,
+    taxes:            0,
+    grandTotal:       0,
+    specialRequests:  ab.notes,
+    guestInfo: {
+      firstName:   nameParts[0] ?? '',
+      lastName:    nameParts.slice(1).join(' ') ?? '',
+      email:       ab.bookedBy.email,
+      phone:       ab.bookedBy.phone,
+      nationality: '',
+      passportId:  '',
+    },
+    corporateClient: {
+      companyName:   ab.companyName,
+      contactPerson: ab.approverName,
+      email:         ab.companyEmail,
+      phone:         ab.companyPhone,
+      regNumber:     ab.tpin,
+      industry:      ab.industry,
+      tpin:          ab.tpin,
+      costCenter:    ab.costCenter,
+      glCode:        ab.glCode,
+    },
+    corporateGuests: ab.attendants.map(a => ({ fullName: a.fullName, email: a.email, idNumber: a.idNumber })),
+  }
+})
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -154,7 +183,7 @@ function validate() {
     e.roomSelection = 'Please select at least one room before continuing'
   }
 
-  if (!ab.isCorporate && ab.participantMode === 'detailed') {
+  if (!ab.isCorporate) {
     ab.attendants.forEach((a, i) => {
       if (!a.fullName) e[`att_${i}_name`] = 'Required'
       if (a.isLead) {
@@ -179,25 +208,20 @@ function validate() {
     else if (!/\S+@\S+\.\S+/.test(ab.approverEmail)) e.approverEmail = 'Enter a valid email'
     if (!ab.approverPhone) e.approverPhone = 'Required'
 
-    if (ab.participantMode === 'headcount') {
-      if (!ab.participantCount || ab.participantCount < 1)
-        e.participantCount = 'Enter the number of delegates'
-    } else {
-      ab.attendants.forEach((a, i) => {
-        if (!a.fullName) e[`att_${i}_name`] = 'Required'
-        if (a.isLead) {
-          if (!a.email)    e[`att_${i}_email`] = 'Required'
-          else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
-          if (!a.phone)    e[`att_${i}_phone`] = 'Required'
-          if (!a.idNumber) e[`att_${i}_id`]    = 'Required'
-        }
-      })
-      if (!ab.attendants.some(a => a.fullName))
-        e.delegateRecords = 'At least one delegate record must be completed'
-    }
+    ab.attendants.forEach((a, i) => {
+      if (!a.fullName) e[`att_${i}_name`] = 'Required'
+      if (a.isLead) {
+        if (!a.email)    e[`att_${i}_email`] = 'Required'
+        else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
+        if (!a.phone)    e[`att_${i}_phone`] = 'Required'
+        if (!a.idNumber) e[`att_${i}_id`]    = 'Required'
+      }
+    })
+    if (!ab.attendants.some(a => a.fullName))
+      e.delegateRecords = 'At least one delegate record must be completed'
   }
 
-  if (ab.participantMode === 'detailed' && ab.attendants.length > 1) {
+  if (ab.attendants.length > 1) {
     const emailsSeen = new Map()
     const phonesSeen = new Map()
     const idsSeen    = new Map()
@@ -617,23 +641,21 @@ onMounted(async () => {
                 @click="attendantsExpanded = !attendantsExpanded">
                 <span class="material-symbols-outlined text-(--color-primary) shrink-0">group</span>
                 <div class="min-w-0 flex-1">
-                  <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Guests</h2>
+                  <h2 class="font-serif text-xl text-(--color-on-surface)">Guests</h2>
                   <p v-if="!attendantsExpanded" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
-                    {{ ab.participantMode === 'headcount'
-                      ? (ab.participantCount > 1 ? 'Party of ' + ab.participantCount : 'Just you — expand to add travel companions')
-                      : (ab.attendants.filter(a => a.fullName).length + ' guest' + (ab.attendants.filter(a => a.fullName).length !== 1 ? 's' : '') + ' registered') }}
+                    {{ ab.attendants.filter(a => a.fullName).length + ' guest' + (ab.attendants.filter(a => a.fullName).length !== 1 ? 's' : '') + ' registered' }}
                   </p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0 mr-2">
-                  <span v-if="!attendantsExpanded && ab.participantCount > 1"
+                  <span v-if="!attendantsExpanded && ab.attendants.filter(a => a.fullName).length > 0"
                     class="px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
-                    {{ ab.participantMode === 'headcount' ? ab.participantCount : ab.attendants.filter(a => a.fullName).length }}
+                    {{ ab.attendants.filter(a => a.fullName).length }}
                   </span>
                   <span class="material-symbols-outlined text-(--color-on-surface-variant) transition-transform duration-200"
                     :style="{ transform: attendantsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }">expand_more</span>
                 </div>
               </button>
-              <div v-if="attendantsExpanded && ab.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
+              <div v-if="attendantsExpanded" class="flex items-center px-4 border-l border-(--color-outline-variant)">
                 <button type="button"
                   class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0"
                   @click="ab.addAttendant()">
@@ -643,48 +665,7 @@ onMounted(async () => {
             </div>
 
             <div v-if="attendantsExpanded" class="px-6 pb-6 border-t border-(--color-outline-variant)">
-              <!-- Mode cards -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
-                <button type="button"
-                  @click="ab.participantMode = 'headcount'"
-                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
-                  :class="ab.participantMode === 'headcount'
-                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
-                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
-                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
-                    :class="ab.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">group</span>
-                  <div>
-                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Total party size — no individual details required</p>
-                  </div>
-                </button>
-                <button type="button"
-                  @click="ab.participantMode = 'detailed'"
-                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
-                  :class="ab.participantMode === 'detailed'
-                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
-                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
-                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
-                    :class="ab.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
-                  <div>
-                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Register each guest with name and contact details</p>
-                  </div>
-                </button>
-              </div>
-
-              <!-- Headcount -->
-              <div v-if="ab.participantMode === 'headcount'">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Party Size (including yourself)</label>
-                <div class="flex items-center gap-3 mt-2">
-                  <input type="number" min="1" v-model.number="ab.participantCount"
-                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
-                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Includes you as the primary guest</p>
-                </div>
-              </div>
-
-              <!-- Detailed -->
-              <div v-else class="space-y-3">
+              <div class="space-y-3 pt-4">
                 <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register all guests. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in ab.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
@@ -757,13 +738,11 @@ onMounted(async () => {
                 <div class="min-w-0 flex-1">
                   <h2 class="font-serif text-xl text-(--color-on-surface)">Delegates</h2>
                   <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
-                    {{ ab.participantMode === 'headcount'
-                      ? ab.participantCount + ' delegate' + (ab.participantCount !== 1 ? 's' : '') + ' — headcount only'
-                      : ab.attendants.length + ' delegate' + (ab.attendants.length !== 1 ? 's' : '') + ' registered' }}
+                    {{ ab.attendants.length + ' delegate' + (ab.attendants.length !== 1 ? 's' : '') + ' registered' }}
                   </p>
                 </div>
               </div>
-              <div v-if="ab.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
+              <div class="flex items-center px-4 border-l border-(--color-outline-variant)">
                 <button type="button"
                   class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0"
                   @click="ab.addAttendant()">
@@ -773,52 +752,7 @@ onMounted(async () => {
             </div>
 
             <div class="px-6 pb-6 border-t border-(--color-outline-variant)">
-              <!-- Mode toggle -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
-                <button type="button"
-                  @click="ab.participantMode = 'headcount'"
-                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
-                  :class="ab.participantMode === 'headcount'
-                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
-                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
-                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
-                    :class="ab.participantMode === 'headcount' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">groups</span>
-                  <div>
-                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Headcount Only</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Total delegate count — the property assigns rooms by type</p>
-                  </div>
-                </button>
-                <button type="button"
-                  @click="ab.participantMode = 'detailed'"
-                  class="flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all"
-                  :class="ab.participantMode === 'detailed'
-                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
-                    : 'border-(--color-outline-variant) hover:border-(--color-primary)'">
-                  <span class="material-symbols-outlined text-xl mt-0.5 shrink-0"
-                    :class="ab.participantMode === 'detailed' ? 'text-(--color-primary)' : 'text-(--color-on-surface-variant)'">format_list_bulleted</span>
-                  <div>
-                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">Individual Records</p>
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Register each delegate and assign their room directly</p>
-                  </div>
-                </button>
-              </div>
-
-              <!-- Headcount -->
-              <div v-if="ab.participantMode === 'headcount'">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  Number of Delegates <span class="text-(--color-error)">*</span>
-                </label>
-                <div class="flex items-center gap-4 mt-2">
-                  <input type="number" min="1" v-model.number="ab.participantCount"
-                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none text-center transition-colors"
-                    :class="errors.participantCount ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
-                  <p class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates requiring accommodation</p>
-                </div>
-                <span v-if="errors.participantCount" class="font-sans text-xs text-(--color-error) mt-1 block">{{ errors.participantCount }}</span>
-              </div>
-
-              <!-- Detailed -->
-              <div v-else class="space-y-3">
+              <div class="space-y-3 pt-4">
                 <p v-if="errors.delegateRecords" class="font-sans text-sm text-(--color-error) font-semibold">{{ errors.delegateRecords }}</p>
                 <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each delegate. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in ab.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
@@ -954,89 +888,7 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- Headcount mode: multi-room slots -->
-                <div v-else-if="ab.participantMode === 'headcount'" class="space-y-3">
-                  <div v-for="(slotIdx, position) in headcountRoomSlots" :key="slotIdx"
-                    class="border rounded-xl overflow-hidden transition-all"
-                    :class="expandedPickerIdx === slotIdx ? 'border-(--color-primary)' : 'border-(--color-outline-variant)'">
-                    <div class="flex items-center justify-between gap-3 px-4 py-3 bg-(--color-surface-container)">
-                      <div class="flex items-center gap-2.5 min-w-0">
-                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-bold text-(--color-primary) shrink-0">{{ position + 1 }}</span>
-                        <div v-if="ab.getAttendantRoom(slotIdx)" class="min-w-0">
-                          <p class="font-sans text-sm font-semibold text-(--color-on-surface) truncate">{{ ab.getAttendantRoom(slotIdx).roomName }}</p>
-                          <p class="font-sans text-xs text-(--color-primary)">K {{ Number(ab.getAttendantRoom(slotIdx).rate).toLocaleString() }}/night</p>
-                        </div>
-                        <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">No Room Selected</p>
-                      </div>
-                      <div class="flex items-center gap-2 shrink-0">
-                        <button v-if="headcountRoomSlots.length > 1" type="button" @click="removeHeadcountRoom(slotIdx)"
-                          class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
-                          <span class="material-symbols-outlined text-sm">delete</span>
-                        </button>
-                        <button v-else-if="ab.getAttendantRoom(slotIdx)" type="button" @click="ab.clearAttendantRoom(slotIdx)"
-                          class="h-7 w-7 flex items-center justify-center rounded-lg text-(--color-outline) hover:text-(--color-error) hover:bg-(--color-error-container) transition-colors">
-                          <span class="material-symbols-outlined text-sm">close</span>
-                        </button>
-                        <button type="button" @click="togglePicker(slotIdx)"
-                          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-sans text-xs font-semibold transition-all"
-                          :class="expandedPickerIdx === slotIdx
-                            ? 'bg-(--color-surface-container-high) text-(--color-on-surface)'
-                            : 'bg-(--color-primary) text-white hover:bg-(--color-clay-earth)'">
-                          <span class="material-symbols-outlined text-sm">{{ expandedPickerIdx === slotIdx ? 'expand_less' : 'add' }}</span>
-                          {{ expandedPickerIdx === slotIdx ? 'Close' : (ab.getAttendantRoom(slotIdx) ? 'Change' : 'Select Room') }}
-                        </button>
-                      </div>
-                    </div>
-                    <!-- Inline picker -->
-                    <div v-if="expandedPickerIdx === slotIdx" class="p-4 bg-(--color-surface-container-low) border-t border-(--color-outline-variant)">
-                      <div v-if="!availableRooms.length" class="py-8 text-center">
-                        <span class="material-symbols-outlined text-3xl text-(--color-outline) mb-2 block opacity-40">bed_time</span>
-                        <p class="font-sans text-sm text-(--color-on-surface-variant)">No rooms available for these dates</p>
-                      </div>
-                      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button v-for="room in availableRooms" :key="room.id" type="button"
-                          class="group text-left rounded-xl border-2 transition-all overflow-hidden"
-                          :class="ab.getAttendantRoom(slotIdx)?.roomId === room.id
-                            ? 'border-(--color-primary) bg-(--color-savannah-mist)'
-                            : 'border-(--color-outline-variant) hover:border-(--color-primary) bg-(--color-surface-container-lowest)'"
-                          @click="selectRoom(slotIdx, room)">
-                          <div v-if="room.images?.[0]" class="w-full h-28 overflow-hidden">
-                            <img :src="room.images[0]" :alt="room.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                          </div>
-                          <div class="p-3">
-                            <div class="flex items-start justify-between gap-2 mb-1">
-                              <p class="font-sans text-sm font-semibold text-(--color-on-surface) leading-tight">{{ room.name }}</p>
-                              <span v-if="ab.getAttendantRoom(slotIdx)?.roomId === room.id"
-                                class="material-symbols-outlined text-base text-(--color-primary) shrink-0" style="font-variation-settings: 'FILL' 1">check_circle</span>
-                              <span v-else class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs font-semibold text-(--color-on-surface-variant) capitalize shrink-0">{{ room.type }}</span>
-                            </div>
-                            <div class="flex items-center justify-between gap-2">
-                              <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
-                                <span class="material-symbols-outlined text-sm">person</span>Sleeps {{ room.capacity }}
-                              </span>
-                              <span class="font-sans text-xs font-bold text-(--color-primary)">K {{ Number(room.price_per_night).toLocaleString() }}/night</span>
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Add another room -->
-                  <button type="button"
-                    class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary) transition-colors"
-                    @click="addHeadcountRoom">
-                    <span class="material-symbols-outlined text-base">add</span>
-                    Add Another Room
-                  </button>
-
-                  <!-- Tally -->
-                  <p v-if="headcountRoomSlots.length > 1" class="font-sans text-xs text-(--color-on-surface-variant) text-center">
-                    {{ ab.attendantRooms.length }} of {{ headcountRoomSlots.length }} rooms selected
-                  </p>
-                </div>
-
-                <!-- Detailed mode: per-attendant -->
+                <!-- Per-attendant room assignments -->
                 <div v-else class="space-y-3">
                   <div v-for="(att, i) in ab.attendants" :key="i"
                     class="border rounded-xl overflow-hidden transition-all"
@@ -1274,9 +1126,7 @@ onMounted(async () => {
               <div v-if="!ab.isCorporate">
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Party Size</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">
-                  {{ ab.participantMode === 'headcount'
-                    ? ab.participantCount + ' guest' + (ab.participantCount !== 1 ? 's' : '')
-                    : ab.attendants.length + ' guest' + (ab.attendants.length !== 1 ? 's' : '') + ' (detailed)' }}
+                  {{ ab.attendants.length + ' guest' + (ab.attendants.length !== 1 ? 's' : '') }}
                 </p>
               </div>
             </div>
@@ -1290,6 +1140,10 @@ onMounted(async () => {
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Company Name</p>
                 <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.companyName || '—' }}</p>
               </div>
+              <div v-if="ab.tpin">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">TPIN</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.tpin }}</p>
+              </div>
               <div v-if="ab.departmentName">
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Department</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.departmentName }}</p>
@@ -1297,6 +1151,10 @@ onMounted(async () => {
               <div v-if="ab.costCenter">
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Cost Centre</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.costCenter }}</p>
+              </div>
+              <div v-if="ab.glCode">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">GL Code</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.glCode }}</p>
               </div>
             </div>
             <div v-if="ab.approverName" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
@@ -1376,6 +1234,22 @@ onMounted(async () => {
             </button>
           </div>
 
+          <!-- Download Invoice -->
+          <PDFDownloadLink :file-name="`Mwakwanda-Booking-${lodge?.name || 'Invoice'}.pdf`">
+            <template #default>
+              <BookingInvoiceDocument :booking="invoiceData" />
+            </template>
+            <template #label="{ blob }">
+              <button type="button"
+                class="w-full h-12 flex items-center justify-center gap-2 border border-(--color-primary) text-(--color-primary) rounded-lg font-sans text-sm font-semibold hover:bg-(--color-surface-container-low) transition-all">
+                <span class="material-symbols-outlined text-base" :class="!blob ? 'animate-spin' : ''">
+                  {{ !blob ? 'progress_activity' : 'download' }}
+                </span>
+                {{ !blob ? 'Generating…' : 'Download Invoice' }}
+              </button>
+            </template>
+          </PDFDownloadLink>
+
         </template>
       </div>
 
@@ -1434,17 +1308,16 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Room summary: corporate headcount -->
+          <!-- Room summary: corporate -->
           <div v-else>
             <div class="flex justify-between items-center">
-              <span class="font-sans text-xs text-(--color-on-surface-variant)">Rooms required</span>
-              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.roomCount }}</span>
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Delegates</span>
+              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.attendants.length }}</span>
             </div>
             <div v-if="ab.roomTypePreference" class="flex justify-between items-center mt-1">
               <span class="font-sans text-xs text-(--color-on-surface-variant)">Type preference</span>
               <span class="font-sans text-sm text-(--color-on-surface) capitalize">{{ ab.roomTypePreference }}</span>
             </div>
-            <p v-if="ab.participantCount" class="font-sans text-xs text-(--color-on-surface-variant) mt-2">{{ ab.participantCount }} delegate{{ ab.participantCount !== 1 ? 's' : '' }}</p>
           </div>
         </div>
       </aside>

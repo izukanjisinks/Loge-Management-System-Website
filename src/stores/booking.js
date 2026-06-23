@@ -43,6 +43,9 @@ export const useBookingStore = defineStore('booking', () => {
     phone:          '',
     regNumber:      '',
     industry:       '',
+    tpin:           '',
+    costCenter:     '',
+    glCode:         '',
   })
 
   // ── Corporate employee guests ─────────────────────────────────────────
@@ -109,7 +112,7 @@ export const useBookingStore = defineStore('booking', () => {
     mealPlanRate.value     = 0
     specialRequests.value  = ''
     guestInfo.value        = { firstName: '', lastName: '', email: '', phone: '', nationality: '', passportId: '' }
-    corporateClient.value  = { companyName: '', contactPerson: '', email: '', phone: '', regNumber: '', industry: '' }
+    corporateClient.value  = { companyName: '', contactPerson: '', email: '', phone: '', regNumber: '', industry: '', tpin: '', costCenter: '', glCode: '' }
     corporateGuests.value  = [{ fullName: '', email: '', phone: '', idNumber: '', roomId: '', checkIn: '', checkOut: '' }]
   }
 

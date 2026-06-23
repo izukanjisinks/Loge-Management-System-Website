@@ -19,8 +19,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
   // Booker — auto-filled from auth
   const bookedBy = ref({ name: '', email: '', phone: '', jobTitle: '' })
 
-  // Participant mode (individual only — corporate always uses headcount)
-  const participantMode  = ref('headcount')  // 'headcount' | 'detailed'
+  const participantMode  = ref('detailed')
   const participantCount = ref(1)
   const attendants       = ref([blankAttendant(true)])
 
@@ -212,7 +211,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
   function reset() {
     bookingContext.value   = 'individual'
     bookedBy.value         = { name: '', email: '', phone: '', jobTitle: '' }
-    participantMode.value  = 'headcount'
+    participantMode.value  = 'detailed'
     participantCount.value = 1
     attendants.value       = [blankAttendant(true)]
     attendantRooms.value   = []
