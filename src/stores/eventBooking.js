@@ -144,7 +144,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
-  async function submit() {
+  async function submit(documents = []) {
     const useHeadcount = participantMode.value === 'headcount'
 
     const evObj = { startDate: startDate.value, endDate: endDate.value, masterSessions: masterSessions.value, dayOverrides: dayOverrides.value }
@@ -156,6 +156,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
       source:          'web',
       currency:        'ZMW',
       booking_context: bookingContext.value,
+      documents,
 
       participant_mode:  participantMode.value,
       participant_count: useHeadcount ? participantCount.value : null,

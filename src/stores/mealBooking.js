@@ -223,7 +223,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
           meal_date:          m.mealDate          || null,
           meal_period:        m.mealPeriod,
           service_type:       m.serviceType,
-          buffet_item_id:     m.serviceType === 'buffet' ? (m.buffetItemId || null) : null,
+          menu_item_id:       m.serviceType === 'buffet' ? (m.buffetItemId || null) : null,
           pax_count:          m.paxCount          || null,
           dietary_notes:      m.dietaryNotes      || null,
           arrangements_notes: m.arrangementsNotes || null,
@@ -239,7 +239,10 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
       },
     }
 
-    const { data } = await api.post('/guest/bookings/meal', payload)
+    const endpoint = bookingContext.value === 'corporate'
+      ? '/guest/bookings/corporate-meal'
+      : '/guest/bookings/meal'
+    const { data } = await api.post(endpoint, payload)
     return data
   }
 
