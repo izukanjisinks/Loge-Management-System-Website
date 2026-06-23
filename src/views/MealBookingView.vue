@@ -987,6 +987,18 @@ onMounted(async () => {
                           <option v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
                       </div>
+                      <div v-if="meal.serviceType === 'buffet'" class="flex flex-col gap-1 sm:col-span-2">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Buffet Selection</label>
+                        <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
+                          <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
+                        </p>
+                        <p v-else-if="!menuItems.length" class="font-sans text-xs text-(--color-outline) italic">No menu items available for this lodge.</p>
+                        <select v-else v-model="meal.buffetItemId"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          <option value="">Select buffet option…</option>
+                          <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                        </select>
+                      </div>
                       <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Covers / Pax</label>
                         <input v-model.number="meal.paxCount" type="number" min="1"
@@ -1184,6 +1196,18 @@ onMounted(async () => {
                               <select v-model="m.serviceType"
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                                 <option v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
+                              </select>
+                            </div>
+                            <div v-if="m.serviceType === 'buffet'" class="flex flex-col gap-1 sm:col-span-2">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Buffet Selection</label>
+                              <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
+                              </p>
+                              <p v-else-if="!menuItems.length" class="font-sans text-xs text-(--color-outline) italic">No menu items available for this lodge.</p>
+                              <select v-else v-model="m.buffetItemId"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                <option value="">Select buffet option…</option>
+                                <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                               </select>
                             </div>
                             <div class="flex flex-col gap-1">

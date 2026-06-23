@@ -86,18 +86,18 @@ export const useReservationsStore = defineStore('reservations', () => {
       }
     } else {
       body = {
-        room_id:            payload.roomId,
-        check_in:           payload.checkIn,
-        check_out:          payload.checkOut,
-        guests:             payload.guestCount,
-        special_requests:   payload.specialRequests || undefined,
-        id_passport_number: payload.client.passportId || undefined,
+        booker_name:      `${payload.client.firstName} ${payload.client.lastName}`.trim(),
+        booker_email:     payload.client.email     || undefined,
+        booker_phone:     payload.client.phone     || undefined,
+        room_id:          payload.roomId,
+        check_in:         payload.checkIn,
+        check_out:        payload.checkOut,
+        special_requests: payload.specialRequests || undefined,
       }
-      if (payload.mealPlanId) body.meal_plan_id = payload.mealPlanId
     }
 
     if (!payload.roomId) throw new Error('No room selected')
-    const endpoint = payload.bookingType === 'corporate' ? '/guest/bookings/corporate' : '/guest/bookings'
+    const endpoint = payload.bookingType === 'corporate' ? '/web/bookings/corporate' : '/web/bookings'
     const { data } = await api.post(endpoint, body)
     return data
   }

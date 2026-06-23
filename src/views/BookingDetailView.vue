@@ -25,7 +25,7 @@ onMounted(async () => {
   loading.value = true
   error.value   = ''
   try {
-    const { data } = await api.get(`/guest/bookings/${route.params.id}`)
+    const { data } = await api.get(`/web/bookings/${route.params.id}`)
     booking.value = {
       id:              data.id,
       roomId:          data.room_id,
