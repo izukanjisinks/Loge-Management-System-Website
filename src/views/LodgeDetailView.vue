@@ -819,7 +819,7 @@ function bookRoom(room) {
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="i in 6" :key="i"
               class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
-              <div class="h-48 bg-(--color-surface-container-highest)"></div>
+              <div class="h-60 bg-(--color-surface-container-highest)"></div>
               <div class="p-5 space-y-3">
                 <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
                 <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
@@ -850,7 +850,7 @@ function bookRoom(room) {
                 <div v-for="item in items" :key="item.id"
                   class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden flex flex-col group hover:shadow-md transition-shadow duration-200">
                   <!-- Icon band -->
-                  <div class="relative h-36 bg-(--color-surface-container) flex items-center justify-center overflow-hidden">
+                  <div class="relative h-65 bg-(--color-surface-container) flex items-center justify-center overflow-hidden">
                     <img v-if="item.image_url" :src="item.image_url" :alt="item.name"
                       class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     <span v-else
@@ -863,7 +863,7 @@ function bookRoom(room) {
                     </span>
                   </div>
                   <!-- Info -->
-                  <div class="p-4 flex flex-col flex-1">
+                  <div class="p-5 flex flex-col flex-1">
                     <div class="flex items-start justify-between gap-2 mb-1">
                       <p class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors leading-snug flex-1">
                         {{ item.name }}
