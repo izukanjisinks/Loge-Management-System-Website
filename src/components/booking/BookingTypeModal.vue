@@ -29,7 +29,7 @@ function confirm() { emit('confirm', selectedService.value); close() }
     >
       <div v-if="modelValue" class="fixed inset-0 z-[150] flex items-center justify-center p-4">
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="close" />
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-md" @click="close" />
 
         <!-- Panel -->
         <div class="relative bg-(--color-surface) rounded-2xl shadow-2xl w-full max-w-md">

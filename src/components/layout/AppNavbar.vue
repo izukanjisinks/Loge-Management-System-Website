@@ -195,7 +195,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
       @click.self="showLogoutDialog = false"
     >
       <!-- Backdrop -->
-      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-md"></div>
 
       <!-- Dialog -->
       <Transition

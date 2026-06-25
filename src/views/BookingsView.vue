@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useReservationsStore } from '@/stores/reservations'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -7,6 +7,29 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 function formatDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function cardTitle(r) {
+  if (r.bookingType === 'accommodation') {
+    if (r.bookerType === 'corporate') return r.companyName || 'Corporate Stay'
+    return r.roomName || 'Room Booking'
+  }
+  if (r.bookingType === 'event') return r.sessions[0]?.venue_name || 'Event Booking'
+  if (r.bookingType === 'meals') return 'Meal Booking'
+  return 'Booking'
+}
+
+function typeLabel(r) {
+  if (r.bookingType === 'accommodation') return r.bookerType === 'corporate' ? 'Corporate Stay' : 'Stay'
+  if (r.bookingType === 'event') return 'Event'
+  if (r.bookingType === 'meals') return 'Meal'
+  return 'Booking'
+}
+
+function fallbackIcon(r) {
+  if (r.bookingType === 'event') return 'event'
+  if (r.bookingType === 'meals') return 'restaurant'
+  return 'image_not_supported'
 }
 
 const reservations = useReservationsStore()
@@ -67,80 +90,144 @@ onMounted(() => reservations.fetchAll())
 
         <!-- Reservation cards -->
         <div v-else class="space-y-4">
-          <RouterLink
+          <component
+            :is="r.recordType === 'booking' ? RouterLink : 'article'"
             v-for="r in reservations.active"
             :key="r.id"
-            :to="`/bookings/${r.id}`"
-            class="group block"
+            :to="r.recordType === 'booking' ? `/bookings/${r.id}` : undefined"
+            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col sm:flex-row"
+            :class="r.recordType === 'booking' ? 'cursor-pointer' : ''"
           >
-            <article class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col sm:flex-row">
-
-              <!-- Image -->
-              <div class="sm:w-52 shrink-0 overflow-hidden relative">
-                <img
-                  v-if="r.roomImage"
-                  :src="r.roomImage"
-                  :alt="r.roomName"
-                  class="w-full h-44 sm:h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div
-                  v-else
-                  class="w-full h-44 sm:h-full bg-(--color-surface-container) flex items-center justify-center"
+            <!-- Image / icon panel -->
+            <div class="sm:w-52 shrink-0 overflow-hidden relative">
+              <img
+                v-if="r.roomImage"
+                :src="r.roomImage"
+                :alt="r.roomName"
+                class="w-full h-44 sm:h-full object-cover"
+              />
+              <div
+                v-else
+                class="w-full h-44 sm:h-full bg-(--color-surface-container) flex items-center justify-center"
+              >
+                <span class="material-symbols-outlined text-4xl text-(--color-outline)">{{ fallbackIcon(r) }}</span>
+              </div>
+              <div class="absolute top-3 left-3 flex flex-col gap-1.5">
+                <StatusBadge :status="r.status" />
+                <span
+                  v-if="r.recordType === 'request'"
+                  class="text-[10px] font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full"
                 >
-                  <span class="material-symbols-outlined text-4xl text-(--color-outline)">image_not_supported</span>
+                  Awaiting approval
+                </span>
+              </div>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 p-6 flex flex-col gap-4">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-1">
+                    {{ typeLabel(r) }} · #{{ r.id.slice(0, 8) }}
+                  </p>
+                  <h3 class="font-serif text-2xl text-(--color-on-surface)">{{ cardTitle(r) }}</h3>
                 </div>
-                <!-- Status ribbon -->
-                <div class="absolute top-3 left-3">
-                  <StatusBadge :status="r.status" />
-                </div>
+                <p v-if="r.totalAmount" class="font-serif text-2xl text-(--color-primary) shrink-0">
+                  K{{ r.totalAmount.toLocaleString() }}
+                </p>
               </div>
 
-              <!-- Content -->
-              <div class="flex-1 p-6 flex flex-col gap-4">
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-1">Reservation #{{ r.id }}</p>
-                    <h3 class="font-serif text-2xl text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ r.roomName }}</h3>
-                  </div>
-                  <p class="font-serif text-2xl text-(--color-primary) shrink-0">K{{ r.totalAmount.toLocaleString() }}</p>
-                </div>
-
-                <!-- Details row -->
-                <div class="flex flex-wrap gap-x-6 gap-y-2 font-sans text-sm text-(--color-on-surface-variant)">
-                  <span class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
-                    {{ formatDate(r.checkIn) }} → {{ formatDate(r.checkOut) }}
-                  </span>
-                  <span class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-base text-(--color-primary)">nights_stay</span>
-                    {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
-                  </span>
-                  <span class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
-                    {{ r.guests }} {{ r.guests === 1 ? 'guest' : 'guests' }}
-                  </span>
-                  <span v-if="r.mealPlanName" class="flex items-center gap-1.5">
-                    <span class="material-symbols-outlined text-base text-(--color-primary)">restaurant</span>
-                    {{ r.mealPlanName }}
-                  </span>
-                </div>
-
-                <!-- Footer row -->
-                <div class="flex items-center justify-between pt-4 mt-auto border-t border-(--color-outline-variant)">
-                  <span class="font-sans text-xs text-(--color-on-surface-variant)">
-                    View details →
-                  </span>
-                  <button
-                    v-if="['pending', 'confirmed'].includes(r.status)"
-                    class="border-2 border-(--color-primary) text-(--color-primary) px-4 py-1.5 rounded-full font-sans text-xs font-semibold hover:bg-(--color-primary) hover:text-white transition-all"
-                    @click.prevent="reservations.cancel(r.id)"
-                  >
-                    Cancel Reservation
-                  </button>
-                </div>
+              <!-- Details — individual accommodation -->
+              <div
+                v-if="r.bookingType === 'accommodation' && r.bookerType !== 'corporate'"
+                class="flex flex-wrap gap-x-6 gap-y-2 font-sans text-sm text-(--color-on-surface-variant)"
+              >
+                <span v-if="r.checkIn" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.checkIn) }} → {{ formatDate(r.checkOut) }}
+                </span>
+                <span v-if="r.nights" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">nights_stay</span>
+                  {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
+                </span>
+                <span v-if="r.roomType" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">bed</span>
+                  {{ r.roomType }}
+                </span>
               </div>
-            </article>
-          </RouterLink>
+
+              <!-- Details — corporate accommodation -->
+              <div
+                v-else-if="r.bookingType === 'accommodation' && r.bookerType === 'corporate'"
+                class="flex flex-wrap gap-x-6 gap-y-2 font-sans text-sm text-(--color-on-surface-variant)"
+              >
+                <span v-if="r.checkIn" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.checkIn) }} → {{ formatDate(r.checkOut) }}
+                </span>
+                <span v-if="r.nights" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">nights_stay</span>
+                  {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
+                </span>
+                <span v-if="r.assignedRooms.length" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">bed</span>
+                  {{ r.assignedRooms.length }} {{ r.assignedRooms.length === 1 ? 'room' : 'rooms' }} assigned
+                </span>
+                <span v-else-if="r.roomCount" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">bed</span>
+                  {{ r.roomCount }} {{ r.roomCount === 1 ? 'room' : 'rooms' }} requested
+                </span>
+              </div>
+
+              <!-- Details — event -->
+              <div
+                v-else-if="r.bookingType === 'event'"
+                class="flex flex-wrap gap-x-6 gap-y-2 font-sans text-sm text-(--color-on-surface-variant)"
+              >
+                <span v-if="r.startDate" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }}
+                </span>
+                <span v-if="r.sessions.length" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">event</span>
+                  {{ r.sessions.length }} {{ r.sessions.length === 1 ? 'session' : 'sessions' }}
+                </span>
+                <span v-if="r.sessions[0]?.pax" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
+                  {{ r.sessions[0].pax }} pax
+                </span>
+              </div>
+
+              <!-- Details — meal -->
+              <div
+                v-else-if="r.bookingType === 'meals'"
+                class="flex flex-wrap gap-x-6 gap-y-2 font-sans text-sm text-(--color-on-surface-variant)"
+              >
+                <span v-if="r.startDate" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.startDate) }} → {{ formatDate(r.endDate) }}
+                </span>
+                <span v-if="r.headcount" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
+                  {{ r.headcount }} {{ r.headcount === 1 ? 'guest' : 'guests' }}
+                </span>
+              </div>
+
+              <!-- Footer -->
+              <div class="flex items-center justify-between pt-4 mt-auto border-t border-(--color-outline-variant)">
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">
+                  {{ r.recordType === 'request' ? 'Pending approval from lodge' : 'View details →' }}
+                </span>
+                <button
+                  v-if="r.recordType === 'request' && r.status === 'pending'"
+                  class="border-2 border-(--color-error) text-(--color-error) px-4 py-1.5 rounded-full font-sans text-xs font-semibold hover:bg-(--color-error) hover:text-white transition-all"
+                  @click="reservations.cancelRequest(r.id)"
+                >
+                  Cancel Request
+                </button>
+              </div>
+            </div>
+          </component>
         </div>
       </section>
 
@@ -156,10 +243,11 @@ onMounted(() => reservations.fetchAll())
         </div>
 
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <article
+          <RouterLink
             v-for="r in reservations.past"
             :key="r.id"
-            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden flex flex-col"
+            :to="`/bookings/${r.id}`"
+            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-all duration-300"
           >
             <!-- Image -->
             <div class="relative h-44 overflow-hidden">
@@ -173,7 +261,7 @@ onMounted(() => reservations.fetchAll())
                 v-else
                 class="w-full h-full bg-(--color-surface-container) flex items-center justify-center"
               >
-                <span class="material-symbols-outlined text-4xl text-(--color-outline)">image_not_supported</span>
+                <span class="material-symbols-outlined text-4xl text-(--color-outline)">{{ fallbackIcon(r) }}</span>
               </div>
               <div class="absolute inset-0 bg-linear-to-t from-black/50 to-transparent"></div>
               <div class="absolute bottom-3 left-3">
@@ -183,33 +271,67 @@ onMounted(() => reservations.fetchAll())
 
             <!-- Content -->
             <div class="p-5 flex flex-col gap-3 flex-1">
-              <h3 class="font-serif text-xl text-(--color-on-surface)">{{ r.roomName }}</h3>
-              <div class="space-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
-                <p class="flex items-center gap-1.5">
+              <div>
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-1">
+                  {{ typeLabel(r) }}
+                </p>
+                <h3 class="font-serif text-xl text-(--color-on-surface)">{{ cardTitle(r) }}</h3>
+              </div>
+
+              <!-- individual accommodation -->
+              <div v-if="r.bookingType === 'accommodation' && r.bookerType !== 'corporate'" class="space-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+                <p v-if="r.checkIn" class="flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-sm text-(--color-primary)">calendar_today</span>
                   {{ formatDate(r.checkIn) }} — {{ formatDate(r.checkOut) }}
                 </p>
-                <p class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-sm text-(--color-primary)">group</span>
-                  {{ r.guests }} {{ r.guests === 1 ? 'guest' : 'guests' }} · {{ r.nights }} nights
+                <p v-if="r.nights" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">nights_stay</span>
+                  {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
                 </p>
-                <p v-if="r.mealPlanName" class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-sm text-(--color-primary)">restaurant</span>
-                  {{ r.mealPlanName }}
+              </div>
+
+              <!-- corporate accommodation -->
+              <div v-else-if="r.bookingType === 'accommodation' && r.bookerType === 'corporate'" class="space-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+                <p v-if="r.checkIn" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.checkIn) }} — {{ formatDate(r.checkOut) }}
+                </p>
+                <p v-if="r.assignedRooms.length" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">bed</span>
+                  {{ r.assignedRooms.length }} {{ r.assignedRooms.length === 1 ? 'room' : 'rooms' }}
+                </p>
+              </div>
+
+              <!-- event -->
+              <div v-else-if="r.bookingType === 'event'" class="space-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+                <p v-if="r.startDate" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.startDate) }} — {{ formatDate(r.endDate) }}
+                </p>
+                <p v-if="r.sessions.length" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">event</span>
+                  {{ r.sessions.length }} {{ r.sessions.length === 1 ? 'session' : 'sessions' }}
+                </p>
+              </div>
+
+              <!-- meal -->
+              <div v-else-if="r.bookingType === 'meals'" class="space-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+                <p v-if="r.startDate" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">calendar_today</span>
+                  {{ formatDate(r.startDate) }} — {{ formatDate(r.endDate) }}
+                </p>
+                <p v-if="r.headcount" class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm text-(--color-primary)">group</span>
+                  {{ r.headcount }} {{ r.headcount === 1 ? 'guest' : 'guests' }}
                 </p>
               </div>
 
               <div class="flex items-center justify-between pt-3 mt-auto border-t border-(--color-outline-variant)">
                 <p class="font-serif text-xl text-(--color-primary)">K{{ r.totalAmount.toLocaleString() }}</p>
-                <RouterLink
-                  :to="`/rooms/${r.roomId}`"
-                  class="border-2 border-(--color-primary) text-(--color-primary) px-4 py-1.5 rounded-full font-sans text-xs font-semibold hover:bg-(--color-primary) hover:text-white transition-all"
-                >
-                  Book Again
-                </RouterLink>
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">View details →</span>
               </div>
             </div>
-          </article>
+          </RouterLink>
         </div>
       </section>
 

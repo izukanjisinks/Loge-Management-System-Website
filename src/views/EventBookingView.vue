@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useEventBookingStore } from '@/stores/eventBooking'
+import { useRebookStore } from '@/stores/rebook'
 import { uploadBookingDocument } from '@/services/storage'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS } from '@/data/bookingConstants'
 import api from '@/lib/api'
@@ -13,6 +14,7 @@ const router      = useRouter()
 const lodgesStore = useLodgesStore()
 const auth        = useAuthStore()
 const eb          = useEventBookingStore()
+const rebookStore = useRebookStore()
 
 const lodgeId        = route.params.id
 const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) === String(lodgeId)))
@@ -355,6 +357,46 @@ onMounted(async () => {
   if (q.context === 'corporate')  eb.bookingContext = 'corporate'
 
   eb.fillFromAuth(auth.user)
+
+  // Prefill from a "Book Again" navigation
+  const rd = rebookStore.drain()
+  if (rd && rd.bookingType === 'event') {
+    if (rd.branchId)       eb.branchId       = rd.branchId
+    if (rd.bookingContext) eb.bookingContext  = rd.bookingContext
+    if (rd.bookedBy?.name)  eb.bookedBy.name  = rd.bookedBy.name
+    if (rd.bookedBy?.email) eb.bookedBy.email = rd.bookedBy.email
+    if (rd.bookedBy?.phone) eb.bookedBy.phone = rd.bookedBy.phone
+    if (rd.event?.startDate)        eb.startDate        = rd.event.startDate
+    if (rd.event?.endDate)          eb.endDate          = rd.event.endDate
+    if (rd.event?.reasonForBooking) eb.reasonForBooking = rd.event.reasonForBooking
+    if (rd.company) {
+      eb.companyName  = rd.company.name  || ''
+      eb.tpin         = rd.company.tpin  || ''
+      eb.companyEmail = rd.company.email || ''
+      eb.companyPhone = rd.company.phone || ''
+    }
+    if (rd.approver) {
+      eb.approverName  = rd.approver.name  || ''
+      eb.approverEmail = rd.approver.email || ''
+      eb.approverPhone = rd.approver.phone || ''
+      eb.approverTitle = rd.approver.title || ''
+    }
+    if (rd.attendants?.length) {
+      eb.attendants = rd.attendants.map((a, i) => ({
+        fullName: a.fullName || '', email: a.email || '', phone: a.phone || '',
+        idNumber: a.idNumber || '', dietaryNotes: '', company: '', isLead: a.isLead || i === 0,
+      }))
+    }
+    if (rd.event?.sessions?.length) {
+      eb.masterSessions = rd.event.sessions.map(s => ({
+        venueId: s.venueId || '', venueName: s.venueName || '',
+        eventType: s.eventType || '', eventDate: s.eventDate || '',
+        startTime: s.startTime || '', endTime: s.endTime || '',
+        expectedAttendees: s.expectedAttendees || '', setupType: s.setupType || '',
+        specialRequirements: s.specialRequirements || '',
+      }))
+    }
+  }
 
   // Pre-populate venue and dates from VenueDetailView
   if (q.venueId && eb.masterSessions.length) {

@@ -1,220 +1,681 @@
-﻿<script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useReservationsStore } from '@/stores/reservations'
+import { useRebookStore } from '@/stores/rebook'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import api from '@/lib/api'
 
 const route        = useRoute()
 const router       = useRouter()
 const reservations = useReservationsStore()
+const rebook       = useRebookStore()
 
-const booking    = ref(null)
-const roomImages = ref([])
-const activeImg  = ref(0)
-const loading    = ref(false)
-const error      = ref('')
-const cancelling = ref(false)
+const loading = ref(false)
 
-function formatDate(d) {
-  if (!d) return 'â€”'
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+const record = computed(() =>
+  [...reservations.active, ...reservations.past].find(r => r.id === route.params.id),
+)
 
 onMounted(async () => {
-  loading.value = true
-  error.value   = ''
-  try {
-    const { data } = await api.get(`/web/bookings/${route.params.id}`)
-    booking.value = {
-      id:              data.id,
-      roomId:          data.room_id,
-      roomName:        data.room_name,
-      clientName:      data.client_name,
-      mealPlanName:    data.meal_plan_name,
-      checkIn:         data.check_in,
-      checkOut:        data.check_out,
-      guests:          data.guests,
-      nights:          data.nights,
-      roomCost:        data.room_cost,
-      mealCost:        data.meal_cost,
-      totalAmount:     data.total_amount,
-      status:          data.status,
-      specialRequests: data.special_requests,
-      createdAt:       data.created_at,
-    }
-    try {
-      const { data: room } = await api.get(`/guest/rooms/${data.room_id}`)
-      roomImages.value = room.images ?? []
-    } catch {
-      roomImages.value = []
-    }
-  } catch {
-    error.value = 'Unable to load booking details. Please try again.'
-  } finally {
+  if (!record.value) {
+    loading.value = true
+    await reservations.fetchAll()
     loading.value = false
+    if (!record.value) router.push({ name: 'bookings' })
   }
 })
 
-async function cancel() {
-  if (!confirm('Are you sure you want to cancel this reservation?')) return
-  cancelling.value = true
-  try {
-    await reservations.cancel(booking.value.id)
-    router.push({ name: 'bookings' })
-  } finally {
-    cancelling.value = false
+// Full metadata blob from the backend
+const meta = computed(() => record.value?.metadata || {})
+
+// Corporate convenience accessors
+const company       = computed(() => meta.value.company       || null)
+const approver      = computed(() => meta.value.approver      || null)
+const bookedBy      = computed(() => meta.value.booked_by     || null)
+const attendants    = computed(() => meta.value.attendants    || [])
+const accommodation = computed(() => meta.value.accommodation || null)
+
+// Individual accommodation
+const indAccommodation = computed(() => {
+  const acc = meta.value.accommodation
+  if (acc) return acc
+  if (meta.value.check_in) return { check_in: meta.value.check_in, check_out: meta.value.check_out }
+  return null
+})
+const indRooms = computed(() => meta.value.accommodation?.rooms || [])
+
+// Assigned rooms (corporate accommodation, post-materialise)
+const assignedRooms = computed(() => meta.value.assigned_rooms || [])
+
+// Event
+const eventBlock    = computed(() => meta.value.event || null)
+const eventSessions = computed(() => eventBlock.value?.sessions || [])
+
+// Meal
+const mealBlock    = computed(() => meta.value.meal || null)
+const mealSessions = computed(() => mealBlock.value?.sessions || [])
+
+// Documents
+const documents = computed(() => meta.value.documents || [])
+
+// ── Book Again ────────────────────────────────────────────────────────────────
+
+// The lodge/org ID comes from the payload — it's the route param for booking flows
+const lodgeId = computed(() => meta.value.org_id || null)
+
+const canBookAgain = computed(() => !!lodgeId.value && !!record.value)
+
+function bookAgain() {
+  const r = record.value
+  const m = meta.value
+  if (!r || !lodgeId.value) return
+
+  // Build a prefill draft from the original payload
+  const draft = {
+    bookingType:   r.bookingType,
+    bookerType:    r.bookerType,
+    lodgeId:       lodgeId.value,
+    branchId:      m.branch_id || null,
+    bookingContext: m.booking_context || (r.bookerType === 'corporate' ? 'corporate' : 'individual'),
+    // Booked-by contact
+    bookedBy: {
+      name:     m.booked_by?.name  || r.bookerName  || '',
+      email:    m.booked_by?.email || r.bookerEmail || '',
+      phone:    m.booked_by?.phone || r.bookerPhone || '',
+      jobTitle: m.booked_by?.job_title || '',
+    },
+    // Corporate company
+    company: m.company ? {
+      name:     m.company.name         || '',
+      tpin:     m.company.tpin         || '',
+      email:    m.company.email        || '',
+      phone:    m.company.phone        || '',
+      industry: m.company.industry     || '',
+      branch:   m.company.branch_name  || '',
+      department: m.company.department_name || '',
+      costCenter: m.company.cost_center    || '',
+      glCode:     m.company.gl_code        || '',
+    } : null,
+    // Corporate approver
+    approver: m.approver ? {
+      name:  m.approver.name  || '',
+      email: m.approver.email || '',
+      phone: m.approver.phone || '',
+      title: m.approver.title || '',
+    } : null,
+    // Attendants (strip assigned-room data — rooms need fresh selection)
+    attendants: (m.attendants || []).map((a, i) => ({
+      fullName:  a.full_name || '',
+      email:     a.email     || '',
+      phone:     a.phone     || '',
+      idNumber:  a.id_number || '',
+      isLead:    a.is_lead_contact || i === 0,
+    })),
+    // Type-specific
+    accommodation: r.bookingType === 'accommodation' ? {
+      checkIn:  m.accommodation?.check_in  || '',
+      checkOut: m.accommodation?.check_out || '',
+      roomTypePreference: m.accommodation?.room_type_preference || '',
+    } : null,
+    event: r.bookingType === 'event' ? {
+      startDate:        m.event?.start_date || '',
+      endDate:          m.event?.end_date   || '',
+      reasonForBooking: m.event?.reason_for_booking || '',
+      sessions: (m.event?.sessions || []).map(s => ({
+        venueId:   s.venue_id   || '',
+        venueName: s.venue_name || '',
+        eventType: s.event_type || '',
+        eventDate: s.event_date || '',
+        startTime: s.start_time || '',
+        endTime:   s.end_time   || '',
+        expectedAttendees: s.expected_attendees || '',
+        setupType: s.setup_type || '',
+        specialRequirements: s.special_requirements || '',
+      })),
+    } : null,
+    meal: r.bookingType === 'meals' ? {
+      startDate:        m.meal?.start_date || '',
+      endDate:          m.meal?.end_date   || '',
+      reasonForBooking: m.meal?.reason_for_booking || '',
+      sessions: (m.meal?.sessions || []).map(s => ({
+        sessionName:  s.session_name  || '',
+        mealDate:     s.meal_date     || '',
+        mealPeriod:   s.meal_period   || '',
+        serviceType:  s.service_type  || '',
+        paxCount:     s.pax_count     || '',
+        dietaryNotes: s.dietary_notes || '',
+      })),
+    } : null,
   }
+
+  rebook.set(draft)
+
+  // Navigate to the appropriate booking flow
+  const routeMap = {
+    accommodation: r.bookerType === 'corporate'
+      ? { name: 'accommodation-booking', params: { id: lodgeId.value } }
+      : { name: 'individual-booking',    params: { id: lodgeId.value } },
+    event: r.bookerType === 'corporate'
+      ? { name: 'event-booking',         params: { id: lodgeId.value } }
+      : { name: 'individual-booking',    params: { id: lodgeId.value } },
+    meals: r.bookerType === 'corporate'
+      ? { name: 'meal-booking',          params: { id: lodgeId.value } }
+      : { name: 'individual-booking',    params: { id: lodgeId.value } },
+  }
+
+  router.push(routeMap[r.bookingType] || { name: 'lodges' })
+}
+
+function fmt(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+function fmtTime(t) {
+  if (!t) return '—'
+  return t.slice(0, 5)
+}
+function isPdf(url) {
+  return url?.toLowerCase().includes('.pdf')
 }
 </script>
 
 <template>
   <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8">
 
-    <!-- Back -->
     <RouterLink
       to="/bookings"
       class="inline-flex items-center gap-2 font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors mb-8"
     >
       <span class="material-symbols-outlined text-base">arrow_back</span>
-      My Bookings
+      My Reservations
     </RouterLink>
 
-    <!-- Loading -->
     <div v-if="loading" class="py-32 text-center">
       <span class="material-symbols-outlined text-4xl text-(--color-on-surface-variant) animate-spin">progress_activity</span>
     </div>
 
-    <!-- Error -->
-    <div v-else-if="error" class="py-32 text-center">
-      <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
-      <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ error }}</p>
-    </div>
-
-    <template v-else-if="booking">
+    <template v-else-if="record">
 
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-10">
         <div>
-          <span class="text-(--color-primary) font-sans text-sm font-semibold tracking-widest uppercase mb-2 block">Reservation</span>
-          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">{{ booking.roomName }}</h1>
+          <span class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-2 block">
+            {{ record.bookingType === 'accommodation'
+                ? (record.bookerType === 'corporate' ? 'Corporate Stay' : 'Stay')
+                : record.bookingType === 'event' ? 'Event' : 'Meal Booking' }}
+            · #{{ record.id.slice(0, 8) }}
+          </span>
+          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">
+            <template v-if="record.bookerType === 'corporate'">
+              {{ company?.name || record.companyName || 'Corporate Booking' }}
+            </template>
+            <template v-else-if="record.bookingType === 'accommodation'">
+              {{ indRooms[0]?.room_name || meta.room_name || 'Room Booking' }}
+            </template>
+            <template v-else-if="record.bookingType === 'event'">
+              {{ eventSessions[0]?.venue_name || 'Event Booking' }}
+            </template>
+            <template v-else>Meal Booking</template>
+          </h1>
+          <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
+            Booked {{ fmt(record.createdAt) }}
+          </p>
         </div>
-        <StatusBadge :status="booking.status" />
+        <StatusBadge :status="record.status" class="shrink-0 mt-1" />
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
 
-        <!-- Left: Image + Details -->
+        <!-- â”€â”€ Left column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
         <div class="lg:col-span-2 space-y-6">
 
-          <!-- Gallery -->
-          <div v-if="roomImages.length" class="rounded-xl overflow-hidden aspect-video relative border border-(--color-savannah-mist)">
-            <Transition enter-active-class="transition duration-400 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" mode="out-in">
-              <img :key="activeImg" :src="roomImages[activeImg]" :alt="booking.roomName" class="w-full h-full object-cover" />
-            </Transition>
-            <button
-              v-if="roomImages.length > 1"
-              class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
-              @click="activeImg = (activeImg - 1 + roomImages.length) % roomImages.length"
+          <!-- â•â•â•â• CORPORATE ACCOMMODATION â•â•â•â• -->
+          <template v-if="record.bookingType === 'accommodation' && record.bookerType === 'corporate'">
+
+            <!-- Dates -->
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Stay Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-5 font-sans text-sm">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Check In</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(accommodation?.check_in) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Check Out</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(accommodation?.check_out) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Nights</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.nights ?? '—' }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Rooms</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ accommodation?.room_count ?? assignedRooms.length }}</p>
+                </div>
+                <div v-if="accommodation?.room_type_preference">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Room Type</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ accommodation.room_type_preference }}</p>
+                </div>
+                <div v-if="meta.currency">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Currency</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.currency }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Company -->
+            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Company</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.name }}</p>
+                </div>
+                <div v-if="company.industry">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Industry</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.industry }}</p>
+                </div>
+                <div v-if="company.tpin">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">TPIN</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.tpin }}</p>
+                </div>
+                <div v-if="company.branch_name">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Branch</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ company.branch_name }}</p>
+                </div>
+                <div v-if="company.department_name">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Department</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ company.department_name }}</p>
+                </div>
+                <div v-if="company.cost_center">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Cost Centre</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.cost_center }}</p>
+                </div>
+                <div v-if="company.gl_code">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">GL Code</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.gl_code }}</p>
+                </div>
+                <div v-if="company.email">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Email</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.email }}</p>
+                </div>
+                <div v-if="company.phone">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Phone</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ company.phone }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Booked by + Approver -->
+            <div
+              v-if="bookedBy || approver"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4"
             >
-              <span class="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button
-              v-if="roomImages.length > 1"
-              class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
-              @click="activeImg = (activeImg + 1) % roomImages.length"
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Contact Details</h2>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 font-sans text-sm">
+                <div v-if="bookedBy" class="space-y-2">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Booked By</p>
+                  <p class="value font-semibold">{{ bookedBy.name }}</p>
+                  <p v-if="bookedBy.email" class="text-(--color-on-surface-variant)">{{ bookedBy.email }}</p>
+                  <p v-if="bookedBy.phone" class="text-(--color-on-surface-variant)">{{ bookedBy.phone }}</p>
+                </div>
+                <div v-if="approver" class="space-y-2">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Approver</p>
+                  <p class="value font-semibold">{{ approver.name }}</p>
+                  <p v-if="approver.title" class="text-(--color-on-surface-variant) capitalize">{{ approver.title }}</p>
+                  <p v-if="approver.email" class="text-(--color-on-surface-variant)">{{ approver.email }}</p>
+                  <p v-if="approver.phone" class="text-(--color-on-surface-variant)">{{ approver.phone }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Attendants -->
+            <div
+              v-if="attendants.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
             >
-              <span class="material-symbols-outlined">chevron_right</span>
-            </button>
-          </div>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants</h2>
+              <div
+                v-for="(a, i) in attendants"
+                :key="i"
+                class="flex items-start justify-between py-3 border-b border-(--color-outline-variant) last:border-0"
+              >
+                <div class="font-sans text-sm space-y-0.5">
+                  <p class="font-semibold text-(--color-on-surface)">
+                    {{ a.full_name }}
+                    <span v-if="a.is_lead_contact" class="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-(--color-primary-container) text-(--color-primary) px-2 py-0.5 rounded-full">Lead</span>
+                  </p>
+                  <p v-if="a.id_number" class="text-(--color-on-surface-variant) text-xs">ID: {{ a.id_number }}</p>
+                  <p v-if="a.email" class="text-(--color-on-surface-variant) text-xs">{{ a.email }}</p>
+                  <p v-if="a.phone" class="text-(--color-on-surface-variant) text-xs">{{ a.phone }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Assigned rooms -->
+            <div
+              v-if="assignedRooms.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Assigned Rooms</h2>
+              <div
+                v-for="(room, i) in assignedRooms"
+                :key="i"
+                class="flex items-center justify-between py-3 border-b border-(--color-outline-variant) last:border-0"
+              >
+                <div class="font-sans text-sm">
+                  <p class="font-semibold text-(--color-on-surface)">{{ room.room_name || 'Room ' + (i + 1) }}</p>
+                  <p v-if="room.guest_name" class="text-(--color-on-surface-variant) text-xs mt-0.5">{{ room.guest_name }}</p>
+                </div>
+                <span
+                  v-if="room.room_type"
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) bg-(--color-primary-container) px-2.5 py-1 rounded-full"
+                >
+                  {{ room.room_type }}
+                </span>
+              </div>
+            </div>
+          </template>
+
+          <!-- â•â•â•â• INDIVIDUAL ACCOMMODATION â•â•â•â• -->
+          <template v-else-if="record.bookingType === 'accommodation'">
+
+            <!-- Room image -->
+            <div
+              v-if="record.roomImage"
+              class="rounded-xl overflow-hidden aspect-video border border-(--color-outline-variant)"
+            >
+              <img :src="record.roomImage" :alt="meta.room_name" class="w-full h-full object-cover" />
+            </div>
+            <div
+              v-else
+              class="rounded-xl aspect-video bg-(--color-surface-container) flex flex-col items-center justify-center gap-2 border border-(--color-outline-variant)"
+            >
+              <span class="material-symbols-outlined text-5xl text-(--color-outline)">bed</span>
+            </div>
+
+            <!-- Stay details -->
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Stay Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Check In</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(indAccommodation?.check_in) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Check Out</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(indAccommodation?.check_out) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Nights</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.nights ?? '—' }}</p>
+                </div>
+                <div v-if="meta.room_name || indRooms[0]?.room_name">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Room</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.room_name || indRooms[0]?.room_name }}</p>
+                </div>
+                <div v-if="meta.room_type || indRooms[0]?.room_type">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Room Type</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ meta.room_type || indRooms[0]?.room_type }}</p>
+                </div>
+                <div v-if="indRooms[0]?.rate_per_night">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Rate / night</p>
+                  <p class="font-semibold text-(--color-on-surface)">K{{ indRooms[0].rate_per_night.toLocaleString() }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Booker details -->
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Guest Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div v-if="meta.booked_by?.name || record.bookerName">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Name</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.booked_by?.name || record.bookerName }}</p>
+                </div>
+                <div v-if="meta.booked_by?.email || record.bookerEmail">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Email</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.booked_by?.email || record.bookerEmail }}</p>
+                </div>
+                <div v-if="meta.booked_by?.phone || record.bookerPhone">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Phone</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.booked_by?.phone || record.bookerPhone }}</p>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- â•â•â•â• EVENT â•â•â•â• -->
+          <template v-else-if="record.bookingType === 'event'">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Event Details</h2>
+              <div class="grid grid-cols-2 gap-5 font-sans text-sm">
+                <div v-if="eventBlock?.start_date">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Start Date</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(eventBlock.start_date) }}</p>
+                </div>
+                <div v-if="eventBlock?.end_date">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">End Date</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(eventBlock.end_date) }}</p>
+                </div>
+                <div v-if="eventBlock?.reason_for_booking">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Reason</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ eventBlock.reason_for_booking }}</p>
+                </div>
+                <div v-if="meta.currency">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Currency</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.currency }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Company (corporate event) -->
+            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Company</p><p class="font-semibold text-(--color-on-surface)">{{ company.name }}</p></div>
+                <div v-if="company.industry"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Industry</p><p class="font-semibold text-(--color-on-surface)">{{ company.industry }}</p></div>
+                <div v-if="company.tpin"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">TPIN</p><p class="font-semibold text-(--color-on-surface)">{{ company.tpin }}</p></div>
+                <div v-if="company.department_name"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Department</p><p class="font-semibold text-(--color-on-surface) capitalize">{{ company.department_name }}</p></div>
+                <div v-if="company.cost_center"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Cost Centre</p><p class="font-semibold text-(--color-on-surface)">{{ company.cost_center }}</p></div>
+                <div v-if="company.gl_code"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">GL Code</p><p class="font-semibold text-(--color-on-surface)">{{ company.gl_code }}</p></div>
+              </div>
+            </div>
+
+            <!-- Sessions -->
+            <div
+              v-if="eventSessions.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Sessions</h2>
+              <div
+                v-for="(s, i) in eventSessions"
+                :key="i"
+                class="py-4 border-b border-(--color-outline-variant) last:border-0 space-y-2"
+              >
+                <div class="flex items-center justify-between">
+                  <p class="font-sans font-semibold text-sm text-(--color-on-surface)">
+                    {{ s.venue_name || s.event_name || 'Session ' + (i + 1) }}
+                  </p>
+                  <span v-if="s.event_type" class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) bg-(--color-primary-container) px-2.5 py-1 rounded-full">{{ s.event_type }}</span>
+                </div>
+                <div class="flex flex-wrap gap-x-5 gap-y-1 font-sans text-xs text-(--color-on-surface-variant)">
+                  <span v-if="s.event_date">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">calendar_today</span>
+                    {{ fmt(s.event_date) }}
+                  </span>
+                  <span v-if="s.start_time">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">schedule</span>
+                    {{ fmtTime(s.start_time) }} – {{ fmtTime(s.end_time) }}
+                  </span>
+                  <span v-if="s.expected_attendees">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">group</span>
+                    {{ s.expected_attendees }} pax
+                  </span>
+                  <span v-if="s.setup_type">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">table_restaurant</span>
+                    {{ s.setup_type }}
+                  </span>
+                </div>
+                <p v-if="s.special_requirements" class="font-sans text-xs text-(--color-on-surface-variant) italic">
+                  {{ s.special_requirements }}
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <!-- â•â•â•â• MEAL â•â•â•â• -->
+          <template v-else-if="record.bookingType === 'meals'">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Meal Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div v-if="mealBlock?.start_date">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Start Date</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(mealBlock.start_date) }}</p>
+                </div>
+                <div v-if="mealBlock?.end_date">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">End Date</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ fmt(mealBlock.end_date) }}</p>
+                </div>
+                <div v-if="meta.participant_count">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Guests</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.participant_count }}</p>
+                </div>
+                <div v-if="meta.currency">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Currency</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.currency }}</p>
+                </div>
+                <div v-if="mealBlock?.reason_for_booking">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Reason</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ mealBlock.reason_for_booking }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Company (corporate meal) -->
+            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Company</p><p class="font-semibold text-(--color-on-surface)">{{ company.name }}</p></div>
+                <div v-if="company.industry"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Industry</p><p class="font-semibold text-(--color-on-surface)">{{ company.industry }}</p></div>
+                <div v-if="company.tpin"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">TPIN</p><p class="font-semibold text-(--color-on-surface)">{{ company.tpin }}</p></div>
+                <div v-if="company.department_name"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Department</p><p class="font-semibold text-(--color-on-surface) capitalize">{{ company.department_name }}</p></div>
+                <div v-if="company.cost_center"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Cost Centre</p><p class="font-semibold text-(--color-on-surface)">{{ company.cost_center }}</p></div>
+                <div v-if="company.gl_code"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">GL Code</p><p class="font-semibold text-(--color-on-surface)">{{ company.gl_code }}</p></div>
+              </div>
+            </div>
+
+            <!-- Sessions -->
+            <div
+              v-if="mealSessions.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Sessions</h2>
+              <div
+                v-for="(s, i) in mealSessions"
+                :key="i"
+                class="py-4 border-b border-(--color-outline-variant) last:border-0 space-y-2"
+              >
+                <div class="flex items-center justify-between">
+                  <p class="font-sans font-semibold text-sm text-(--color-on-surface)">
+                    {{ s.session_name || 'Session ' + (i + 1) }}
+                  </p>
+                  <span v-if="s.meal_period" class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) bg-(--color-primary-container) px-2.5 py-1 rounded-full">{{ s.meal_period }}</span>
+                </div>
+                <div class="flex flex-wrap gap-x-5 gap-y-1 font-sans text-xs text-(--color-on-surface-variant)">
+                  <span v-if="s.meal_date">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">calendar_today</span>
+                    {{ fmt(s.meal_date) }}
+                  </span>
+                  <span v-if="s.pax_count">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">group</span>
+                    {{ s.pax_count }} pax
+                  </span>
+                  <span v-if="s.service_type">
+                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">room_service</span>
+                    {{ s.service_type }}
+                  </span>
+                </div>
+                <p v-if="s.dietary_notes" class="font-sans text-xs text-(--color-on-surface-variant) italic">
+                  {{ s.dietary_notes }}
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <!-- Special requests -->
           <div
-            v-else
-            class="rounded-xl aspect-video bg-(--color-surface-container) flex flex-col items-center justify-center gap-2 border border-(--color-savannah-mist)"
+            v-if="record.specialRequests || meta.accommodation?.notes || mealBlock?.notes || eventBlock?.notes"
+            class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)"
           >
-            <span class="material-symbols-outlined text-5xl text-(--color-outline)">image_not_supported</span>
-            <p class="font-sans text-sm text-(--color-on-surface-variant)">No images available</p>
-          </div>
-
-          <!-- Stay Details card -->
-          <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-savannah-mist) shadow-sm space-y-4">
-            <h2 class="font-serif text-2xl text-(--color-on-surface) mb-2">Stay Details</h2>
-            <div class="grid grid-cols-2 gap-4 font-sans text-sm">
-              <div>
-                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Check In</p>
-                <p class="font-semibold text-(--color-on-surface)">{{ formatDate(booking.checkIn) }}</p>
-              </div>
-              <div>
-                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Check Out</p>
-                <p class="font-semibold text-(--color-on-surface)">{{ formatDate(booking.checkOut) }}</p>
-              </div>
-              <div>
-                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Nights</p>
-                <p class="font-semibold text-(--color-on-surface)">{{ booking.nights }}</p>
-              </div>
-              <div>
-                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Guests</p>
-                <p class="font-semibold text-(--color-on-surface)">{{ booking.guests }} {{ booking.guests === 1 ? 'guest' : 'guests' }}</p>
-              </div>
-              <div v-if="booking.mealPlanName">
-                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Meal Plan</p>
-                <p class="font-semibold text-(--color-on-surface)">{{ booking.mealPlanName }}</p>
-              </div>
-              <div>
-                <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Guest Name</p>
-                <p class="font-semibold text-(--color-on-surface)">{{ booking.clientName }}</p>
-              </div>
-            </div>
-            <div v-if="booking.specialRequests" class="pt-4 border-t border-(--color-outline-variant)">
-              <p class="font-sans text-xs font-semibold uppercase tracking-[0.05em] text-(--color-on-surface-variant) mb-1">Special Requests</p>
-              <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">{{ booking.specialRequests }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: Price Summary + Actions -->
-        <aside class="lg:sticky lg:top-28 space-y-4">
-
-          <!-- Price breakdown -->
-          <div class="bg-(--color-surface-container-high) p-6 rounded-xl border border-(--color-outline-variant) shadow-lg space-y-3">
-            <h2 class="font-serif text-2xl text-(--color-on-surface) mb-4">Price Summary</h2>
-            <div class="space-y-2 font-sans text-sm">
-              <div class="flex justify-between text-(--color-on-surface-variant)">
-                <span>Room cost</span>
-                <span>K{{ booking.roomCost.toLocaleString() }}</span>
-              </div>
-              <div v-if="booking.mealCost" class="flex justify-between text-(--color-on-surface-variant)">
-                <span>Meal plan</span>
-                <span>K{{ booking.mealCost.toLocaleString() }}</span>
-              </div>
-              <div class="flex justify-between font-bold text-lg pt-3 border-t border-(--color-outline-variant)">
-                <span>Total</span>
-                <span class="text-(--color-primary)">K{{ booking.totalAmount.toLocaleString() }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Guarantee note -->
-          <div class="p-4 bg-(--color-tertiary-fixed) rounded-lg flex items-start gap-3">
-            <span class="material-symbols-outlined text-(--color-tertiary)">shield</span>
-            <p class="font-sans text-xs text-(--color-on-tertiary-fixed-variant) leading-tight">
-              Free cancellation up to 48 hours before check-in. No charge today.
+            <h2 class="font-serif text-xl text-(--color-on-surface) mb-3">Notes / Special Requests</h2>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">
+              {{ record.specialRequests || meta.accommodation?.notes || mealBlock?.notes || eventBlock?.notes }}
             </p>
           </div>
 
-          <!-- Actions -->
-          <div class="flex flex-col gap-3 pt-1">
+          <!-- Documents -->
+          <div
+            v-if="documents.length"
+            class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+          >
+            <h2 class="font-serif text-xl text-(--color-on-surface)">Documents</h2>
+            <div class="space-y-2">
+              <a
+                v-for="(doc, i) in documents"
+                :key="i"
+                :href="doc"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-3 p-3 rounded-lg border border-(--color-outline-variant) hover:bg-(--color-surface-container) transition-colors"
+              >
+                <span class="material-symbols-outlined text-lg text-(--color-primary)">
+                  {{ isPdf(doc) ? 'picture_as_pdf' : 'image' }}
+                </span>
+                <span class="font-sans text-sm text-(--color-primary) truncate">Document {{ i + 1 }}</span>
+                <span class="material-symbols-outlined text-base text-(--color-on-surface-variant) ml-auto">open_in_new</span>
+              </a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- â”€â”€ Right: summary + actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+        <aside class="lg:sticky lg:top-28 space-y-4">
+
+          <div class="bg-(--color-surface-container-high) p-6 rounded-xl border border-(--color-outline-variant) shadow-lg">
+            <h2 class="font-serif text-xl text-(--color-on-surface) mb-4">Summary</h2>
+            <div class="space-y-3 font-sans text-sm">
+              <div class="flex justify-between text-(--color-on-surface-variant)">
+                <span>Booking #</span>
+                <span class="font-mono font-semibold text-(--color-on-surface)">{{ record.id.slice(0, 8).toUpperCase() }}</span>
+              </div>
+              <div class="flex justify-between text-(--color-on-surface-variant)">
+                <span>Type</span>
+                <span class="capitalize">{{ record.bookingType }}</span>
+              </div>
+              <div class="flex justify-between text-(--color-on-surface-variant)">
+                <span>Booked</span>
+                <span>{{ fmt(record.createdAt) }}</span>
+              </div>
+              <div v-if="record.totalAmount" class="flex justify-between font-bold text-lg pt-3 border-t border-(--color-outline-variant)">
+                <span>Total</span>
+                <span class="text-(--color-primary)">{{ meta.currency || 'K' }}{{ record.totalAmount.toLocaleString() }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3">
             <button
-              v-if="['pending', 'confirmed'].includes(booking.status)"
-              class="w-full border-2 border-(--color-primary) text-(--color-primary) py-3 rounded-lg font-sans text-sm font-semibold hover:bg-(--color-primary) hover:text-white transition-all disabled:opacity-60"
-              :disabled="cancelling"
-              @click="cancel"
+              v-if="canBookAgain"
+              class="w-full bg-(--color-primary) text-white py-3 rounded-xl font-sans text-sm font-semibold hover:opacity-90 transition-opacity"
+              @click="bookAgain"
             >
-              <span v-if="cancelling" class="material-symbols-outlined text-base align-middle animate-spin">progress_activity</span>
-              <span v-else>Cancel Reservation</span>
+              Book Again
             </button>
             <RouterLink
               to="/lodges"
-              class="w-full text-center bg-(--color-primary) text-white py-3 rounded-lg font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-all"
+              class="w-full text-center border-2 border-(--color-primary) text-(--color-primary) py-3 rounded-xl font-sans text-sm font-semibold hover:bg-(--color-primary) hover:text-white transition-all"
             >
               Browse Lodges
             </RouterLink>
@@ -225,3 +686,5 @@ async function cancel() {
     </template>
   </div>
 </template>
+
+

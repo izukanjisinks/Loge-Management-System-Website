@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useMealBookingStore } from '@/stores/mealBooking'
+import { useRebookStore } from '@/stores/rebook'
 import { MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
 import api from '@/lib/api'
 
@@ -12,6 +13,7 @@ const router      = useRouter()
 const lodgesStore = useLodgesStore()
 const auth        = useAuthStore()
 const mb          = useMealBookingStore()
+const rebookStore = useRebookStore()
 
 const lodgeId        = route.params.id
 const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) === String(lodgeId)))
@@ -299,6 +301,45 @@ onMounted(async () => {
   if (q.context === 'corporate')  mb.bookingContext = 'corporate'
 
   mb.fillFromAuth(auth.user)
+
+  // Prefill from a "Book Again" navigation
+  const rd = rebookStore.drain()
+  if (rd && rd.bookingType === 'meals') {
+    if (rd.branchId)       mb.branchId       = rd.branchId
+    if (rd.bookingContext) mb.bookingContext  = rd.bookingContext
+    if (rd.bookedBy?.name)  mb.bookedBy.name  = rd.bookedBy.name
+    if (rd.bookedBy?.email) mb.bookedBy.email = rd.bookedBy.email
+    if (rd.bookedBy?.phone) mb.bookedBy.phone = rd.bookedBy.phone
+    if (rd.meal?.startDate) mb.startDate = rd.meal.startDate
+    if (rd.meal?.endDate)   mb.endDate   = rd.meal.endDate
+    if (rd.meal?.reasonForBooking) mb.reasonForBooking = rd.meal.reasonForBooking
+    if (rd.company) {
+      mb.companyName  = rd.company.name  || ''
+      mb.tpin         = rd.company.tpin  || ''
+      mb.companyEmail = rd.company.email || ''
+      mb.companyPhone = rd.company.phone || ''
+    }
+    if (rd.approver) {
+      mb.approverName  = rd.approver.name  || ''
+      mb.approverEmail = rd.approver.email || ''
+      mb.approverPhone = rd.approver.phone || ''
+      mb.approverTitle = rd.approver.title || ''
+    }
+    if (rd.attendants?.length) {
+      mb.attendants = rd.attendants.map((a, i) => ({
+        fullName: a.fullName || '', email: a.email || '', phone: a.phone || '',
+        idNumber: a.idNumber || '', dietaryNotes: '', company: '', isLead: a.isLead || i === 0,
+      }))
+    }
+    if (rd.meal?.sessions?.length) {
+      mb.masterSessions = rd.meal.sessions.map(s => ({
+        sessionName: s.sessionName || '', mealDate: s.mealDate || '',
+        mealPeriod: s.mealPeriod || '', serviceType: s.serviceType || '',
+        paxCount: s.paxCount || '', dietaryNotes: s.dietaryNotes || '',
+      }))
+    }
+  }
+
   fetchMenuItems()
 })
 </script>

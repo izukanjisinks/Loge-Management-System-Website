@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useAccommodationBookingStore } from '@/stores/accommodationBooking'
+import { useRebookStore } from '@/stores/rebook'
 import { uploadBookingDocument } from '@/services/storage'
 import api from '@/lib/api'
 import { PDFDownloadLink } from '@ceereals/vue-pdf'
@@ -14,6 +15,7 @@ const router      = useRouter()
 const lodgesStore = useLodgesStore()
 const auth        = useAuthStore()
 const ab          = useAccommodationBookingStore()
+const rebookStore = useRebookStore()
 
 const lodgeId        = route.params.id
 const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) === String(lodgeId)))
@@ -315,6 +317,47 @@ onMounted(async () => {
   if (q.context === 'individual') ab.bookingContext = 'individual'
 
   ab.fillFromAuth(auth.user)
+
+  // Prefill from a "Book Again" navigation
+  const rd = rebookStore.drain()
+  if (rd && rd.bookingType === 'accommodation') {
+    if (rd.branchId)      ab.branchId        = rd.branchId
+    if (rd.bookingContext) ab.bookingContext  = rd.bookingContext
+    if (rd.bookedBy?.name)  ab.bookedBy.name  = rd.bookedBy.name
+    if (rd.bookedBy?.email) ab.bookedBy.email = rd.bookedBy.email
+    if (rd.bookedBy?.phone) ab.bookedBy.phone = rd.bookedBy.phone
+    if (rd.accommodation?.checkIn)  ab.checkIn  = rd.accommodation.checkIn
+    if (rd.accommodation?.checkOut) ab.checkOut = rd.accommodation.checkOut
+    if (rd.company) {
+      ab.bookingContext  = 'corporate'
+      ab.companyName     = rd.company.name       || ''
+      ab.tpin            = rd.company.tpin        || ''
+      ab.companyEmail    = rd.company.email       || ''
+      ab.companyPhone    = rd.company.phone       || ''
+      ab.industry        = rd.company.industry    || ''
+      ab.branchName      = rd.company.branch      || ''
+      ab.departmentName  = rd.company.department  || ''
+      ab.costCenter      = rd.company.costCenter  || ''
+      ab.glCode          = rd.company.glCode      || ''
+    }
+    if (rd.approver) {
+      ab.approverName  = rd.approver.name  || ''
+      ab.approverEmail = rd.approver.email || ''
+      ab.approverPhone = rd.approver.phone || ''
+      ab.approverTitle = rd.approver.title || ''
+    }
+    if (rd.attendants?.length) {
+      ab.attendants = rd.attendants.map((a, i) => ({
+        fullName:     a.fullName  || '',
+        email:        a.email     || '',
+        phone:        a.phone     || '',
+        idNumber:     a.idNumber  || '',
+        dietaryNotes: '',
+        company:      '',
+        isLead:       a.isLead || i === 0,
+      }))
+    }
+  }
 
   // Restore room availability if dates already set
   if (ab.checkIn && ab.checkOut && ab.checkOut > ab.checkIn) fetchAvailableRooms()

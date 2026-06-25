@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useIndividualBookingStore } from '@/stores/individualBooking'
+import { useRebookStore } from '@/stores/rebook'
 import api from '@/lib/api'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS, MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
 
@@ -12,6 +13,7 @@ const router       = useRouter()
 const lodgesStore  = useLodgesStore()
 const auth         = useAuthStore()
 const ib           = useIndividualBookingStore()
+const rebookStore  = useRebookStore()
 
 const lodgeId        = route.params.id
 const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) === String(lodgeId)))
@@ -479,6 +481,41 @@ onMounted(async () => {
   ib.setLodge(lodgeId, lodge.value?.name ?? '')
   if (route.query.branchId && !ib.branchId) ib.branchId = route.query.branchId
   ib.fillFromAuth(auth.user)
+
+  // Prefill from a "Book Again" navigation
+  const rd = rebookStore.drain()
+  if (rd) {
+    if (rd.branchId) ib.branchId = rd.branchId
+    if (rd.bookedBy?.name)  ib.bookedBy.name  = rd.bookedBy.name
+    if (rd.bookedBy?.email) ib.bookedBy.email = rd.bookedBy.email
+    if (rd.bookedBy?.phone) ib.bookedBy.phone = rd.bookedBy.phone
+    if (rd.bookingType === 'accommodation' && rd.accommodation) {
+      ib.accommodationEnabled = true
+      if (rd.accommodation.checkIn)  ib.accommodation.checkIn  = rd.accommodation.checkIn
+      if (rd.accommodation.checkOut) ib.accommodation.checkOut = rd.accommodation.checkOut
+    }
+    if (rd.bookingType === 'event' && rd.event) {
+      ib.eventsEnabled = true
+      if (rd.event.startDate)        ib.events.startDate        = rd.event.startDate
+      if (rd.event.endDate)          ib.events.endDate          = rd.event.endDate
+      if (rd.event.reasonForBooking) ib.events.reasonForBooking = rd.event.reasonForBooking
+      if (rd.event.sessions?.length) {
+        ib.events.masterSessions = rd.event.sessions.map(s => ({
+          venueId: s.venueId || '', venueName: s.venueName || '',
+          eventType: s.eventType || '', eventDate: s.eventDate || '',
+          startTime: s.startTime || '', endTime: s.endTime || '',
+          expectedAttendees: s.expectedAttendees || '', setupType: s.setupType || '',
+          specialRequirements: s.specialRequirements || '',
+        }))
+      }
+    }
+    if (rd.bookingType === 'meals' && rd.meal) {
+      ib.mealsEnabled = true
+      if (rd.meal.startDate) ib.meals.startDate = rd.meal.startDate
+      if (rd.meal.endDate)   ib.meals.endDate   = rd.meal.endDate
+    }
+  }
+
   fetchMenuItems()
   // Restore room availability if dates were already set (e.g. navigating back)
   const { checkIn, checkOut } = ib.accommodation
