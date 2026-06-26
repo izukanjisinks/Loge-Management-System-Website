@@ -120,7 +120,9 @@ function nights(a, b) {
   return Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000))
 }
 
-const invoiceData = computed(() => {
+const invoiceSnapshot = ref(null)
+
+function buildInvoiceSnapshot() {
   const nameParts = (ab.bookedBy.name || '').trim().split(' ')
   return {
     bookingType:      ab.isCorporate ? 'corporate' : 'individual',
@@ -158,7 +160,7 @@ const invoiceData = computed(() => {
     },
     corporateGuests: ab.attendants.map(a => ({ fullName: a.fullName, email: a.email, idNumber: a.idNumber })),
   }
-})
+}
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -265,6 +267,7 @@ function goToReview() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
+  invoiceSnapshot.value = buildInvoiceSnapshot()
   step.value = 2
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -291,8 +294,7 @@ async function handleSubmit() {
 
     await ab.submit(documentUrls)
     success.value = true
-    ab.reset()
-    setTimeout(() => router.push({ name: 'bookings' }), 2500)
+    setTimeout(() => { router.push({ name: 'bookings' }); ab.reset() }, 2500)
   } catch (err) {
     submitError.value = err.response?.data?.error?.message || 'Something went wrong. Please try again.'
   } finally {
@@ -1278,9 +1280,9 @@ onMounted(async () => {
           </div>
 
           <!-- Download Invoice -->
-          <PDFDownloadLink :file-name="`Mwakwanda-Booking-${lodge?.name || 'Invoice'}.pdf`">
+          <PDFDownloadLink v-if="!success && invoiceSnapshot" :file-name="`Mwakwanda-Booking-${lodge?.name || 'Invoice'}.pdf`">
             <template #default>
-              <BookingInvoiceDocument :booking="invoiceData" />
+              <BookingInvoiceDocument :booking="invoiceSnapshot" />
             </template>
             <template #label="{ blob }">
               <button type="button"
