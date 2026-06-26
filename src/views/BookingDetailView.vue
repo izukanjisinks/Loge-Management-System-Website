@@ -343,7 +343,7 @@ function isPdf(url) {
                 <div class="font-sans text-sm space-y-0.5">
                   <p class="font-semibold text-(--color-on-surface)">
                     {{ a.full_name }}
-                    <span v-if="a.is_lead_contact" class="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-(--color-primary-container) text-(--color-primary) px-2 py-0.5 rounded-full">Lead</span>
+                    <span v-if="a.is_lead_contact" class="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-(--color-savannah-mist) text-(--color-primary) px-2 py-0.5 rounded-full">Lead</span>
                   </p>
                   <p v-if="a.id_number" class="text-(--color-on-surface-variant) text-xs">ID: {{ a.id_number }}</p>
                   <p v-if="a.email" class="text-(--color-on-surface-variant) text-xs">{{ a.email }}</p>
@@ -369,7 +369,7 @@ function isPdf(url) {
                 </div>
                 <span
                   v-if="room.room_type"
-                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) bg-(--color-primary-container) px-2.5 py-1 rounded-full"
+                  class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) bg-(--color-surface-container) px-2.5 py-1 rounded-full"
                 >
                   {{ room.room_type }}
                 </span>

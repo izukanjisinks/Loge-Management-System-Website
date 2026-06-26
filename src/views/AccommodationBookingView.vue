@@ -148,15 +148,16 @@ function buildInvoiceSnapshot() {
       passportId:  '',
     },
     corporateClient: {
-      companyName:   ab.companyName,
-      contactPerson: ab.approverName,
-      email:         ab.companyEmail,
-      phone:         ab.companyPhone,
-      regNumber:     ab.tpin,
-      industry:      ab.industry,
-      tpin:          ab.tpin,
-      costCenter:    ab.costCenter,
-      glCode:        ab.glCode,
+      companyName:      ab.companyName,
+      contactPerson:    ab.approverName,
+      email:            ab.companyEmail,
+      phone:            ab.companyPhone,
+      regNumber:        ab.tpin,
+      industry:         ab.industry,
+      tpin:             ab.tpin,
+      costCenter:       ab.costCenter,
+      costCenterType:   ab.costCenterType,
+      glCode:           ab.glCode,
     },
     corporateGuests: ab.attendants.map(a => ({ fullName: a.fullName, email: a.email, idNumber: a.idNumber })),
   }
@@ -546,8 +547,23 @@ onMounted(async () => {
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre</label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre / Internal Order</label>
+                <div class="flex rounded-lg overflow-hidden border border-(--color-outline-variant) mb-1">
+                  <button type="button"
+                    @click="ab.costCenterType = 'cost_center'"
+                    class="flex-1 py-1.5 px-2 font-sans text-xs font-semibold transition-colors"
+                    :class="ab.costCenterType === 'cost_center' ? 'bg-(--color-primary) text-white' : 'bg-(--color-savannah-mist) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'">
+                    Cost Centre
+                  </button>
+                  <button type="button"
+                    @click="ab.costCenterType = 'internal_order'"
+                    class="flex-1 py-1.5 px-2 font-sans text-xs font-semibold transition-colors"
+                    :class="ab.costCenterType === 'internal_order' ? 'bg-(--color-primary) text-white' : 'bg-(--color-savannah-mist) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'">
+                    Internal Order No.
+                  </button>
+                </div>
                 <input v-model="ab.costCenter" type="text"
+                  :placeholder="ab.costCenterType === 'cost_center' ? 'e.g. CC-1234' : 'e.g. IO-5678'"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
@@ -603,6 +619,12 @@ onMounted(async () => {
                   {{ ab.bookedBy.jobTitle || 'Not provided' }}
                 </p>
               </div>
+              <div v-if="ab.isCorporate">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Employee / Man No.</p>
+                <p class="font-sans text-sm" :class="ab.bookedBy.manNumber ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ ab.bookedBy.manNumber || 'Not provided' }}
+                </p>
+              </div>
             </div>
 
             <!-- Editable -->
@@ -630,6 +652,11 @@ onMounted(async () => {
                 <div v-if="ab.isCorporate" class="flex flex-col gap-1">
                   <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
                   <input v-model="ab.bookedBy.jobTitle" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div v-if="ab.isCorporate" class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Employee / Man Number</label>
+                  <input v-model="ab.bookedBy.manNumber" type="text" placeholder="e.g. EMP-00123"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>
@@ -1168,6 +1195,10 @@ onMounted(async () => {
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Job Title</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.jobTitle || '—' }}</p>
               </div>
+              <div v-if="ab.isCorporate && ab.bookedBy.manNumber">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Employee / Man No.</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.manNumber }}</p>
+              </div>
               <div v-if="!ab.isCorporate">
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Party Size</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">
@@ -1194,7 +1225,7 @@ onMounted(async () => {
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.departmentName }}</p>
               </div>
               <div v-if="ab.costCenter">
-                <p class="font-sans text-xs text-(--color-on-surface-variant)">Cost Centre</p>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ ab.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.costCenter }}</p>
               </div>
               <div v-if="ab.glCode">

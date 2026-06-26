@@ -103,7 +103,7 @@ const s = {
           <Text :style="s.metaSmall">{{ isCorporate ? booking.corporateClient.email : ' ' }}</Text>
           <Text :style="s.metaSmall">{{ isCorporate ? booking.corporateClient.phone : ' ' }}</Text>
           <Text v-if="isCorporate && booking.corporateClient.tpin" :style="s.metaSmall">TPIN: {{ booking.corporateClient.tpin }}</Text>
-          <Text v-if="isCorporate && booking.corporateClient.costCenter" :style="s.metaSmall">Cost Centre: {{ booking.corporateClient.costCenter }}</Text>
+          <Text v-if="isCorporate && booking.corporateClient.costCenter" :style="s.metaSmall">{{ booking.corporateClient.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}: {{ booking.corporateClient.costCenter }}</Text>
           <Text v-if="isCorporate && booking.corporateClient.glCode" :style="s.metaSmall">GL Code: {{ booking.corporateClient.glCode }}</Text>
         </View>
         <View :style="s.metaBox">
