@@ -79,6 +79,12 @@ const dayRange = computed(() => {
 
 watch(dayRange, range => { if (range.length <= 1) mb.scheduleMode = 'uniform' })
 
+const ZAMBIA_SUGAR_TPIN = '1001757365'
+const isZS = computed(() => mb.isCorporate && mb.tpin === ZAMBIA_SUGAR_TPIN)
+watch(() => mb.tpin, tpin => {
+  if (tpin === ZAMBIA_SUGAR_TPIN && !mb.companyName) mb.companyName = 'Zambia Sugar PLC'
+})
+
 const mealDaySummary = computed(() => {
   const total      = dayRange.value.length
   const skipped    = Object.values(mb.mealOverrides).filter(o =>  o.excluded).length
@@ -207,6 +213,15 @@ function validate() {
     if (!mb.approverEmail) e.approverEmail = 'Required'
     else if (!/\S+@\S+\.\S+/.test(mb.approverEmail)) e.approverEmail = 'Enter a valid email'
     if (!mb.approverPhone) e.approverPhone = 'Required'
+
+    if (isZS.value) {
+      if (!mb.branchName)         e.branchName        = 'Required'
+      if (!mb.departmentName)     e.departmentName    = 'Required'
+      if (!mb.costCenter)         e.costCenter        = 'Required'
+      if (!mb.glCode)             e.glCode            = 'Required'
+      if (!mb.bookedBy.jobTitle)  e.bookedByJobTitle  = 'Required'
+      if (!mb.bookedBy.manNumber) e.bookedByManNumber = 'Required'
+    }
   }
 
   if (mb.participantMode === 'headcount') {
@@ -499,18 +514,22 @@ onMounted(async () => {
                 <span v-if="errors.companyPhone" class="font-sans text-xs text-(--color-error)">{{ errors.companyPhone }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch <span v-if="isZS" class="text-(--color-error)">*</span></label>
                 <input v-model="mb.branchName" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.branchName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.branchName" class="font-sans text-xs text-(--color-error)">{{ errors.branchName }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department <span v-if="isZS" class="text-(--color-error)">*</span></label>
                 <input v-model="mb.departmentName" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.departmentName ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.departmentName" class="font-sans text-xs text-(--color-error)">{{ errors.departmentName }}</span>
               </div>
               <div class="flex flex-col gap-2">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                  {{ mb.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                  {{ mb.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }} <span v-if="isZS" class="text-(--color-error)">*</span>
                 </label>
                 <div class="flex w-full bg-(--color-surface-container) rounded-xl p-1 gap-1">
                   <button type="button"
@@ -532,12 +551,16 @@ onMounted(async () => {
                 </div>
                 <input v-model="mb.costCenter" type="text"
                   :placeholder="mb.costCenterType === 'cost_center' ? 'e.g. CC-1234' : 'e.g. IO-5678'"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.costCenter ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.costCenter" class="font-sans text-xs text-(--color-error)">{{ errors.costCenter }}</span>
               </div>
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code <span v-if="isZS" class="text-(--color-error)">*</span></label>
                 <input v-model="mb.glCode" type="text"
-                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                  :class="errors.glCode ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                <span v-if="errors.glCode" class="font-sans text-xs text-(--color-error)">{{ errors.glCode }}</span>
               </div>
             </div>
           </section>
@@ -618,14 +641,18 @@ onMounted(async () => {
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
                 <div v-if="mb.isCorporate" class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title <span v-if="isZS" class="text-(--color-error)">*</span></label>
                   <input v-model="mb.bookedBy.jobTitle" type="text"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByJobTitle ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByJobTitle" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByJobTitle }}</span>
                 </div>
                 <div v-if="mb.isCorporate" class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Employee / Man Number</label>
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Employee / Man Number <span v-if="isZS" class="text-(--color-error)">*</span></label>
                   <input v-model="mb.bookedBy.manNumber" type="text" placeholder="e.g. EMP-00123"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByManNumber ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByManNumber" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByManNumber }}</span>
                 </div>
               </div>
             </div>
