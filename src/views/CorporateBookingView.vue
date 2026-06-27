@@ -833,6 +833,11 @@ watch(mealDayRange, (range) => {
                 <input v-model="cb.bookedBy.jobTitle" type="text" placeholder="e.g. Head of Section"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Employee / Man Number</label>
+                <input v-model="cb.bookedBy.manNumber" type="text" placeholder="e.g. EMP-00123"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
             </div>
           </section>
 
@@ -1030,9 +1035,31 @@ watch(mealDayRange, (range) => {
                   <input v-model="cb.approverPhone" type="tel" placeholder="+260 97 000 0000"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
-                <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre <span class="text-(--color-error)">*</span></label>
-                  <input v-model="cb.costCenter" type="text" placeholder="e.g. CC-FIN-001"
+                <div class="flex flex-col gap-2">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                    {{ cb.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                    <span class="text-(--color-error)">*</span>
+                  </label>
+                  <div class="flex w-full bg-(--color-surface-container) rounded-xl p-1 gap-1">
+                    <button type="button"
+                      @click="cb.costCenterType = 'cost_center'"
+                      class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                      :class="cb.costCenterType === 'cost_center'
+                        ? 'bg-(--color-primary) text-white shadow-sm'
+                        : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
+                      Cost Centre
+                    </button>
+                    <button type="button"
+                      @click="cb.costCenterType = 'internal_order'"
+                      class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                      :class="cb.costCenterType === 'internal_order'
+                        ? 'bg-(--color-primary) text-white shadow-sm'
+                        : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
+                      Internal Order No.
+                    </button>
+                  </div>
+                  <input v-model="cb.costCenter" type="text"
+                    :placeholder="cb.costCenterType === 'cost_center' ? 'e.g. CC-FIN-001' : 'e.g. IO-5678'"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                     :class="errors.costCenter ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                   <span v-if="errors.costCenter" class="font-sans text-xs text-(--color-error)">{{ errors.costCenter }}</span>

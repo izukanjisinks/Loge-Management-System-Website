@@ -567,12 +567,38 @@ onMounted(async () => {
                 <span v-if="errors.companyPhone" class="font-sans text-xs text-(--color-error)">{{ errors.companyPhone }}</span>
               </div>
               <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</label>
+                <input v-model="eb.branchName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
+              <div class="flex flex-col gap-1">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Department</label>
                 <input v-model="eb.departmentName" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre</label>
-                <input v-model="eb.costCenter" type="text" class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              <div class="flex flex-col gap-2">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  {{ eb.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                </label>
+                <div class="flex w-full bg-(--color-surface-container) rounded-xl p-1 gap-1">
+                  <button type="button"
+                    @click="eb.costCenterType = 'cost_center'"
+                    class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                    :class="eb.costCenterType === 'cost_center'
+                      ? 'bg-(--color-primary) text-white shadow-sm'
+                      : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
+                    Cost Centre
+                  </button>
+                  <button type="button"
+                    @click="eb.costCenterType = 'internal_order'"
+                    class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                    :class="eb.costCenterType === 'internal_order'
+                      ? 'bg-(--color-primary) text-white shadow-sm'
+                      : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
+                    Internal Order No.
+                  </button>
+                </div>
+                <input v-model="eb.costCenter" type="text"
+                  :placeholder="eb.costCenterType === 'cost_center' ? 'e.g. CC-1234' : 'e.g. IO-5678'"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">GL Code</label>
@@ -626,6 +652,12 @@ onMounted(async () => {
                   {{ eb.bookedBy.jobTitle || 'Not provided' }}
                 </p>
               </div>
+              <div v-if="eb.isCorporate">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Employee / Man No.</p>
+                <p class="font-sans text-sm" :class="eb.bookedBy.manNumber ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ eb.bookedBy.manNumber || 'Not provided' }}
+                </p>
+              </div>
             </div>
 
             <!-- Editable -->
@@ -653,6 +685,11 @@ onMounted(async () => {
                 <div v-if="eb.isCorporate" class="flex flex-col gap-1">
                   <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
                   <input v-model="eb.bookedBy.jobTitle" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div v-if="eb.isCorporate" class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Employee / Man Number</label>
+                  <input v-model="eb.bookedBy.manNumber" type="text" placeholder="e.g. EMP-00123"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>

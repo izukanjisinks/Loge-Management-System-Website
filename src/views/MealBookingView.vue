@@ -508,9 +508,30 @@ onMounted(async () => {
                 <input v-model="mb.departmentName" type="text"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre</label>
+              <div class="flex flex-col gap-2">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  {{ mb.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                </label>
+                <div class="flex w-full bg-(--color-surface-container) rounded-xl p-1 gap-1">
+                  <button type="button"
+                    @click="mb.costCenterType = 'cost_center'"
+                    class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                    :class="mb.costCenterType === 'cost_center'
+                      ? 'bg-(--color-primary) text-white shadow-sm'
+                      : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
+                    Cost Centre
+                  </button>
+                  <button type="button"
+                    @click="mb.costCenterType = 'internal_order'"
+                    class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                    :class="mb.costCenterType === 'internal_order'
+                      ? 'bg-(--color-primary) text-white shadow-sm'
+                      : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
+                    Internal Order No.
+                  </button>
+                </div>
                 <input v-model="mb.costCenter" type="text"
+                  :placeholder="mb.costCenterType === 'cost_center' ? 'e.g. CC-1234' : 'e.g. IO-5678'"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
               <div class="flex flex-col gap-1">
@@ -566,6 +587,12 @@ onMounted(async () => {
                   {{ mb.bookedBy.jobTitle || 'Not provided' }}
                 </p>
               </div>
+              <div v-if="mb.isCorporate">
+                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Employee / Man No.</p>
+                <p class="font-sans text-sm" :class="mb.bookedBy.manNumber ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
+                  {{ mb.bookedBy.manNumber || 'Not provided' }}
+                </p>
+              </div>
             </div>
 
             <!-- Editable -->
@@ -593,6 +620,11 @@ onMounted(async () => {
                 <div v-if="mb.isCorporate" class="flex flex-col gap-1">
                   <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title</label>
                   <input v-model="mb.bookedBy.jobTitle" type="text"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                </div>
+                <div v-if="mb.isCorporate" class="flex flex-col gap-1">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Employee / Man Number</label>
+                  <input v-model="mb.bookedBy.manNumber" type="text" placeholder="e.g. EMP-00123"
                     class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                 </div>
               </div>

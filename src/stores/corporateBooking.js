@@ -99,6 +99,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
   const branchName      = ref('')
   const departmentName  = ref('')
   const costCenter      = ref('')
+  const costCenterType  = ref('cost_center') // 'cost_center' | 'internal_order'
   const glCode          = ref('')
   const approverName    = ref('')
   const approverEmail   = ref('')
@@ -106,7 +107,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
   const approverTitle   = ref('')
 
   // Booker (rep submitting the booking — auto-filled from auth user)
-  const bookedBy = ref({ name: '', email: '', phone: '', jobTitle: '' })
+  const bookedBy = ref({ name: '', email: '', phone: '', jobTitle: '', manNumber: '' })
 
   // Services enabled (multiple can be active per booking)
   const accommodationEnabled = ref(false)
@@ -289,8 +290,9 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       street_address:      streetAddress.value  || undefined,
       branch_name:         branchName.value     || undefined,
       department_name:     departmentName.value || undefined,
-      cost_center:         costCenter.value     || undefined,
-      gl_code:             glCode.value         || undefined,
+      cost_center:         costCenter.value      || undefined,
+      cost_center_type:    costCenterType.value,
+      gl_code:             glCode.value          || undefined,
       approver_name:       approverName.value   || undefined,
       approver_email:      approverEmail.value  || undefined,
       approver_phone:      approverPhone.value  || undefined,
@@ -298,10 +300,11 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       corporate_profile_id: selectedProfileId.value || undefined,
 
       booked_by: {
-        name:      bookedBy.value.name,
-        email:     bookedBy.value.email,
-        phone:     bookedBy.value.phone    || undefined,
-        job_title: bookedBy.value.jobTitle || undefined,
+        name:       bookedBy.value.name,
+        email:      bookedBy.value.email,
+        phone:      bookedBy.value.phone     || undefined,
+        job_title:  bookedBy.value.jobTitle  || undefined,
+        man_number: bookedBy.value.manNumber || undefined,
       },
 
       attendants: participantMode.value === 'headcount'
@@ -396,12 +399,13 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     branchName.value         = ''
     departmentName.value     = ''
     costCenter.value         = ''
+    costCenterType.value     = 'cost_center'
     glCode.value             = ''
     approverName.value       = ''
     approverEmail.value      = ''
     approverPhone.value      = ''
     approverTitle.value      = ''
-    bookedBy.value           = { name: '', email: '', phone: '', jobTitle: '' }
+    bookedBy.value           = { name: '', email: '', phone: '', jobTitle: '', manNumber: '' }
     accommodationEnabled.value = false
     eventsEnabled.value        = false
     mealsEnabled.value         = false
@@ -419,7 +423,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     selectedCompanyId, selectedBranchId, selectedProfileId,
     companyName, tpin, industry,
     companyEmail, companyPhone, city, streetAddress,
-    branchName, departmentName, costCenter, glCode,
+    branchName, departmentName, costCenter, costCenterType, glCode,
     approverName, approverEmail, approverPhone, approverTitle,
     bookedBy, notes,
     accommodationEnabled, eventsEnabled, mealsEnabled,

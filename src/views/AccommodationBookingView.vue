@@ -546,19 +546,25 @@ onMounted(async () => {
                 <input v-model="ab.departmentName" type="text"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
-              <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Cost Centre / Internal Order</label>
-                <div class="flex rounded-lg overflow-hidden border border-(--color-outline-variant) mb-1">
+              <div class="flex flex-col gap-2">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  {{ ab.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}
+                </label>
+                <div class="flex w-full bg-(--color-surface-container) rounded-xl p-1 gap-1">
                   <button type="button"
                     @click="ab.costCenterType = 'cost_center'"
-                    class="flex-1 py-1.5 px-2 font-sans text-xs font-semibold transition-colors"
-                    :class="ab.costCenterType === 'cost_center' ? 'bg-(--color-primary) text-white' : 'bg-(--color-savannah-mist) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'">
+                    class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                    :class="ab.costCenterType === 'cost_center'
+                      ? 'bg-(--color-primary) text-white shadow-sm'
+                      : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
                     Cost Centre
                   </button>
                   <button type="button"
                     @click="ab.costCenterType = 'internal_order'"
-                    class="flex-1 py-1.5 px-2 font-sans text-xs font-semibold transition-colors"
-                    :class="ab.costCenterType === 'internal_order' ? 'bg-(--color-primary) text-white' : 'bg-(--color-savannah-mist) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'">
+                    class="flex-1 py-2 px-3 font-sans text-xs font-semibold rounded-lg transition-all duration-150 text-center"
+                    :class="ab.costCenterType === 'internal_order'
+                      ? 'bg-(--color-primary) text-white shadow-sm'
+                      : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface)'">
                     Internal Order No.
                   </button>
                 </div>
