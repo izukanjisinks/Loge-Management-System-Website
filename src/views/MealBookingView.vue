@@ -189,6 +189,15 @@ function applyBulkToAll(session, key) {
   }))
 }
 
+function attendantsWithOrders(meal) {
+  const indices = [...new Set((meal.individualOrders ?? []).filter(o => o.menuItemId).map(o => o.attendantIdx))].sort((a, b) => a - b)
+  return indices.map(idx => ({
+    idx,
+    attendant: orderAttendants.value[idx],
+    orders:    (meal.individualOrders ?? []).filter(o => o.attendantIdx === idx && o.menuItemId),
+  }))
+}
+
 // ── Validation ──────────────────────────────────────────────────────────────
 function validate() {
   const e = {}
@@ -1595,6 +1604,45 @@ onMounted(async () => {
             </div>
           </section>
 
+          <!-- Diners list (detailed mode only) -->
+          <section v-if="mb.participantMode === 'detailed' && mb.attendants.length"
+            class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Diners ({{ mb.attendants.length }})</p>
+            <div>
+              <div v-for="(att, i) in mb.attendants" :key="i"
+                class="py-3 border-b border-(--color-outline-variant) last:border-0">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold font-sans"
+                    :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface) flex-1 truncate">{{ att.fullName }}</p>
+                  <span v-if="att.isLead" class="font-sans text-xs text-(--color-primary) shrink-0">Lead</span>
+                </div>
+                <div class="pl-9 grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6">
+                  <div v-if="att.email">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.email }}</p>
+                  </div>
+                  <div v-if="att.phone">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.phone }}</p>
+                  </div>
+                  <div v-if="att.idNumber">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">ID / Passport</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.idNumber }}</p>
+                  </div>
+                  <div v-if="att.dietaryNotes">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Dietary Notes</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.dietaryNotes }}</p>
+                  </div>
+                  <div v-if="att.company">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Company</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.company }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Meal plan summary -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Meal Plan</p>
@@ -1611,15 +1659,40 @@ onMounted(async () => {
             <div class="space-y-3 pt-2">
               <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Meals ({{ mb.masterMeals.length }} per day)</p>
               <div v-for="(m, i) in mb.masterMeals" :key="i"
-                class="flex items-start justify-between gap-3 py-2 border-b border-(--color-outline-variant) last:border-0">
-                <div class="min-w-0">
-                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ mealLabel(m, i) }}</p>
-                  <p class="font-sans text-xs text-(--color-on-surface-variant)">
-                    {{ SERVICE_TYPES.find(t => t.value === m.serviceType)?.label ?? m.serviceType }}
-                    <template v-if="m.dietaryNotes"> · {{ m.dietaryNotes }}</template>
-                  </p>
+                class="py-2 border-b border-(--color-outline-variant) last:border-0">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ mealLabel(m, i) }}</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">
+                      {{ SERVICE_TYPES.find(t => t.value === m.serviceType)?.label ?? m.serviceType }}
+                      <template v-if="m.dietaryNotes"> · {{ m.dietaryNotes }}</template>
+                    </p>
+                  </div>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0 mt-0.5">{{ m.paxCount }} cover{{ m.paxCount !== 1 ? 's' : '' }}</span>
                 </div>
-                <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0 mt-0.5">{{ m.paxCount }} cover{{ m.paxCount !== 1 ? 's' : '' }}</span>
+                <div v-if="mb.participantMode === 'detailed' && attendantsWithOrders(m).length"
+                  class="mt-3 space-y-3">
+                  <div v-for="{ idx, attendant, orders } in attendantsWithOrders(m)" :key="idx"
+                    class="pl-3 border-l-2 border-(--color-outline-variant)">
+                    <p class="font-sans text-xs font-semibold text-(--color-on-surface)">
+                      {{ attendant?.fullName || ('Diner ' + (idx + 1)) }}
+                      <span v-if="attendant?.idNumber" class="font-normal text-(--color-on-surface-variant)"> · {{ attendant.idNumber }}</span>
+                    </p>
+                    <div class="mt-1 space-y-0.5">
+                      <div v-for="(order, oi) in orders" :key="oi" class="flex items-baseline justify-between gap-3">
+                        <span class="font-sans text-xs text-(--color-on-surface)">
+                          {{ menuItems.find(mi => mi.id === order.menuItemId)?.name || order.menuItemId }}<template v-if="order.quantity > 1"> × {{ order.quantity }}</template>
+                        </span>
+                        <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0">
+                          K {{ ((menuItems.find(mi => mi.id === order.menuItemId)?.price ?? 0) * order.quantity).toFixed(2) }}
+                        </span>
+                      </div>
+                      <p v-if="orders.some(o => o.notes)" class="font-sans text-xs text-(--color-on-surface-variant) italic mt-0.5">
+                        Notes: {{ orders.filter(o => o.notes).map(o => o.notes).join('; ') }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div v-if="mealDaySummary.customised > 0" class="mt-3 flex items-center gap-2">
