@@ -204,7 +204,7 @@ watch(selectedBranch, (val) => {
   dateFilters.value = {}
   searched.value = false
   loadRooms()
-  if (venues.value.length || venuesLoading.value) loadVenues()
+  if (activeTab.value === 'events') loadVenues()
   if (activeTab.value === 'meals') loadMenu()
 })
 
