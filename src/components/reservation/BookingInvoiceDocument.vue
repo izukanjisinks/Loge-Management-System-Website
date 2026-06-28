@@ -95,10 +95,10 @@ const s = {
             {{ isCorporate ? booking.corporateClient.companyName : `${booking.guestInfo.firstName} ${booking.guestInfo.lastName}` }}
           </Text>
           <Text :style="s.metaSmall">
-            {{ isCorporate ? `HOD: ${booking.corporateClient.contactPerson}` : booking.guestInfo.email }}
+            {{ isCorporate ? `HOD: ${booking.corporateClient.contactPerson}` : (booking.guestInfo.email || ' ') }}
           </Text>
           <Text :style="s.metaSmall">
-            {{ isCorporate ? `Reg: ${booking.corporateClient.regNumber}` : booking.guestInfo.phone }}
+            {{ isCorporate ? `Reg: ${booking.corporateClient.regNumber}` : (booking.guestInfo.phone || ' ') }}
           </Text>
           <Text :style="s.metaSmall">{{ isCorporate ? booking.corporateClient.email : ' ' }}</Text>
           <Text :style="s.metaSmall">{{ isCorporate ? booking.corporateClient.phone : ' ' }}</Text>

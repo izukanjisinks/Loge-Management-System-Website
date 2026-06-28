@@ -148,22 +148,22 @@ function buildInvoiceSnapshot() {
     guestInfo: {
       firstName:   nameParts[0] ?? '',
       lastName:    nameParts.slice(1).join(' ') ?? '',
-      email:       ab.bookedBy.email,
-      phone:       ab.bookedBy.phone,
+      email:       ab.bookedBy.email ?? '',
+      phone:       ab.bookedBy.phone ?? '',
       nationality: '',
       passportId:  '',
     },
     corporateClient: {
-      companyName:      ab.companyName,
-      contactPerson:    ab.approverName,
-      email:            ab.companyEmail,
-      phone:            ab.companyPhone,
-      regNumber:        ab.tpin,
-      industry:         ab.industry,
-      tpin:             ab.tpin,
-      costCenter:       ab.costCenter,
-      costCenterType:   ab.costCenterType,
-      glCode:           ab.glCode,
+      companyName:      ab.companyName ?? '',
+      contactPerson:    ab.approverName ?? '',
+      email:            ab.companyEmail ?? '',
+      phone:            ab.companyPhone ?? '',
+      regNumber:        ab.tpin ?? '',
+      industry:         ab.industry ?? '',
+      tpin:             ab.tpin ?? '',
+      costCenter:       ab.costCenter ?? '',
+      costCenterType:   ab.costCenterType ?? '',
+      glCode:           ab.glCode ?? '',
     },
     corporateGuests: ab.attendants.map(a => ({ fullName: a.fullName, email: a.email, idNumber: a.idNumber })),
   }
@@ -319,7 +319,7 @@ async function handleSubmit() {
 }
 
 function goBack() {
-  if (step.value === 2) { step.value = 1; return }
+  if (step.value === 2) { step.value = 1; invoiceSnapshot.value = null; return }
   router.push({ name: 'lodge-detail', params: { id: lodgeId } })
 }
 
