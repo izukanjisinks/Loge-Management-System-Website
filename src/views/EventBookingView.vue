@@ -229,11 +229,11 @@ function validate() {
   if (eb.participantMode === 'detailed') {
     eb.attendants.forEach((a, i) => {
       if (!a.fullName) e[`att_${i}_name`] = 'Required'
+      if (!a.idNumber) e[`att_${i}_id`]   = 'Required'
       if (a.isLead) {
         if (!a.email)    e[`att_${i}_email`]  = 'Required'
         else if (!/\S+@\S+\.\S+/.test(a.email)) e[`att_${i}_email`] = 'Enter a valid email'
         if (!a.phone)    e[`att_${i}_phone`]  = 'Required'
-        if (!a.idNumber) e[`att_${i}_id`]     = 'Required'
       }
     })
   }
@@ -875,7 +875,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                        Passport / ID <span class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -895,27 +895,34 @@ onMounted(async () => {
           <!-- ─── Corporate: Delegates ─── -->
           <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
             <div class="flex items-stretch">
-              <div class="flex items-center gap-3 flex-1 px-6 py-5">
+              <button type="button"
+                class="flex items-center gap-2 flex-1 px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors min-w-0"
+                @click="attendantsExpanded = !attendantsExpanded">
                 <span class="material-symbols-outlined text-(--color-primary) shrink-0">groups</span>
                 <div class="min-w-0 flex-1">
                   <h2 class="font-serif text-xl text-(--color-on-surface)">Delegates</h2>
-                  <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
+                  <p v-if="!attendantsExpanded" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
                     {{ eb.participantMode === 'headcount'
                       ? eb.participantCount + ' delegate' + (eb.participantCount !== 1 ? 's' : '') + ' — headcount only'
-                      : eb.attendants.length + ' delegate' + (eb.attendants.length !== 1 ? 's' : '') + ' registered' }}
+                      : eb.attendants.filter(a => a.fullName).length + ' delegate' + (eb.attendants.filter(a => a.fullName).length !== 1 ? 's' : '') + ' registered' }}
                   </p>
                 </div>
-              </div>
-              <div v-if="eb.participantMode === 'detailed'" class="flex items-center px-4 border-l border-(--color-outline-variant)">
-                <button type="button"
-                  class="flex items-center gap-1 text-(--color-primary) font-sans text-sm font-semibold hover:underline shrink-0"
-                  @click="eb.addAttendant()">
-                  <span class="material-symbols-outlined text-base">person_add</span> Add Delegate
-                </button>
-              </div>
+                <div class="flex items-center gap-2 shrink-0 mr-2">
+                  <span v-if="!attendantsExpanded && eb.participantMode === 'headcount'"
+                    class="px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                    {{ eb.participantCount }}
+                  </span>
+                  <span v-else-if="!attendantsExpanded && eb.attendants.filter(a => a.fullName).length > 0"
+                    class="px-2 py-0.5 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-semibold text-(--color-primary)">
+                    {{ eb.attendants.filter(a => a.fullName).length }}
+                  </span>
+                  <span class="material-symbols-outlined text-(--color-on-surface-variant) transition-transform duration-200"
+                    :style="{ transform: attendantsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }">expand_more</span>
+                </div>
+              </button>
             </div>
 
-            <div class="px-6 pb-6 border-t border-(--color-outline-variant)">
+            <div v-if="attendantsExpanded" class="px-6 pb-6 border-t border-(--color-outline-variant)">
               <!-- Mode toggle -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 mb-5">
                 <button type="button" @click="eb.participantMode = 'headcount'"
@@ -1007,7 +1014,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        ID / Passport <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                        ID / Passport <span class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -1021,6 +1028,11 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
+                <button type="button"
+                  class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline mt-3"
+                  @click="eb.addAttendant()">
+                  <span class="material-symbols-outlined text-base">person_add</span> Add Delegate
+                </button>
               </div>
             </div>
           </section>

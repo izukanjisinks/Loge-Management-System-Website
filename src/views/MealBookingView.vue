@@ -230,11 +230,11 @@ function validate() {
   } else {
     mb.attendants.forEach((att, i) => {
       if (!att.fullName) e[`att_${i}_name`] = 'Required'
+      if (!att.idNumber) e[`att_${i}_id`]   = 'Required'
       if (att.isLead) {
         if (!att.email)    e[`att_${i}_email`]  = 'Required'
         else if (!/\S+@\S+\.\S+/.test(att.email)) e[`att_${i}_email`] = 'Enter a valid email'
         if (!att.phone)    e[`att_${i}_phone`]  = 'Required'
-        if (!att.idNumber) e[`att_${i}_id`]     = 'Required'
       }
     })
 
@@ -805,7 +805,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                        Passport / ID <span class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
@@ -934,7 +934,7 @@ onMounted(async () => {
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
-                        Passport / ID <span v-if="att.isLead" class="text-(--color-error)">*</span>
+                        Passport / ID <span class="text-(--color-error)">*</span>
                       </label>
                       <input v-model="att.idNumber" type="text"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
