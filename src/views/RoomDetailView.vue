@@ -120,7 +120,7 @@ function formatDisplay(iso) {
 const { nightCount, baseTotal } = usePricing(
   checkIn, checkOut, baseRate, ref(1), ref('none')
 )
-const grandTotal = computed(() => baseTotal.value + baseTotal.value * 0.12)
+const grandTotal = computed(() => baseTotal.value + baseTotal.value * 0.16)
 
 const dateError = computed(() => {
   if (!checkIn.value || !checkOut.value) return ''
@@ -483,8 +483,8 @@ function openBooking() {
                 <span>K{{ Number(baseTotal.toFixed(0)).toLocaleString() }}</span>
               </div>
               <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-                <span>Conservation Levy</span>
-                <span>K{{ Number((baseTotal * 0.12).toFixed(0)).toLocaleString() }}</span>
+                <span>VAT (16%)</span>
+                <span>K{{ Number((baseTotal * 0.16).toFixed(0)).toLocaleString() }}</span>
               </div>
               <div class="flex justify-between font-sans text-sm font-bold text-(--color-on-surface) pt-2 border-t border-(--color-outline-variant)">
                 <span>Estimated Total</span>

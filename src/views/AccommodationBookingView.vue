@@ -137,7 +137,7 @@ function buildInvoiceSnapshot() {
     .map(r => ({ name: r.roomName, rate: Number(r.rate), total: Number(r.rate) * nightCount }))
   const baseRatePerNight = rooms.reduce((s, r) => s + r.rate, 0)
   const baseTotal  = baseRatePerNight * nightCount
-  const taxes      = Math.round(baseTotal * 0.12 * 100) / 100
+  const taxes      = Math.round(baseTotal * 0.16 * 100) / 100
   const grandTotal = baseTotal + taxes
   return {
     bookingType:      ab.isCorporate ? 'corporate' : 'individual',

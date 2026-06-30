@@ -92,7 +92,7 @@ function formatDate(d) {
           </div>
 
           <div class="flex justify-between font-sans text-sm text-(--color-on-surface-variant)">
-            <span>Taxes (12%)</span>
+            <span>VAT (16%)</span>
             <span class="font-semibold">K{{ Number((booking.taxes ?? 0).toFixed(0)).toLocaleString() }}</span>
           </div>
 

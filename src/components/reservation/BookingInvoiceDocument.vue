@@ -152,7 +152,7 @@ const s = {
           <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
         </View>
         <View :style="(booking.rooms.length + (booking.mealCost > 0 ? 1 : 0)) % 2 === 0 ? s.costRow : s.costRowAlt">
-          <Text :style="s.colDesc">Conservation Levy (12%)</Text>
+          <Text :style="s.colDesc">VAT (16%)</Text>
           <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
         </View>
       </template>
@@ -167,7 +167,7 @@ const s = {
           <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
         </View>
         <View :style="booking.mealCost > 0 ? s.costRow : s.costRowAlt">
-          <Text :style="s.colDesc">Conservation Levy (12%)</Text>
+          <Text :style="s.colDesc">VAT (16%)</Text>
           <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
         </View>
       </template>
@@ -180,7 +180,7 @@ const s = {
             <Text :style="s.totalBold">{{ fmt((booking.baseTotal ?? 0) + (booking.mealCost ?? 0)) }}</Text>
           </View>
           <View :style="s.totalRow">
-            <Text :style="s.totalLabel">Taxes (12%)</Text>
+            <Text :style="s.totalLabel">VAT (16%)</Text>
             <Text :style="s.totalValue">{{ fmt(booking.taxes) }}</Text>
           </View>
         </View>

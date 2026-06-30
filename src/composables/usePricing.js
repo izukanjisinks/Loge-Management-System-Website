@@ -7,7 +7,7 @@ const MEAL_PLAN_RATES = {
   none:         0,
 }
 
-const TAX_RATE = 0.12
+const TAX_RATE = 0.16
 
 /**
  * Reactive pricing calculator — use outside of the booking store

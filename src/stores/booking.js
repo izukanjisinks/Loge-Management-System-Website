@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
-const TAX_RATE = 0.12
+const TAX_RATE = 0.16
 
 export const useBookingStore = defineStore('booking', () => {
   // ── Shared ────────────────────────────────────────────────────────────
