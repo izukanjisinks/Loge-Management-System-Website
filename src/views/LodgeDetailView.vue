@@ -674,15 +674,8 @@ function bookRoom(room) {
             </div>
           </div>
 
-          <!-- Venues error -->
-          <div v-if="venuesError && !venuesLoading"
-            class="py-12 text-center bg-(--color-error-container) rounded-2xl">
-            <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
-            <p class="font-sans text-sm text-(--color-on-error-container)">{{ venuesError }}</p>
-          </div>
-
           <!-- Venues skeleton -->
-          <div v-else-if="venuesLoading && !venues.length"
+          <div v-if="venuesLoading && !venues.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="i in 6" :key="i"
               class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
@@ -752,30 +745,17 @@ function bookRoom(room) {
 
           <!-- Empty venues -->
           <div v-else-if="!venuesLoading"
-            class="py-20 flex flex-col items-center text-center px-6">
-            <div class="w-20 h-20 rounded-full bg-(--color-surface-container-low) flex items-center justify-center mb-6">
-              <span class="material-symbols-outlined text-4xl text-(--color-outline)"
-                style="font-variation-settings: 'FILL' 0">event_busy</span>
-            </div>
-            <h3 class="font-serif text-2xl text-(--color-on-surface) mb-3">No event spaces listed</h3>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed max-w-md mb-2">
-              {{ selectedBranchObj ? selectedBranchObj.name : lodge.name }} hasn't published any venue listings yet.
-            </p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed max-w-md mb-8">
-              You can still submit an event booking enquiry and the property team will get back to you with available options.
-            </p>
-            <div class="flex flex-col sm:flex-row gap-3">
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event_seat</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">No venues listed</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no venues configured yet.</p>
+            <div class="flex items-center justify-center mt-6">
               <RouterLink
                 :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
                 class="inline-flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
-                <span class="material-symbols-outlined text-base">send</span>
-                Submit an Enquiry
+                Book Event Space
+                <span class="material-symbols-outlined text-base">arrow_forward</span>
               </RouterLink>
-              <a v-if="lodge.phone" :href="`tel:${lodge.phone}`"
-                class="inline-flex items-center gap-2 px-6 py-3 border-2 border-(--color-outline-variant) text-(--color-on-surface) font-sans text-sm font-semibold rounded-full hover:border-(--color-primary) hover:text-(--color-primary) transition-colors">
-                <span class="material-symbols-outlined text-base">phone</span>
-                Call the Property
-              </a>
             </div>
           </div>
         </div>

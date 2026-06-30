@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
@@ -166,6 +166,22 @@ const orderAttendants = computed(() => {
     }))
   }
   return mb.attendants
+})
+
+const dinerCount = computed(() =>
+  mb.participantMode === 'headcount' ? (mb.participantCount || 0) : mb.attendants.length
+)
+
+watchEffect(() => {
+  const count = dinerCount.value
+  mb.masterMeals.forEach(meal => {
+    if (meal.serviceType === 'individual_order') meal.paxCount = count
+  })
+  Object.values(mb.mealOverrides).forEach(ov => {
+    ;(ov.sessions ?? []).forEach(s => {
+      if (s.serviceType === 'individual_order') s.paxCount = count
+    })
+  })
 })
 
 function menuItemsForPeriod() {
@@ -1115,7 +1131,12 @@ onMounted(async () => {
                       <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Covers / Pax</label>
                         <input v-model.number="meal.paxCount" type="number" min="1"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                          :disabled="meal.serviceType === 'individual_order'"
+                          class="w-full rounded-lg px-3 py-2.5 font-sans text-sm border-2 border-transparent transition-colors"
+                          :class="meal.serviceType === 'individual_order'
+                            ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
+                            : 'bg-(--color-savannah-mist) text-(--color-on-surface) focus:outline-none focus:border-(--color-primary)'" />
+                        <p v-if="meal.serviceType === 'individual_order'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of diners</p>
                       </div>
                       <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Requirements</label>
@@ -1326,7 +1347,12 @@ onMounted(async () => {
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Covers / Pax</label>
                               <input v-model.number="m.paxCount" type="number" min="1"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                                :disabled="m.serviceType === 'individual_order'"
+                                class="w-full rounded-lg px-3 py-2.5 font-sans text-sm border-2 border-transparent transition-colors"
+                                :class="m.serviceType === 'individual_order'
+                                  ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
+                                  : 'bg-white text-(--color-on-surface) focus:outline-none focus:border-(--color-primary)'" />
+                              <p v-if="m.serviceType === 'individual_order'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of diners</p>
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
