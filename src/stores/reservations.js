@@ -7,92 +7,57 @@ export const useReservationsStore = defineStore('reservations', () => {
   const past    = ref([])
   const loading = ref(false)
 
-  // Normalise a confirmed booking row (from /web/my-bookings → bookings table)
+  // Normalise a booking row from /web/my-bookings. The same row represents the whole
+  // lifecycle: a pending booking carries the raw submission envelope in metadata; an
+  // approved one carries that envelope enriched (room_name, nights, assigned_rooms).
+  // We read the enriched fields when present and fall back to the raw envelope so
+  // pending bookings still render their details.
   function normaliseBooking(b) {
     const meta = b.metadata || {}
+    const accom = meta.accommodation || {}
+    const firstRoom = Array.isArray(accom.rooms) ? (accom.rooms[0] || {}) : {}
     return {
       id:              b.id,
-      recordType:      'booking',          // confirmed, post-approval
+      recordType:      'booking',
       bookingType:     b.booking_type,     // accommodation | event | meals
       bookerType:      b.booker_type,      // individual | corporate
       bookerName:      b.booker_name,
       companyName:     b.company_name     || null,
       totalAmount:     b.total_amount     ?? 0,
-      status:          b.status,
+      status:          b.status,           // pending | confirmed | checked_in | checked_out | cancelled | rejected
       specialRequests: b.special_requests || null,
       createdAt:       b.created_at,
-      metadata:        b.metadata         || {},
-      // accommodation (individual)
-      roomId:          meta.room_id       || null,
-      roomName:        meta.room_name     || null,
-      roomType:        meta.room_type     || null,
-      checkIn:         meta.check_in      || null,
-      checkOut:        meta.check_out     || null,
+      metadata:        meta,
+      // accommodation — enriched (post-approval) first, raw envelope fallback (pending)
+      roomId:          meta.room_id       || firstRoom.room_id   || null,
+      roomName:        meta.room_name     || firstRoom.room_name || null,
+      roomType:        meta.room_type     || firstRoom.room_type || null,
+      checkIn:         meta.check_in      || accom.check_in      || null,
+      checkOut:        meta.check_out     || accom.check_out     || null,
       nights:          meta.nights        ?? null,
       // accommodation (corporate) — may have assigned_rooms array
-      roomCount:       meta.room_count    ?? null,
+      roomCount:       meta.room_count    ?? accom.room_count    ?? null,
       assignedRooms:   meta.assigned_rooms || [],
       // event
       startDate:       meta.start_date    || null,
       endDate:         meta.end_date      || null,
-      sessions:        meta.sessions      || [],
+      sessions:        meta.sessions      || meta.event?.sessions || [],
       // meal
       headcount:       meta.headcount     ?? null,
-    }
-  }
-
-  // Normalise a pending request row (from /web/bookings → individual_booking_requests)
-  function normaliseRequest(r) {
-    return {
-      id:          r.id,
-      recordType:  'request',             // pre-approval, cancellable
-      bookingType: r.booking_type || 'accommodation',
-      bookerType:  'individual',
-      bookerName:  r.booker_name  || null,
-      companyName: null,
-      totalAmount: 0,
-      status:      r.status,             // pending | cancelled | rejected
-      specialRequests: r.special_requests || null,
-      createdAt:   r.created_at,
-      // best-effort fields from request
-      roomId:      r.room_id     || null,
-      roomName:    r.room_name   || null,
-      roomType:    r.room_type   || null,
-      checkIn:     r.check_in    || null,
-      checkOut:    r.check_out   || null,
-      nights:      r.nights      ?? null,
-      roomCount:   null,
-      assignedRooms: [],
-      startDate:   r.start_date  || null,
-      endDate:     r.end_date    || null,
-      sessions:    [],
-      headcount:   r.headcount   ?? null,
     }
   }
 
   async function fetchAll() {
     loading.value = true
     try {
-      // Fetch confirmed bookings and pending requests in parallel
-      const [bookingsRes, requestsRes] = await Promise.allSettled([
-        api.get('/web/my-bookings'),
-        api.get('/web/bookings'),
-      ])
+      // Single source of truth: every reservation is a booking row. A customer
+      // submission lands as a pending booking; workflow approval flips it to
+      // confirmed. So one endpoint returns the full lifecycle.
+      const res = await api.get('/web/my-bookings')
+      const rows = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+      const all = rows.map(normaliseBooking)
 
-      const bookings = bookingsRes.status === 'fulfilled'
-        ? (Array.isArray(bookingsRes.value.data) ? bookingsRes.value.data : (bookingsRes.value.data?.data ?? [])).map(normaliseBooking)
-        : []
-
-      const requests = requestsRes.status === 'fulfilled'
-        ? (Array.isArray(requestsRes.value.data) ? requestsRes.value.data : (requestsRes.value.data?.data ?? [])).map(normaliseRequest)
-        : []
-
-      // Only show pending requests that haven't been converted to a booking yet
-      const pendingRequests = requests.filter(r => r.status === 'pending')
-
-      const all = [...bookings, ...pendingRequests]
-
-      // Fetch room images for individual accommodation bookings with a room ID
+      // Fetch room images for accommodation bookings with a room ID
       const uniqueRoomIds = [...new Set(all.filter(b => b.roomId).map(b => b.roomId))]
       const roomImages = {}
       await Promise.allSettled(
@@ -108,15 +73,13 @@ export const useReservationsStore = defineStore('reservations', () => {
 
       const withImages = all.map(b => ({ ...b, roomImage: b.roomId ? (roomImages[b.roomId] ?? null) : null }))
 
-      // Active: pending requests + confirmed/pending/checked_in bookings
+      // Active: still in flight — pending (awaiting approval), confirmed, checked_in.
       active.value = withImages.filter(b =>
-        b.recordType === 'request'
-          ? b.status === 'pending'
-          : ['pending', 'confirmed', 'checked_in'].includes(b.status)
+        ['pending', 'confirmed', 'checked_in'].includes(b.status)
       )
-      // Past: checked_out or cancelled bookings (not cancelled requests — those just disappear)
+      // Past: finished or closed out — checked_out, cancelled, rejected.
       past.value = withImages.filter(b =>
-        b.recordType === 'booking' && ['checked_out', 'cancelled'].includes(b.status)
+        ['checked_out', 'cancelled', 'rejected'].includes(b.status)
       )
 
       // Sort each group newest first
@@ -128,7 +91,7 @@ export const useReservationsStore = defineStore('reservations', () => {
     }
   }
 
-  // Cancel a pending booking REQUEST (pre-approval)
+  // Cancel a pending booking (only allowed while still awaiting approval).
   async function cancelRequest(id) {
     await api.patch(`/web/bookings/${id}/cancel`)
     await fetchAll()

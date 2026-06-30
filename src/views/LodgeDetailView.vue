@@ -267,7 +267,8 @@ function venueAmenityIcon(label) {
 
 // ── Booking ───────────────────────────────────────────────────────────────────
 function branchQuery() {
-  return selectedBranch.value ? { branchId: selectedBranch.value } : {}
+  const id = selectedBranch.value || (branches.value.length === 1 ? String(branches.value[0].id) : null)
+  return id ? { branchId: id } : {}
 }
 
 function bookRoom(room) {

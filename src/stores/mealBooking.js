@@ -142,7 +142,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
-  async function submit() {
+  async function submit(documents = []) {
     const useHeadcount = participantMode.value === 'headcount'
 
     const mealObj = {
@@ -160,6 +160,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
       source:          'web',
       currency:        'ZMW',
       booking_context: bookingContext.value,
+      documents,
 
       participant_mode:  participantMode.value,
       participant_count: useHeadcount ? participantCount.value : null,

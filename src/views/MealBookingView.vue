@@ -5,6 +5,7 @@ import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useMealBookingStore } from '@/stores/mealBooking'
 import { useRebookStore } from '@/stores/rebook'
+import { uploadBookingDocument } from '@/services/storage'
 import { MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
 import api from '@/lib/api'
 
@@ -23,6 +24,7 @@ const selectedBranch = computed(() => branches.value?.find(b => String(b.id) ===
 // ── Multi-step ─────────────────────────────────────────────────────────────
 const step        = ref(1)
 const loading     = ref(false)
+const uploading   = ref(false)
 const success     = ref(false)
 const errors      = ref({})
 const submitError = ref('')
@@ -45,7 +47,7 @@ function addDocFiles(files) {
     if (!ACCEPTED_TYPES.includes(file.type)) continue
     if (file.size > MAX_FILE_SIZE) continue
     if (approvalDocs.value.some(d => d.file.name === file.name && d.file.size === file.size)) continue
-    approvalDocs.value.push({ file, id: `${file.name}-${file.size}-${Date.now()}` })
+    approvalDocs.value.push({ file, id: `${file.name}-${file.size}-${Date.now()}`, progress: 0 })
   }
 }
 
@@ -289,7 +291,23 @@ async function handleSubmit() {
   loading.value     = true
   submitError.value = ''
   try {
-    await mb.submit()
+    // Upload approval documents to Firebase first, then attach their URLs.
+    let documentUrls = []
+    if (approvalDocs.value.length) {
+      uploading.value = true
+      try {
+        documentUrls = await Promise.all(
+          approvalDocs.value.map(d => uploadBookingDocument(d.file, p => { d.progress = p })),
+        )
+      } catch {
+        submitError.value = 'Failed to upload documents. Please try again.'
+        return
+      } finally {
+        uploading.value = false
+      }
+    }
+
+    await mb.submit(documentUrls)
     success.value = true
     mb.reset()
     setTimeout(() => router.push({ name: 'bookings' }), 2500)
@@ -1656,7 +1674,7 @@ onMounted(async () => {
               class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
               <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span v-else class="material-symbols-outlined text-base">check</span>
-              {{ loading ? 'Submitting…' : 'Confirm Booking' }}
+              {{ uploading ? 'Uploading documents…' : loading ? 'Submitting…' : 'Confirm Booking' }}
             </button>
           </div>
 
