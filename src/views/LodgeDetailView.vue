@@ -686,15 +686,8 @@ function bookRoom(room) {
             </div>
           </div>
 
-          <!-- Venues error -->
-          <div v-if="venuesError && !venuesLoading"
-            class="py-12 text-center bg-(--color-error-container) rounded-2xl">
-            <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
-            <p class="font-sans text-sm text-(--color-on-error-container)">{{ venuesError }}</p>
-          </div>
-
           <!-- Venues skeleton -->
-          <div v-else-if="venuesLoading && !venues.length"
+          <div v-if="venuesLoading && !venues.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="i in 6" :key="i"
               class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
@@ -706,6 +699,14 @@ function bookRoom(room) {
                 <div class="h-9 bg-(--color-surface-container-highest) rounded-full mt-4"></div>
               </div>
             </div>
+          </div>
+
+          <!-- Empty venues -->
+          <div v-else-if="!venuesLoading && !venues.length"
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">location_city</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">No venues available</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">There are no venues listed for this property.</p>
           </div>
 
           <!-- Venue cards -->
