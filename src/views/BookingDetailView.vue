@@ -152,15 +152,9 @@ function bookAgain() {
 
   // Navigate to the appropriate booking flow
   const routeMap = {
-    accommodation: r.bookerType === 'corporate'
-      ? { name: 'accommodation-booking', params: { id: lodgeId.value } }
-      : { name: 'individual-booking',    params: { id: lodgeId.value } },
-    event: r.bookerType === 'corporate'
-      ? { name: 'event-booking',         params: { id: lodgeId.value } }
-      : { name: 'individual-booking',    params: { id: lodgeId.value } },
-    meals: r.bookerType === 'corporate'
-      ? { name: 'meal-booking',          params: { id: lodgeId.value } }
-      : { name: 'individual-booking',    params: { id: lodgeId.value } },
+    accommodation: { name: 'accommodation-booking', params: { id: lodgeId.value } },
+    event:         { name: 'event-booking',         params: { id: lodgeId.value } },
+    meals:         { name: 'meal-booking',          params: { id: lodgeId.value } },
   }
 
   router.push(routeMap[r.bookingType] || { name: 'lodges' })

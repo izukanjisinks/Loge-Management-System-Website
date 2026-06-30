@@ -130,21 +130,30 @@ function nights(a, b) {
 const invoiceSnapshot = ref(null)
 
 function buildInvoiceSnapshot() {
-  const nameParts = (ab.bookedBy.name || '').trim().split(' ')
+  const nameParts  = (ab.bookedBy.name || '').trim().split(' ')
+  const nightCount = nights(ab.checkIn, ab.checkOut)
+  const rooms      = ab.attendantRooms
+    .filter(r => r.rate)
+    .map(r => ({ name: r.roomName, rate: Number(r.rate), total: Number(r.rate) * nightCount }))
+  const baseRatePerNight = rooms.reduce((s, r) => s + r.rate, 0)
+  const baseTotal  = baseRatePerNight * nightCount
+  const taxes      = Math.round(baseTotal * 0.12 * 100) / 100
+  const grandTotal = baseTotal + taxes
   return {
     bookingType:      ab.isCorporate ? 'corporate' : 'individual',
     lodgeName:        lodge.value?.name ?? '',
     roomType:         ab.isCorporate ? (ab.roomTypePreference || 'Corporate Accommodation') : (ab.attendantRooms[0]?.roomName || 'Accommodation'),
     checkIn:          ab.checkIn,
     checkOut:         ab.checkOut,
-    nightCount:       nights(ab.checkIn, ab.checkOut),
+    nightCount,
     guestCount:       ab.attendants.length,
-    baseRatePerNight: 0,
-    baseTotal:        0,
+    rooms,
+    baseRatePerNight,
+    baseTotal,
     mealPlanName:     '',
     mealCost:         0,
-    taxes:            0,
-    grandTotal:       0,
+    taxes,
+    grandTotal,
     specialRequests:  ab.notes,
     guestInfo: {
       firstName:   nameParts[0] ?? '',
@@ -1221,7 +1230,7 @@ onMounted(async () => {
 
           <!-- Booked By summary -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
-            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">{{ ab.isCorporate ? 'Booking Representative' : 'Guest Details' }}</p>
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">{{ ab.isCorporate ? 'Booking Representative' : 'Booked By' }}</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div>
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p>
@@ -1243,11 +1252,49 @@ onMounted(async () => {
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Employee / Man No.</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.bookedBy.manNumber }}</p>
               </div>
-              <div v-if="!ab.isCorporate">
-                <p class="font-sans text-xs text-(--color-on-surface-variant)">Party Size</p>
-                <p class="font-sans text-sm text-(--color-on-surface)">
-                  {{ ab.attendants.length + ' guest' + (ab.attendants.length !== 1 ? 's' : '') }}
-                </p>
+            </div>
+          </section>
+
+          <!-- Individual guests detail -->
+          <section v-if="!ab.isCorporate && ab.attendants.length"
+            class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Guests ({{ ab.attendants.length }})</p>
+            <div>
+              <div v-for="(att, i) in ab.attendants" :key="i"
+                class="py-3 border-b border-(--color-outline-variant) last:border-0">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold font-sans"
+                    :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface) flex-1 truncate">{{ att.fullName }}</p>
+                  <span v-if="att.isLead" class="font-sans text-xs text-(--color-primary) shrink-0">Lead</span>
+                </div>
+                <div class="pl-9 grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6">
+                  <div v-if="att.email">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.email }}</p>
+                  </div>
+                  <div v-if="att.phone">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.phone }}</p>
+                  </div>
+                  <div v-if="att.idNumber">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">ID / Passport</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.idNumber }}</p>
+                  </div>
+                  <div v-if="att.dietaryNotes">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Dietary Notes</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.dietaryNotes }}</p>
+                  </div>
+                  <div v-if="ab.attendantRooms.find(r => r.attendantIdx === i)" class="sm:col-span-2">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Room</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">
+                      {{ ab.attendantRooms.find(r => r.attendantIdx === i).roomName }}
+                      <span v-if="ab.attendantRooms.find(r => r.attendantIdx === i).rate" class="text-(--color-primary)">
+                        · K {{ Number(ab.attendantRooms.find(r => r.attendantIdx === i).rate).toLocaleString() }}/night
+                      </span>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -1424,6 +1471,22 @@ onMounted(async () => {
               <div class="min-w-0 flex-1">
                 <p class="font-sans text-xs font-semibold text-(--color-on-surface) truncate">{{ r.roomName }}</p>
                 <p v-if="r.rate" class="font-sans text-xs text-(--color-primary)">K {{ Number(r.rate).toLocaleString() }}/night</p>
+              </div>
+            </div>
+            <div v-if="ab.attendantRooms.some(r => r.rate) && nights(ab.checkIn, ab.checkOut) > 0"
+              class="mt-3 pt-3 border-t border-(--color-outline-variant) space-y-1.5">
+              <div v-for="(r, i) in ab.attendantRooms.filter(r => r.rate)" :key="i"
+                class="flex items-baseline justify-between gap-2">
+                <span class="font-sans text-xs text-(--color-on-surface-variant) truncate">{{ r.roomName }}</span>
+                <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0">
+                  K {{ Number(r.rate).toLocaleString() }} × {{ nights(ab.checkIn, ab.checkOut) }}
+                </span>
+              </div>
+              <div class="flex items-baseline justify-between gap-2 pt-1.5 border-t border-(--color-outline-variant)">
+                <span class="font-sans text-xs font-semibold text-(--color-on-surface)">Est. Total</span>
+                <span class="font-sans text-sm font-semibold text-(--color-primary)">
+                  K {{ (ab.attendantRooms.reduce((s, r) => s + (Number(r.rate) || 0), 0) * nights(ab.checkIn, ab.checkOut)).toLocaleString() }}
+                </span>
               </div>
             </div>
           </div>

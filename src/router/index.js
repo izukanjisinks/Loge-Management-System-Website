@@ -28,18 +28,6 @@ const routes = [
         component: () => import('@/views/MealBookingView.vue'),
         meta: { requiresAuth: true },
       },
-      {
-        path: 'lodges/:id/corporate',
-        name: 'corporate-booking',
-        component: () => import('@/views/CorporateBookingView.vue'),
-        meta: { requiresAuth: true },
-      },
-      {
-        path: 'lodges/:id/individual',
-        name: 'individual-booking',
-        component: () => import('@/views/IndividualBookingView.vue'),
-        meta: { requiresAuth: true },
-      },
       { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue'), meta: { keepAlive: true } },
       { path: 'rooms/:id', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue'), meta: { keepAlive: true } },
       { path: 'venues', name: 'venues', component: () => import('@/views/VenuesView.vue'), meta: { keepAlive: true } },

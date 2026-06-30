@@ -141,18 +141,36 @@ const s = {
         <Text :style="[s.thText, s.colDesc]">Description</Text>
         <Text :style="[s.thText, s.colAmt]">Amount</Text>
       </View>
-      <View :style="s.costRow">
-        <Text :style="s.colDesc">{{ booking.nightCount }} nights × K{{ Number((booking.baseRatePerNight ?? 0).toFixed(0)).toLocaleString() }} ({{ booking.roomType }})</Text>
-        <Text :style="s.colAmt">{{ fmt(booking.baseTotal) }}</Text>
-      </View>
-      <View v-if="booking.mealCost > 0" :style="s.costRowAlt">
-        <Text :style="s.colDesc">{{ booking.mealPlanName }}</Text>
-        <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
-      </View>
-      <View :style="booking.mealCost > 0 ? s.costRow : s.costRowAlt">
-        <Text :style="s.colDesc">Conservation Levy (12%)</Text>
-        <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
-      </View>
+      <!-- Per-room rows (individual bookings with known rates) -->
+      <template v-if="booking.rooms && booking.rooms.length">
+        <View v-for="(r, i) in booking.rooms" :key="i" :style="i % 2 === 0 ? s.costRow : s.costRowAlt">
+          <Text :style="s.colDesc">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }} × K{{ Number(r.rate.toFixed(0)).toLocaleString() }} ({{ r.name }})</Text>
+          <Text :style="s.colAmt">{{ fmt(r.total) }}</Text>
+        </View>
+        <View v-if="booking.mealCost > 0" :style="booking.rooms.length % 2 === 0 ? s.costRow : s.costRowAlt">
+          <Text :style="s.colDesc">{{ booking.mealPlanName }}</Text>
+          <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
+        </View>
+        <View :style="(booking.rooms.length + (booking.mealCost > 0 ? 1 : 0)) % 2 === 0 ? s.costRow : s.costRowAlt">
+          <Text :style="s.colDesc">Conservation Levy (12%)</Text>
+          <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
+        </View>
+      </template>
+      <!-- Fallback: single combined row -->
+      <template v-else>
+        <View :style="s.costRow">
+          <Text :style="s.colDesc">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }} × K{{ Number((booking.baseRatePerNight ?? 0).toFixed(0)).toLocaleString() }} ({{ booking.roomType }})</Text>
+          <Text :style="s.colAmt">{{ fmt(booking.baseTotal) }}</Text>
+        </View>
+        <View v-if="booking.mealCost > 0" :style="s.costRowAlt">
+          <Text :style="s.colDesc">{{ booking.mealPlanName }}</Text>
+          <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
+        </View>
+        <View :style="booking.mealCost > 0 ? s.costRow : s.costRowAlt">
+          <Text :style="s.colDesc">Conservation Levy (12%)</Text>
+          <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
+        </View>
+      </template>
 
       <!-- Totals -->
       <View :style="s.totals">
