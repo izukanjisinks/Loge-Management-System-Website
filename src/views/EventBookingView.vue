@@ -24,6 +24,7 @@ const selectedBranch = computed(() => branches.value?.find(b => String(b.id) ===
 // ── Multi-step ─────────────────────────────────────────────────────────────
 const step        = ref(1)
 const loading     = ref(false)
+const today       = new Date().toISOString().slice(0, 10)
 const uploading   = ref(false)
 const success     = ref(false)
 const errors      = ref({})
@@ -199,8 +200,11 @@ function validate() {
   if (!eb.bookedBy.email) e.bookedByEmail = 'Required'
   else if (!/\S+@\S+\.\S+/.test(eb.bookedBy.email)) e.bookedByEmail = 'Enter a valid email'
 
-  if (!eb.startDate) e.startDate = 'Required'
-  if (!eb.endDate)   e.endDate   = 'Required'
+  if (!eb.startDate)             e.startDate = 'Required'
+  else if (eb.startDate < today) e.startDate = 'Date cannot be in the past'
+
+  if (!eb.endDate)               e.endDate   = 'Required'
+  else if (eb.endDate < today)   e.endDate   = 'Date cannot be in the past'
 
   if (eb.isCorporate) {
     if (!eb.companyName)  e.companyName  = 'Required'
@@ -1065,14 +1069,14 @@ onMounted(async () => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Date <span class="text-(--color-error)">*</span></label>
-                    <input v-model="eb.startDate" type="date"
+                    <input v-model="eb.startDate" type="date" :min="today"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.startDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.startDate" class="font-sans text-xs text-(--color-error)">{{ errors.startDate }}</span>
                   </div>
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">End Date <span class="text-(--color-error)">*</span></label>
-                    <input v-model="eb.endDate" type="date" :min="eb.startDate || undefined"
+                    <input v-model="eb.endDate" type="date" :min="eb.startDate || today"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.endDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.endDate" class="font-sans text-xs text-(--color-error)">{{ errors.endDate }}</span>

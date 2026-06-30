@@ -23,6 +23,7 @@ const selectedBranch = computed(() => branches.value.find(b => String(b.id) === 
 // ── Multi-step ─────────────────────────────────────────────────────────────
 const step        = ref(1)
 const loading     = ref(false)
+const today       = new Date().toISOString().slice(0, 10)
 const success     = ref(false)
 const errors      = ref({})
 const submitError = ref('')
@@ -45,8 +46,8 @@ const tabHasError = computed(() => ({
   guest:         ['bookedByName', 'bookedByEmail'].some(k => errors.value[k])
                    || (ib.participantMode === 'detailed' && Object.keys(errors.value).some(k => k.startsWith('att_'))),
   accommodation: ['accomCheckIn', 'accomCheckOut'].some(k => errors.value[k]),
-  events:        Object.keys(errors.value).some(k => k.startsWith('ev_')) || !!errors.value.eventsEndDate,
-  meals:         false,
+  events:        Object.keys(errors.value).some(k => k.startsWith('ev_')) || !!errors.value.eventsStartDate || !!errors.value.eventsEndDate,
+  meals:         ['mealsStartDate', 'mealsEndDate'].some(k => errors.value[k]),
 }))
 
 function isServiceEnabled(key) {
@@ -412,7 +413,11 @@ function validate() {
   }
 
   if (ib.eventsEnabled) {
-    if (ib.events.startDate && ib.events.endDate && ib.events.endDate < ib.events.startDate)
+    if (ib.events.startDate && ib.events.startDate < today)
+      e.eventsStartDate = 'Date cannot be in the past'
+    if (ib.events.endDate && ib.events.endDate < today)
+      e.eventsEndDate = 'Date cannot be in the past'
+    else if (ib.events.startDate && ib.events.endDate && ib.events.endDate < ib.events.startDate)
       e.eventsEndDate = 'End date cannot be before start date'
     ib.events.masterSessions.forEach((s, i) => {
       if (!s.startTime) e[`ev_master_${i}_start`] = 'Required'
@@ -428,8 +433,17 @@ function validate() {
   }
 
   if (ib.accommodationEnabled) {
-    if (!ib.accommodation.checkIn)  e.accomCheckIn  = 'Required'
-    if (!ib.accommodation.checkOut) e.accomCheckOut = 'Required'
+    if (!ib.accommodation.checkIn)                   e.accomCheckIn  = 'Required'
+    else if (ib.accommodation.checkIn < today)       e.accomCheckIn  = 'Date cannot be in the past'
+
+    if (!ib.accommodation.checkOut)                  e.accomCheckOut = 'Required'
+    else if (ib.accommodation.checkOut < today)      e.accomCheckOut = 'Date cannot be in the past'
+    else if (ib.accommodation.checkIn && ib.accommodation.checkOut <= ib.accommodation.checkIn) e.accomCheckOut = 'Check-out must be at least 1 night after check-in'
+  }
+
+  if (ib.mealsEnabled) {
+    if (ib.meals.startDate && ib.meals.startDate < today) e.mealsStartDate = 'Date cannot be in the past'
+    if (ib.meals.endDate   && ib.meals.endDate   < today) e.mealsEndDate   = 'Date cannot be in the past'
   }
 
   errors.value = e
@@ -908,14 +922,14 @@ onMounted(async () => {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in <span class="text-(--color-error)">*</span></label>
-                    <input v-model="ib.accommodation.checkIn" type="date"
+                    <input v-model="ib.accommodation.checkIn" type="date" :min="today"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.accomCheckIn ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.accomCheckIn" class="font-sans text-xs text-(--color-error)">{{ errors.accomCheckIn }}</span>
                   </div>
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out <span class="text-(--color-error)">*</span></label>
-                    <input v-model="ib.accommodation.checkOut" type="date" :min="ib.accommodation.checkIn || undefined"
+                    <input v-model="ib.accommodation.checkOut" type="date" :min="ib.accommodation.checkIn || today"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.accomCheckOut ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.accomCheckOut" class="font-sans text-xs text-(--color-error)">{{ errors.accomCheckOut }}</span>
@@ -1216,12 +1230,14 @@ onMounted(async () => {
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Start Date</label>
-                      <input v-model="ib.events.startDate" type="date"
-                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                      <input v-model="ib.events.startDate" type="date" :min="today"
+                        class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                        :class="errors.eventsStartDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                      <span v-if="errors.eventsStartDate" class="font-sans text-xs text-(--color-error)">{{ errors.eventsStartDate }}</span>
                     </div>
                     <div class="flex flex-col gap-1">
                       <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">End Date</label>
-                      <input v-model="ib.events.endDate" type="date" :min="ib.events.startDate || undefined"
+                      <input v-model="ib.events.endDate" type="date" :min="ib.events.startDate || today"
                         class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                         :class="errors.eventsEndDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                       <span v-if="errors.eventsEndDate" class="font-sans text-xs text-(--color-error)">{{ errors.eventsEndDate }}</span>
@@ -1754,14 +1770,18 @@ onMounted(async () => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Start Date</label>
-                    <input v-model="ib.meals.startDate" type="date"
-                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    <input v-model="ib.meals.startDate" type="date" :min="today"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.mealsStartDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.mealsStartDate" class="font-sans text-xs text-(--color-error)">{{ errors.mealsStartDate }}</span>
                   </div>
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">End Date</label>
-                    <input v-model="ib.meals.endDate" type="date" :min="ib.meals.startDate || undefined"
-                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                    <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Leave same as start date for a single-day booking.</p>
+                    <input v-model="ib.meals.endDate" type="date" :min="ib.meals.startDate || today"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                      :class="errors.mealsEndDate ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    <span v-if="errors.mealsEndDate" class="font-sans text-xs text-(--color-error)">{{ errors.mealsEndDate }}</span>
+                    <p v-else class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">Leave same as start date for a single-day booking.</p>
                   </div>
                 </div>
               </div>

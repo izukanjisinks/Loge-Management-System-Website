@@ -25,6 +25,7 @@ const selectedBranch = computed(() => branches.value.find(b => String(b.id) === 
 // ── Multi-step ─────────────────────────────────────────────────────────────
 const step        = ref(1)
 const loading     = ref(false)
+const today       = new Date().toISOString().slice(0, 10)
 const uploading   = ref(false)
 const success     = ref(false)
 const errors      = ref({})
@@ -182,8 +183,12 @@ function validate() {
   if (!ab.bookedBy.email) e.bookedByEmail = 'Required'
   else if (!/\S+@\S+\.\S+/.test(ab.bookedBy.email)) e.bookedByEmail = 'Enter a valid email'
 
-  if (!ab.checkIn)  e.checkIn  = 'Required'
-  if (!ab.checkOut) e.checkOut = 'Required'
+  if (!ab.checkIn)                     e.checkIn  = 'Required'
+  else if (ab.checkIn < today)         e.checkIn  = 'Date cannot be in the past'
+
+  if (!ab.checkOut)                    e.checkOut = 'Required'
+  else if (ab.checkOut < today)        e.checkOut = 'Date cannot be in the past'
+  else if (ab.checkIn && ab.checkOut <= ab.checkIn) e.checkOut = 'Check-out must be at least 1 night after check-in'
 
   if (ab.isCorporate) {
     if (!ab.companyName) e.companyName = 'Required'
@@ -947,14 +952,14 @@ onMounted(async () => {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in <span class="text-(--color-error)">*</span></label>
-                    <input v-model="ab.checkIn" type="date"
+                    <input v-model="ab.checkIn" type="date" :min="today"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.checkIn ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.checkIn" class="font-sans text-xs text-(--color-error)">{{ errors.checkIn }}</span>
                   </div>
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out <span class="text-(--color-error)">*</span></label>
-                    <input v-model="ab.checkOut" type="date" :min="ab.checkIn || undefined"
+                    <input v-model="ab.checkOut" type="date" :min="ab.checkIn || today"
                       class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                       :class="errors.checkOut ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                     <span v-if="errors.checkOut" class="font-sans text-xs text-(--color-error)">{{ errors.checkOut }}</span>
