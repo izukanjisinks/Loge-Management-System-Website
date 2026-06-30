@@ -123,6 +123,13 @@ function menuBranchId() {
   return null
 }
 
+// Menus are branch-scoped. On a multi-branch lodge with "All Locations" selected,
+// there's no single menu to show — prompt the user to pick a branch instead of
+// loading (and instead of showing the "not configured" empty state).
+const menuNeedsBranch = computed(() =>
+  branches.value.length > 1 && !selectedBranch.value
+)
+
 async function loadMenu() {
   menuLoading.value = true
   menuError.value   = ''
@@ -205,13 +212,17 @@ watch(selectedBranch, (val) => {
   searched.value = false
   loadRooms()
   if (activeTab.value === 'events') loadVenues()
-  if (activeTab.value === 'meals') loadMenu()
+  if (activeTab.value === 'meals') {
+    if (menuNeedsBranch.value) menuItems.value = []  // back to "All Locations" → show prompt
+    else loadMenu()
+  }
 })
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab: tab === 'accommodation' ? undefined : tab } })
   if (tab === 'events' && !venues.value.length && !venuesLoading.value) loadVenues()
-  if (tab === 'meals') loadMenu()
+  // Multi-branch + "All Locations" → show the branch prompt instead of loading.
+  if (tab === 'meals' && !menuNeedsBranch.value) loadMenu()
 })
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -228,7 +239,7 @@ onMounted(async () => {
   lodgesStore.fetchLodgeDetail(lodgeId)
   loadRooms()
   if (activeTab.value === 'events') loadVenues()
-  if (activeTab.value === 'meals')  loadMenu()
+  if (activeTab.value === 'meals' && !menuNeedsBranch.value) loadMenu()
 })
 
 // ── Venue helpers ─────────────────────────────────────────────────────────────
@@ -267,7 +278,8 @@ function venueAmenityIcon(label) {
 
 // ── Booking ───────────────────────────────────────────────────────────────────
 function branchQuery() {
-  return selectedBranch.value ? { branchId: selectedBranch.value } : {}
+  const id = selectedBranch.value || (branches.value.length === 1 ? String(branches.value[0].id) : null)
+  return id ? { branchId: id } : {}
 }
 
 function bookRoom(room) {
@@ -689,6 +701,14 @@ function bookRoom(room) {
             </div>
           </div>
 
+          <!-- Empty venues -->
+          <div v-else-if="!venuesLoading && !venues.length"
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">location_city</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">No venues available</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">There are no venues listed for this property.</p>
+          </div>
+
           <!-- Venue cards -->
           <div v-else-if="venues.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -769,6 +789,7 @@ function bookRoom(room) {
               <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface)">Catering &amp; Meals</h2>
               <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
                 <template v-if="menuLoading">Loading menu…</template>
+                <template v-else-if="menuNeedsBranch">Select a location to view its menu</template>
                 <template v-else>
                   {{ menuItems.length }} item{{ menuItems.length !== 1 ? 's' : '' }}
                   on the menu at {{ selectedBranchObj?.name ?? lodge.name }}
@@ -878,6 +899,25 @@ function bookRoom(room) {
                 Book Catering
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
               </RouterLink>
+            </div>
+          </div>
+
+          <!-- Branch required — menus are per-location -->
+          <div v-else-if="menuNeedsBranch"
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            <span class="material-symbols-outlined text-5xl text-(--color-primary) block mb-4">location_on</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">Select a location</p>
+            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2 max-w-md mx-auto">
+              Menus vary by location. Choose a branch to view its catering menu.
+            </p>
+            <div class="flex flex-wrap justify-center gap-2 mt-6">
+              <button
+                v-for="b in branches" :key="b.id"
+                @click="selectedBranch = String(b.id)"
+                class="flex items-center gap-2 px-4 py-2 rounded-full font-sans text-sm font-semibold border-2 border-(--color-outline-variant) text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary) transition-all">
+                <span class="material-symbols-outlined text-base">villa</span>
+                {{ b.name }}
+              </button>
             </div>
           </div>
 
