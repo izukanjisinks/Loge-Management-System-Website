@@ -56,23 +56,7 @@ export const useReservationsStore = defineStore('reservations', () => {
       // confirmed. So one endpoint returns the full lifecycle.
       const res = await api.get('/web/my-bookings')
       const rows = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
-      const all = rows.map(normaliseBooking)
-
-      // Fetch room images for accommodation bookings with a room ID
-      const uniqueRoomIds = [...new Set(all.filter(b => b.roomId).map(b => b.roomId))]
-      const roomImages = {}
-      await Promise.allSettled(
-        uniqueRoomIds.map(async (roomId) => {
-          try {
-            const { data: room } = await api.get(`/guest/rooms/${roomId}`)
-            roomImages[roomId] = room.images?.[0] || null
-          } catch {
-            roomImages[roomId] = null
-          }
-        })
-      )
-
-      const withImages = all.map(b => ({ ...b, roomImage: b.roomId ? (roomImages[b.roomId] ?? null) : null }))
+      const withImages = rows.map(b => ({ ...normaliseBooking(b), roomImage: null }))
 
       // Active: still in flight — pending (awaiting approval), confirmed, checked_in.
       active.value = withImages.filter(b =>

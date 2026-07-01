@@ -20,7 +20,9 @@ function formatDateTime(d) {
 function cardTitle(r) {
   if (r.bookingType === 'accommodation') {
     if (r.bookerType === 'corporate') return r.companyName || 'Corporate Stay'
-    return r.roomName || 'Room Booking'
+    const rooms = r.metadata?.accommodation?.rooms || []
+    if (rooms.length > 1) return `${rooms.length}-Room Stay`
+    return r.roomName || rooms[0]?.room_name || 'Room Booking'
   }
   if (r.bookingType === 'event') return r.sessions[0]?.venue_name || 'Event Booking'
   if (r.bookingType === 'meals') return 'Meal Booking'
@@ -35,9 +37,10 @@ function typeLabel(r) {
 }
 
 function fallbackIcon(r) {
+  if (r.bookingType === 'accommodation') return 'bed'
   if (r.bookingType === 'event') return 'event'
   if (r.bookingType === 'meals') return 'restaurant'
-  return 'image_not_supported'
+  return 'bed'
 }
 
 const reservations = useReservationsStore()
@@ -148,17 +151,34 @@ onMounted(() => reservations.fetchAll())
               <!-- Details — individual accommodation -->
               <div
                 v-if="r.bookingType === 'accommodation' && r.bookerType !== 'corporate'"
-                class="flex flex-wrap gap-x-6 gap-y-2 font-sans text-sm text-(--color-on-surface-variant)"
+                class="flex flex-col gap-2 font-sans text-sm text-(--color-on-surface-variant)"
               >
-                <span v-if="r.checkIn" class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
-                  {{ formatDate(r.checkIn) }} → {{ formatDate(r.checkOut) }}
-                </span>
-                <span v-if="r.nights" class="flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-base text-(--color-primary)">nights_stay</span>
-                  {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
-                </span>
-                <span v-if="r.roomType" class="flex items-center gap-1.5">
+                <div class="flex flex-wrap gap-x-6 gap-y-1.5">
+                  <span v-if="r.checkIn" class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
+                    {{ formatDate(r.checkIn) }} → {{ formatDate(r.checkOut) }}
+                  </span>
+                  <span v-if="r.nights" class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-base text-(--color-primary)">nights_stay</span>
+                    {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
+                  </span>
+                </div>
+                <!-- Rooms -->
+                <div
+                  v-if="(r.metadata?.accommodation?.rooms || []).length"
+                  class="flex flex-wrap gap-2"
+                >
+                  <span
+                    v-for="(room, i) in r.metadata.accommodation.rooms"
+                    :key="i"
+                    class="inline-flex items-center gap-1.5 text-xs bg-(--color-surface-container) text-(--color-on-surface) px-2.5 py-1 rounded-full"
+                  >
+                    <span class="material-symbols-outlined text-xs text-(--color-primary)">bed</span>
+                    {{ room.room_name }}
+                    <span v-if="room.room_type" class="text-(--color-on-surface-variant) capitalize">({{ room.room_type }})</span>
+                  </span>
+                </div>
+                <span v-else-if="r.roomType" class="flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base text-(--color-primary)">bed</span>
                   {{ r.roomType }}
                 </span>
@@ -293,7 +313,7 @@ onMounted(() => reservations.fetchAll())
               </div>
 
               <!-- individual accommodation -->
-              <div v-if="r.bookingType === 'accommodation' && r.bookerType !== 'corporate'" class="space-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+              <div v-if="r.bookingType === 'accommodation' && r.bookerType !== 'corporate'" class="space-y-2 font-sans text-xs text-(--color-on-surface-variant)">
                 <p v-if="r.checkIn" class="flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-sm text-(--color-primary)">calendar_today</span>
                   {{ formatDate(r.checkIn) }} — {{ formatDate(r.checkOut) }}
@@ -302,6 +322,17 @@ onMounted(() => reservations.fetchAll())
                   <span class="material-symbols-outlined text-sm text-(--color-primary)">nights_stay</span>
                   {{ r.nights }} {{ r.nights === 1 ? 'night' : 'nights' }}
                 </p>
+                <div v-if="(r.metadata?.accommodation?.rooms || []).length" class="flex flex-wrap gap-1.5">
+                  <span
+                    v-for="(room, i) in r.metadata.accommodation.rooms"
+                    :key="i"
+                    class="inline-flex items-center gap-1 bg-(--color-surface-container) text-(--color-on-surface) px-2 py-0.5 rounded-full"
+                  >
+                    <span class="material-symbols-outlined text-xs text-(--color-primary)">bed</span>
+                    {{ room.room_name }}
+                    <span v-if="room.room_type" class="text-(--color-on-surface-variant) capitalize">({{ room.room_type }})</span>
+                  </span>
+                </div>
               </div>
 
               <!-- corporate accommodation -->
