@@ -175,14 +175,14 @@ const dinerCount = computed(() =>
 
 watchEffect(() => {
   const count = dinerCount.value
-  mb.masterMeals.forEach(meal => {
-    if (meal.serviceType === 'individual_order') meal.paxCount = count
-  })
+  mb.masterMeals.forEach(meal => { meal.paxCount = count })
   Object.values(mb.mealOverrides).forEach(ov => {
-    ;(ov.sessions ?? []).forEach(s => {
-      if (s.serviceType === 'individual_order') s.paxCount = count
-    })
+    ;(ov.sessions ?? []).forEach(s => { s.paxCount = count })
   })
+})
+
+watchEffect(() => {
+  if (mb.participantMode === 'detailed') mb.participantCount = mb.attendants.length
 })
 
 function menuItemsForPeriod() {
@@ -789,16 +789,20 @@ onMounted(async () => {
                   </div>
                 </button>
               </div>
-              <div v-if="mb.participantMode === 'headcount'">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Diners <span class="text-(--color-error)">*</span></label>
+              <div>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Diners <span v-if="mb.participantMode === 'headcount'" class="text-(--color-error)">*</span></label>
                 <div class="flex items-center gap-3 mt-2">
                   <input type="number" min="1" v-model.number="mb.participantCount"
-                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 text-center transition-colors focus:outline-none"
-                    :class="errors.participantCount ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    :disabled="mb.participantMode === 'detailed'"
+                    class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 text-center transition-colors focus:outline-none"
+                    :class="mb.participantMode === 'detailed'
+                      ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed border-transparent'
+                      : errors.participantCount ? 'bg-(--color-savannah-mist) text-(--color-on-surface) border-(--color-error)' : 'bg-(--color-savannah-mist) text-(--color-on-surface) border-transparent focus:border-(--color-primary)'" />
+                  <p v-if="mb.participantMode === 'detailed'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of diners</p>
                 </div>
-                <p v-if="errors.participantCount" class="font-sans text-xs text-(--color-error) mt-1">{{ errors.participantCount }}</p>
+                <p v-if="errors.participantCount && mb.participantMode === 'headcount'" class="font-sans text-xs text-(--color-error) mt-1">{{ errors.participantCount }}</p>
               </div>
-              <div v-else class="space-y-3">
+              <div v-if="mb.participantMode === 'detailed'" class="space-y-3">
                 <div v-for="(att, i) in mb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -918,16 +922,20 @@ onMounted(async () => {
                   </div>
                 </button>
               </div>
-              <div v-if="mb.participantMode === 'headcount'">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Diners <span class="text-(--color-error)">*</span></label>
+              <div>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Diners <span v-if="mb.participantMode === 'headcount'" class="text-(--color-error)">*</span></label>
                 <div class="flex items-center gap-3 mt-2">
                   <input type="number" min="1" v-model.number="mb.participantCount"
-                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 text-center transition-colors focus:outline-none"
-                    :class="errors.participantCount ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                    :disabled="mb.participantMode === 'detailed'"
+                    class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 text-center transition-colors focus:outline-none"
+                    :class="mb.participantMode === 'detailed'
+                      ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed border-transparent'
+                      : errors.participantCount ? 'bg-(--color-savannah-mist) text-(--color-on-surface) border-(--color-error)' : 'bg-(--color-savannah-mist) text-(--color-on-surface) border-transparent focus:border-(--color-primary)'" />
+                  <p v-if="mb.participantMode === 'detailed'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of diners</p>
                 </div>
-                <p v-if="errors.participantCount" class="font-sans text-xs text-(--color-error) mt-1">{{ errors.participantCount }}</p>
+                <p v-if="errors.participantCount && mb.participantMode === 'headcount'" class="font-sans text-xs text-(--color-error) mt-1">{{ errors.participantCount }}</p>
               </div>
-              <div v-else class="space-y-3">
+              <div v-if="mb.participantMode === 'detailed'" class="space-y-3">
                 <div v-for="(att, i) in mb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -1146,16 +1154,6 @@ onMounted(async () => {
                         </select>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Covers / Pax</label>
-                        <input v-model.number="meal.paxCount" type="number" min="1"
-                          :disabled="meal.serviceType === 'individual_order'"
-                          class="w-full rounded-lg px-3 py-2.5 font-sans text-sm border-2 border-transparent transition-colors"
-                          :class="meal.serviceType === 'individual_order'
-                            ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
-                            : 'bg-(--color-savannah-mist) text-(--color-on-surface) focus:outline-none focus:border-(--color-primary)'" />
-                        <p v-if="meal.serviceType === 'individual_order'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of diners</p>
-                      </div>
-                      <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Requirements</label>
                         <input v-model="meal.dietaryNotes" type="text" placeholder="Halal, vegetarian, nut-free, diabetic…"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
@@ -1360,16 +1358,6 @@ onMounted(async () => {
                                 <option value="">Select buffet option…</option>
                                 <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                               </select>
-                            </div>
-                            <div class="flex flex-col gap-1">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Covers / Pax</label>
-                              <input v-model.number="m.paxCount" type="number" min="1"
-                                :disabled="m.serviceType === 'individual_order'"
-                                class="w-full rounded-lg px-3 py-2.5 font-sans text-sm border-2 border-transparent transition-colors"
-                                :class="m.serviceType === 'individual_order'
-                                  ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
-                                  : 'bg-white text-(--color-on-surface) focus:outline-none focus:border-(--color-primary)'" />
-                              <p v-if="m.serviceType === 'individual_order'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of diners</p>
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>

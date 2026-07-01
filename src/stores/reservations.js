@@ -18,6 +18,7 @@ export const useReservationsStore = defineStore('reservations', () => {
     const firstRoom = Array.isArray(accom.rooms) ? (accom.rooms[0] || {}) : {}
     return {
       id:              b.id,
+      bookingNumber:   b.booking_number   || null,
       recordType:      'booking',
       bookingType:     b.booking_type,     // accommodation | event | meals
       bookerType:      b.booker_type,      // individual | corporate

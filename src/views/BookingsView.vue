@@ -9,6 +9,14 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function formatDateTime(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
 function cardTitle(r) {
   if (r.bookingType === 'accommodation') {
     if (r.bookerType === 'corporate') return r.companyName || 'Corporate Stay'
@@ -215,9 +223,15 @@ onMounted(() => reservations.fetchAll())
 
               <!-- Footer -->
               <div class="flex items-center justify-between pt-4 mt-auto border-t border-(--color-outline-variant)">
-                <span class="font-sans text-xs text-(--color-on-surface-variant)">
-                  {{ r.recordType === 'request' ? 'Pending approval from lodge' : 'View details →' }}
-                </span>
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-sans text-xs text-(--color-on-surface-variant)">
+                    {{ r.recordType === 'request' ? 'Pending approval from lodge' : 'View details →' }}
+                  </span>
+                  <span v-if="r.createdAt" class="font-sans text-xs text-(--color-outline) flex items-center gap-1">
+                    <span class="material-symbols-outlined text-xs">schedule</span>
+                    Booked {{ formatDateTime(r.createdAt) }}
+                  </span>
+                </div>
                 <button
                   v-if="r.recordType === 'request' && r.status === 'pending'"
                   class="border-2 border-(--color-error) text-(--color-error) px-4 py-1.5 rounded-full font-sans text-xs font-semibold hover:bg-(--color-error) hover:text-white transition-all"
@@ -327,7 +341,13 @@ onMounted(() => reservations.fetchAll())
               </div>
 
               <div class="flex items-center justify-between pt-3 mt-auto border-t border-(--color-outline-variant)">
-                <p class="font-serif text-xl text-(--color-primary)">K{{ r.totalAmount.toLocaleString() }}</p>
+                <div>
+                  <p class="font-serif text-xl text-(--color-primary)">K{{ r.totalAmount.toLocaleString() }}</p>
+                  <p v-if="r.createdAt" class="font-sans text-xs text-(--color-outline) flex items-center gap-1 mt-0.5">
+                    <span class="material-symbols-outlined text-xs">schedule</span>
+                    {{ formatDateTime(r.createdAt) }}
+                  </p>
+                </div>
                 <span class="font-sans text-xs text-(--color-on-surface-variant)">View details →</span>
               </div>
             </div>

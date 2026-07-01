@@ -43,6 +43,7 @@ const indAccommodation = computed(() => {
   return null
 })
 const indRooms = computed(() => meta.value.accommodation?.rooms || [])
+const indNightCount = computed(() => meta.value.nights ?? nights(indAccommodation.value?.check_in, indAccommodation.value?.check_out) ?? 0)
 
 // Assigned rooms (corporate accommodation, post-materialise)
 const assignedRooms = computed(() => meta.value.assigned_rooms || [])
@@ -164,6 +165,11 @@ function fmt(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+function nights(a, b) {
+  if (!a || !b) return null
+  const diff = (new Date(b) - new Date(a)) / 86400000
+  return diff > 0 ? diff : null
+}
 function fmtTime(t) {
   if (!t) return '—'
   return t.slice(0, 5)
@@ -240,7 +246,7 @@ function isPdf(url) {
                 </div>
                 <div>
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Nights</p>
-                  <p class="font-semibold text-(--color-on-surface)">{{ meta.nights ?? '—' }}</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.nights ?? nights(accommodation?.check_in, accommodation?.check_out) ?? '—' }}</p>
                 </div>
                 <div>
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Rooms</p>
@@ -392,6 +398,10 @@ function isPdf(url) {
             <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Stay Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div v-if="record.bookingNumber">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Booking No.</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ record.bookingNumber }}</p>
+                </div>
                 <div>
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Check In</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ fmt(indAccommodation?.check_in) }}</p>
@@ -402,26 +412,47 @@ function isPdf(url) {
                 </div>
                 <div>
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Nights</p>
-                  <p class="font-semibold text-(--color-on-surface)">{{ meta.nights ?? '—' }}</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ indNightCount || '—' }}</p>
                 </div>
-                <div v-if="meta.room_name || indRooms[0]?.room_name">
+                <div v-if="indRooms.length === 1 && (meta.room_name || indRooms[0]?.room_name)">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Room</p>
-                  <p class="font-semibold text-(--color-on-surface)">{{ meta.room_name || indRooms[0]?.room_name }}</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.room_name || indRooms[0].room_name }}</p>
                 </div>
-                <div v-if="meta.room_type || indRooms[0]?.room_type">
+                <div v-if="indRooms.length === 1 && (meta.room_type || indRooms[0]?.room_type)">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Room Type</p>
-                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ meta.room_type || indRooms[0]?.room_type }}</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ meta.room_type || indRooms[0].room_type }}</p>
                 </div>
-                <div v-if="indRooms[0]?.rate_per_night">
-                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Rate / night</p>
-                  <p class="font-semibold text-(--color-on-surface)">K{{ indRooms[0].rate_per_night.toLocaleString() }}</p>
+                <div v-if="meta.currency">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Currency</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ meta.currency }}</p>
+                </div>
+              </div>
+
+              <!-- Multiple rooms list -->
+              <div v-if="indRooms.length > 1" class="pt-3 border-t border-(--color-outline-variant) space-y-1">
+                <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-2">Rooms ({{ indRooms.length }})</p>
+                <div
+                  v-for="(room, i) in indRooms"
+                  :key="i"
+                  class="flex items-center justify-between py-3 border-b border-(--color-outline-variant) last:border-0 font-sans text-sm"
+                >
+                  <div>
+                    <p class="font-semibold text-(--color-on-surface)">{{ room.room_name || 'Room ' + (i + 1) }}</p>
+                    <p v-if="attendants[room.attendant_idx]" class="text-(--color-on-surface-variant) text-xs mt-0.5">
+                      {{ attendants[room.attendant_idx].full_name }}
+                    </p>
+                  </div>
+                  <div class="text-right">
+                    <span v-if="room.room_type" class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) bg-(--color-surface-container) px-2.5 py-1 rounded-full">{{ room.room_type }}</span>
+                    <p v-if="room.rate_per_night" class="text-(--color-on-surface-variant) text-xs mt-1">K{{ Number(room.rate_per_night).toLocaleString() }}/night</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Booker details -->
+            <!-- Booked By -->
             <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
-              <h2 class="font-serif text-xl text-(--color-on-surface)">Guest Details</h2>
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div v-if="meta.booked_by?.name || record.bookerName">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Name</p>
@@ -437,6 +468,67 @@ function isPdf(url) {
                 </div>
               </div>
             </div>
+
+            <!-- Guests -->
+            <div
+              v-if="attendants.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Guests ({{ attendants.length }})</h2>
+              <div
+                v-for="(a, i) in attendants"
+                :key="i"
+                class="py-4 border-b border-(--color-outline-variant) last:border-0"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="font-sans text-sm space-y-1">
+                    <p class="font-semibold text-(--color-on-surface)">
+                      {{ a.full_name }}
+                      <span v-if="a.is_lead_contact" class="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-(--color-savannah-mist) text-(--color-primary) px-2 py-0.5 rounded-full">Lead</span>
+                    </p>
+                    <p v-if="a.id_number" class="text-(--color-on-surface-variant) text-xs">ID: {{ a.id_number }}</p>
+                    <p v-if="a.email" class="text-(--color-on-surface-variant) text-xs">{{ a.email }}</p>
+                    <p v-if="a.phone" class="text-(--color-on-surface-variant) text-xs">{{ a.phone }}</p>
+                  </div>
+                  <div v-if="indRooms.find(r => r.attendant_idx === i)" class="shrink-0 text-right font-sans text-xs text-(--color-on-surface-variant)">
+                    <p class="font-semibold text-(--color-on-surface) text-sm">{{ indRooms.find(r => r.attendant_idx === i).room_name }}</p>
+                    <p v-if="indRooms.find(r => r.attendant_idx === i).room_type" class="capitalize mt-0.5">{{ indRooms.find(r => r.attendant_idx === i).room_type }}</p>
+                    <p v-if="indRooms.find(r => r.attendant_idx === i).rate_per_night" class="mt-0.5">K{{ Number(indRooms.find(r => r.attendant_idx === i).rate_per_night).toLocaleString() }}/night</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cost Breakdown -->
+            <div
+              v-if="indRooms.some(r => r.rate_per_night) && indNightCount > 0"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface) mb-4">Cost Breakdown</h2>
+              <div class="font-sans text-sm space-y-0.5">
+                <div
+                  v-for="(room, i) in indRooms.filter(r => r.rate_per_night)"
+                  :key="i"
+                  class="flex justify-between py-2.5 border-b border-(--color-outline-variant) text-(--color-on-surface)"
+                >
+                  <span>{{ room.room_name }} <span class="text-(--color-on-surface-variant)">&times; {{ indNightCount }} night{{ indNightCount !== 1 ? 's' : '' }}</span></span>
+                  <span class="font-semibold">K{{ (Number(room.rate_per_night) * indNightCount).toLocaleString() }}</span>
+                </div>
+                <div class="flex justify-between py-2.5 text-(--color-on-surface-variant)">
+                  <span>Base Total</span>
+                  <span>K{{ indRooms.filter(r => r.rate_per_night).reduce((s, r) => s + Number(r.rate_per_night) * indNightCount, 0).toLocaleString() }}</span>
+                </div>
+                <div class="flex justify-between py-2.5 text-(--color-on-surface-variant)">
+                  <span>VAT (16%)</span>
+                  <span>K{{ Math.round(indRooms.filter(r => r.rate_per_night).reduce((s, r) => s + Number(r.rate_per_night) * indNightCount, 0) * 0.16).toLocaleString() }}</span>
+                </div>
+                <div class="flex justify-between py-2.5 font-semibold text-(--color-on-surface) border-t border-(--color-outline-variant) text-base">
+                  <span>Total</span>
+                  <span>K{{ Math.round(indRooms.filter(r => r.rate_per_night).reduce((s, r) => s + Number(r.rate_per_night) * indNightCount, 0) * 1.16).toLocaleString() }}</span>
+                </div>
+              </div>
+            </div>
+
           </template>
 
           <!-- â•â•â•â• EVENT â•â•â•â• -->

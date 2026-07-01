@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, watchEffect, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
@@ -139,6 +139,18 @@ const ZAMBIA_SUGAR_TPIN = '1001757365'
 const isZS = computed(() => eb.isCorporate && eb.tpin === ZAMBIA_SUGAR_TPIN)
 watch(() => eb.tpin, tpin => {
   if (tpin === ZAMBIA_SUGAR_TPIN && !eb.companyName) eb.companyName = 'Zambia Sugar PLC'
+})
+
+watchEffect(() => {
+  if (eb.participantMode === 'detailed') eb.participantCount = eb.attendants.length
+})
+
+watchEffect(() => {
+  const count = eb.participantMode === 'detailed' ? eb.attendants.length : (eb.participantCount || 0)
+  eb.masterSessions.forEach(s => { s.expectedAttendees = count })
+  Object.values(eb.dayOverrides).forEach(ov => {
+    ;(ov.sessions ?? []).forEach(s => { s.expectedAttendees = count })
+  })
 })
 
 const eventDaySummary = computed(() => {
@@ -819,14 +831,19 @@ onMounted(async () => {
                   </div>
                 </button>
               </div>
-              <div v-if="eb.participantMode === 'headcount'">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Attendees</label>
+              <div>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Total Attendees <span v-if="eb.participantMode === 'headcount'" class="text-(--color-error)">*</span></label>
                 <div class="flex items-center gap-3 mt-2">
                   <input type="number" min="1" v-model.number="eb.participantCount"
-                    class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
+                    :disabled="eb.participantMode === 'detailed'"
+                    class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 border-transparent text-center transition-colors focus:outline-none"
+                    :class="eb.participantMode === 'detailed'
+                      ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
+                      : 'bg-(--color-savannah-mist) text-(--color-on-surface) focus:border-(--color-primary)'" />
+                  <p v-if="eb.participantMode === 'detailed'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of attendees</p>
                 </div>
               </div>
-              <div v-else class="space-y-3">
+              <div v-if="eb.participantMode === 'detailed'" class="space-y-3">
                 <div v-for="(att, i) in eb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -956,14 +973,20 @@ onMounted(async () => {
               </div>
 
               <!-- Headcount -->
-              <div v-if="eb.participantMode === 'headcount'" class="flex items-center gap-4">
+              <div class="flex items-center gap-4">
                 <input type="number" min="1" v-model.number="eb.participantCount"
-                  class="w-28 bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) text-center transition-colors" />
-                <p class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates attending across all sessions</p>
+                  :disabled="eb.participantMode === 'detailed'"
+                  class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 border-transparent text-center transition-colors focus:outline-none"
+                  :class="eb.participantMode === 'detailed'
+                    ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
+                    : 'bg-(--color-savannah-mist) text-(--color-on-surface) focus:border-(--color-primary)'" />
+                <p class="font-sans text-sm text-(--color-on-surface-variant)">
+                  {{ eb.participantMode === 'detailed' ? 'Set to number of registered delegates' : 'Total delegates attending across all sessions' }}
+                </p>
               </div>
 
               <!-- Detailed -->
-              <div v-else class="space-y-3">
+              <div v-if="eb.participantMode === 'detailed'" class="space-y-3">
                 <p v-if="errors.delegateRecords" class="font-sans text-sm text-(--color-error) font-semibold">{{ errors.delegateRecords }}</p>
                 <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each delegate. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in eb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
@@ -1272,11 +1295,6 @@ onMounted(async () => {
                         <span v-if="errors[`ms_${i}_end`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_end`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Expected Attendees</label>
-                        <input v-model.number="session.expectedAttendees" type="number" min="1"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
-                      </div>
-                      <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup</label>
                         <select v-model="session.setupType"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
@@ -1460,11 +1478,6 @@ onMounted(async () => {
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                                 :class="errors[`ov_${date}_${si}_end`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                               <span v-if="errors[`ov_${date}_${si}_end`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${si}_end`] }}</span>
-                            </div>
-                            <div class="flex flex-col gap-1">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Expected Attendees</label>
-                              <input v-model.number="s.expectedAttendees" type="number" min="1"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup</label>

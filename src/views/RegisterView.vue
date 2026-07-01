@@ -8,7 +8,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 const router = useRouter()
 const auth   = useAuthStore()
 
-const form    = ref({ firstName: '', lastName: '', email: '', phone: '', password: '', confirm: '' })
+const form    = ref({ fullName: '', email: '', phone: '', password: '', confirm: '' })
 const showPass    = ref(false)
 const showConfirm = ref(false)
 const error       = ref('')
@@ -19,8 +19,7 @@ const MIN_PASSWORD = 8
 
 function validate() {
   const e = {}
-  if (!form.value.firstName)  e.firstName = 'Required'
-  if (!form.value.lastName)   e.lastName  = 'Required'
+  if (!form.value.fullName)            e.fullName = 'Full name is required'
   if (!form.value.email)               e.email    = 'Email is required'
   else if (!/\S+@\S+\.\S+/.test(form.value.email)) e.email = 'Enter a valid email'
   if (!form.value.phone)               e.phone    = 'Phone number is required'
@@ -38,7 +37,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.register({
-      full_name: `${form.value.firstName} ${form.value.lastName}`.trim(),
+      full_name: form.value.fullName.trim(),
       email:     form.value.email,
       phone:     form.value.phone,
       password:  form.value.password,
@@ -85,10 +84,7 @@ const strengthColor = [
 
     <form class="space-y-5" novalidate @submit.prevent="submit">
 
-      <div class="grid grid-cols-2 gap-4">
-        <BaseInput v-model="form.firstName" label="First Name" required :error="fieldErrors.firstName" autocomplete="given-name" />
-        <BaseInput v-model="form.lastName"  label="Last Name"  required :error="fieldErrors.lastName"  autocomplete="family-name" />
-      </div>
+      <BaseInput v-model="form.fullName" label="Full Name" required :error="fieldErrors.fullName" autocomplete="name" />
 
       <BaseInput
         v-model="form.email"
