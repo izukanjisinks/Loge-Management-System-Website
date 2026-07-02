@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
 import { useAuthStore } from '@/stores/auth'
 import { useEventBookingStore } from '@/stores/eventBooking'
+import { flattenSessions } from '@/stores/corporateBooking'
 import { useRebookStore } from '@/stores/rebook'
 import { uploadBookingDocument } from '@/services/storage'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS } from '@/data/bookingConstants'
@@ -78,10 +79,10 @@ async function fetchAvailableVenues() {
   venuesLoading.value = true
   venuesError.value   = false
   try {
-    const params = { org_id: lodgeId, page_size: 100 }
+    const params = { org_id: lodgeId, venue_type: 'event_space', page_size: 100 }
     if (eb.branchId)   params.branch_id = eb.branchId
-    if (eb.startDate)  params.check_in  = eb.startDate
-    if (eb.endDate)    params.check_out = eb.endDate
+    if (eb.startDate)  params.from      = eb.startDate
+    if (eb.endDate)    params.to        = eb.endDate
     const { data } = await api.get('/guest/venues', { params })
     availableVenues.value = data.data ?? data
   } catch {
@@ -160,6 +161,22 @@ const eventDaySummary = computed(() => {
   return { total, skipped, customised, defaultCount: total - skipped - customised }
 })
 
+const confirmedSessions = computed(() => flattenSessions({
+  startDate:      eb.startDate,
+  endDate:        eb.endDate,
+  masterSessions: eb.masterSessions,
+  dayOverrides:   eb.dayOverrides,
+}))
+
+const sessionsByDay = computed(() => {
+  const map = {}
+  for (const s of confirmedSessions.value) {
+    if (!map[s.eventDate]) map[s.eventDate] = []
+    map[s.eventDate].push(s)
+  }
+  return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
+})
+
 function fmtDayLabel(iso) {
   return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
@@ -215,8 +232,9 @@ function validate() {
   if (!eb.startDate)             e.startDate = 'Required'
   else if (eb.startDate < today) e.startDate = 'Date cannot be in the past'
 
-  if (!eb.endDate)               e.endDate   = 'Required'
-  else if (eb.endDate < today)   e.endDate   = 'Date cannot be in the past'
+  if (!eb.endDate)                                        e.endDate = 'Required'
+  else if (eb.endDate < today)                            e.endDate = 'Date cannot be in the past'
+  else if (eb.startDate && eb.endDate < eb.startDate)     e.endDate = 'End date must be after start date'
 
   if (eb.isCorporate) {
     if (!eb.companyName)  e.companyName  = 'Required'
@@ -1653,24 +1671,31 @@ onMounted(async () => {
               <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Reason</p>
               <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.reasonForBooking }}</p>
             </div>
-            <!-- Sessions summary -->
-            <div class="space-y-3 pt-2">
-              <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Sessions ({{ eb.masterSessions.length }} template{{ eb.masterSessions.length !== 1 ? 's' : '' }})</p>
-              <div v-for="(s, i) in eb.masterSessions" :key="i"
-                class="flex items-start justify-between gap-3 py-2 border-b border-(--color-outline-variant) last:border-0">
-                <div class="min-w-0">
-                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ sessionLabel(s, i) }}</p>
-                  <p class="font-sans text-xs text-(--color-on-surface-variant)">
-                    {{ s.startTime }} – {{ s.endTime }}
-                    <template v-if="s.setupType"> · {{ SETUP_TYPES.find(st => st.value === s.setupType)?.label ?? s.setupType }}</template>
-                  </p>
-                  <p v-if="s.venueName" class="font-sans text-xs text-(--color-primary) mt-0.5">
-                    <span class="material-symbols-outlined text-sm align-[-4px]">location_on</span> {{ s.venueName }}
-                  </p>
+            <!-- Sessions summary — all expanded sessions grouped by day -->
+            <div class="space-y-4 pt-2">
+              <p class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                Sessions ({{ confirmedSessions.length }} across {{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }})
+              </p>
+              <div v-for="[date, sessions] in sessionsByDay" :key="date" class="space-y-0">
+                <p class="font-sans text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-2">
+                  {{ fmtDayLabel(date) }}
+                </p>
+                <div v-for="(s, si) in sessions" :key="si"
+                  class="flex items-start justify-between gap-3 py-2.5 border-b border-(--color-outline-variant) last:border-0 pl-3 border-l-2 border-l-(--color-primary)">
+                  <div class="min-w-0">
+                    <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ sessionLabel(s, si) }}</p>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">
+                      {{ s.startTime }} – {{ s.endTime }}
+                      <template v-if="s.setupType"> · {{ SETUP_TYPES.find(st => st.value === s.setupType)?.label ?? s.setupType }}</template>
+                    </p>
+                    <p v-if="s.venueName" class="font-sans text-xs text-(--color-primary) mt-0.5">
+                      <span class="material-symbols-outlined text-sm align-[-4px]">location_on</span> {{ s.venueName }}
+                    </p>
+                  </div>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0 mt-0.5">
+                    {{ s.expectedAttendees }} attendee{{ s.expectedAttendees !== 1 ? 's' : '' }}
+                  </span>
                 </div>
-                <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0 mt-0.5">
-                  {{ s.expectedAttendees }} attendee{{ s.expectedAttendees !== 1 ? 's' : '' }}
-                </span>
               </div>
             </div>
             <div v-if="eventDaySummary.customised > 0" class="mt-3 flex items-center gap-2">

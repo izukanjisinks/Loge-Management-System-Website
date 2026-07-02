@@ -137,11 +137,21 @@ onMounted(() => reservations.fetchAll())
             <!-- Content -->
             <div class="flex-1 p-6 flex flex-col gap-4">
               <div class="flex items-start justify-between gap-4">
-                <div>
-                  <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-1">
-                    {{ typeLabel(r) }} · #{{ r.id.slice(0, 8) }}
-                  </p>
+                <div class="space-y-1.5">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary)">
+                      {{ typeLabel(r) }} · {{ r.bookingNumber || '#' + r.id.slice(0, 8) }}
+                    </p>
+                    <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wider bg-(--color-surface-container) text-(--color-on-surface-variant) px-2 py-0.5 rounded-full">
+                      <span class="material-symbols-outlined text-[11px]">{{ r.bookerType === 'corporate' ? 'domain' : 'person' }}</span>
+                      {{ r.bookerType === 'corporate' ? 'Corporate' : 'Individual' }}
+                    </span>
+                  </div>
                   <h3 class="font-serif text-2xl text-(--color-on-surface)">{{ cardTitle(r) }}</h3>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">{{ r.bookerType === 'corporate' ? 'domain' : 'person' }}</span>
+                    {{ r.bookerType === 'corporate' ? (r.companyName || '—') : (r.bookerName || '—') }}
+                  </p>
                 </div>
                 <p v-if="r.totalAmount" class="font-serif text-2xl text-(--color-primary) shrink-0">
                   K{{ r.totalAmount.toLocaleString() }}
@@ -220,9 +230,9 @@ onMounted(() => reservations.fetchAll())
                   <span class="material-symbols-outlined text-base text-(--color-primary)">event</span>
                   {{ r.sessions.length }} {{ r.sessions.length === 1 ? 'session' : 'sessions' }}
                 </span>
-                <span v-if="r.sessions[0]?.pax" class="flex items-center gap-1.5">
+                <span v-if="r.sessions[0]?.expected_attendees" class="flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
-                  {{ r.sessions[0].pax }} pax
+                  {{ r.sessions[0].expected_attendees }} attendees
                 </span>
               </div>
 
@@ -305,11 +315,21 @@ onMounted(() => reservations.fetchAll())
 
             <!-- Content -->
             <div class="p-5 flex flex-col gap-3 flex-1">
-              <div>
-                <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) mb-1">
-                  {{ typeLabel(r) }}
-                </p>
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary)">
+                    {{ typeLabel(r) }}
+                  </p>
+                  <span class="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wider bg-(--color-surface-container) text-(--color-on-surface-variant) px-2 py-0.5 rounded-full">
+                    <span class="material-symbols-outlined text-[11px]">{{ r.bookerType === 'corporate' ? 'domain' : 'person' }}</span>
+                    {{ r.bookerType === 'corporate' ? 'Corporate' : 'Individual' }}
+                  </span>
+                </div>
                 <h3 class="font-serif text-xl text-(--color-on-surface)">{{ cardTitle(r) }}</h3>
+                <p class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[13px]">{{ r.bookerType === 'corporate' ? 'domain' : 'person' }}</span>
+                  {{ r.bookerType === 'corporate' ? (r.companyName || '—') : (r.bookerName || '—') }}
+                </p>
               </div>
 
               <!-- individual accommodation -->

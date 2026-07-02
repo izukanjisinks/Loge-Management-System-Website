@@ -23,6 +23,8 @@ export const useReservationsStore = defineStore('reservations', () => {
       bookingType:     b.booking_type,     // accommodation | event | meals
       bookerType:      b.booker_type,      // individual | corporate
       bookerName:      b.booker_name,
+      bookerEmail:     b.booker_email     || null,
+      bookerPhone:     b.booker_phone     || null,
       companyName:     b.company_name     || null,
       totalAmount:     b.total_amount     ?? 0,
       status:          b.status,           // pending | confirmed | checked_in | checked_out | cancelled | rejected
@@ -40,11 +42,11 @@ export const useReservationsStore = defineStore('reservations', () => {
       roomCount:       meta.room_count    ?? accom.room_count    ?? null,
       assignedRooms:   meta.assigned_rooms || [],
       // event
-      startDate:       meta.start_date    || null,
-      endDate:         meta.end_date      || null,
-      sessions:        meta.sessions      || meta.event?.sessions || [],
+      startDate:       meta.start_date    || meta.event?.start_date  || meta.meal?.start_date  || null,
+      endDate:         meta.end_date      || meta.event?.end_date    || meta.meal?.end_date    || null,
+      sessions:        meta.sessions      || meta.event?.sessions    || [],
       // meal
-      headcount:       meta.headcount     ?? null,
+      headcount:       meta.headcount     ?? meta.participant_count  ?? null,
     }
   }
 

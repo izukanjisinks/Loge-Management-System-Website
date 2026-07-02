@@ -21,6 +21,8 @@ const lodge          = computed(() => lodgesStore.lodges.find(l => String(l.id) 
 const branches       = computed(() => lodgesStore.branchesFor(lodgeId))
 const selectedBranch = computed(() => branches.value?.find(b => String(b.id) === String(mb.branchId)) ?? null)
 
+const today = new Date().toISOString().slice(0, 10)
+
 // ── Multi-step ─────────────────────────────────────────────────────────────
 const step        = ref(1)
 const loading     = ref(false)
@@ -227,8 +229,9 @@ function validate() {
   if (!mb.startDate)             e.startDate = 'Required'
   else if (mb.startDate < today) e.startDate = 'Date cannot be in the past'
 
-  if (!mb.endDate)               e.endDate   = 'Required'
-  else if (mb.endDate < today)   e.endDate   = 'Date cannot be in the past'
+  if (!mb.endDate)                                        e.endDate = 'Required'
+  else if (mb.endDate < today)                            e.endDate = 'Date cannot be in the past'
+  else if (mb.startDate && mb.endDate < mb.startDate)     e.endDate = 'End date must be after start date'
 
   if (mb.isCorporate) {
     if (!mb.companyName)  e.companyName  = 'Required'

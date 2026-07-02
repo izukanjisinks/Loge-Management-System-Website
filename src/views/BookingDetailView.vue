@@ -4,6 +4,7 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useReservationsStore } from '@/stores/reservations'
 import { useRebookStore } from '@/stores/rebook'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
+import api from '@/lib/api'
 
 const route        = useRoute()
 const router       = useRouter()
@@ -23,6 +24,7 @@ onMounted(async () => {
     loading.value = false
     if (!record.value) router.push({ name: 'bookings' })
   }
+  if (record.value?.bookingType === 'meals') fetchMenuItems()
 })
 
 // Full metadata blob from the backend
@@ -55,6 +57,47 @@ const eventSessions = computed(() => eventBlock.value?.sessions || [])
 // Meal
 const mealBlock    = computed(() => meta.value.meal || null)
 const mealSessions = computed(() => mealBlock.value?.sessions || [])
+
+// Menu items (fetched once when a meal booking is opened)
+const menuItems   = ref([])
+const menuItemMap = computed(() => Object.fromEntries(menuItems.value.map(m => [m.id, m])))
+
+async function fetchMenuItems() {
+  const orgId    = meta.value.org_id
+  const branchId = meta.value.branch_id
+  if (!orgId || menuItems.value.length) return
+  try {
+    const params = { org_id: orgId }
+    if (branchId) params.branch_id = branchId
+    const { data }   = await api.get('/guest/menu', { params })
+    const firstPage  = data.items?.data ?? []
+    const total      = data.items?.total     ?? firstPage.length
+    const pageSize   = data.items?.page_size ?? 10
+    const totalPages = Math.ceil(total / pageSize)
+    let rest = []
+    if (totalPages > 1) {
+      const pages = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          api.get('/guest/menu', { params: { ...params, page: i + 2, page_size: pageSize } })
+        )
+      )
+      rest = pages.flatMap(r => r.data.items?.data ?? [])
+    }
+    menuItems.value = [...firstPage, ...rest]
+  } catch { menuItems.value = [] }
+}
+
+// Group a session's individual_orders by attendant index
+function sessionOrderGroups(session) {
+  const orders = session.individual_orders ?? []
+  const map    = {}
+  for (const o of orders) {
+    const idx = o.attendant_idx ?? 0
+    if (!map[idx]) map[idx] = { idx, attendant: attendants.value[idx] || null, items: [] }
+    map[idx].items.push(o)
+  }
+  return Object.values(map).sort((a, b) => a.idx - b.idx)
+}
 
 // Documents
 const documents = computed(() => meta.value.documents || [])
@@ -203,7 +246,7 @@ function isPdf(url) {
             {{ record.bookingType === 'accommodation'
                 ? (record.bookerType === 'corporate' ? 'Corporate Stay' : 'Stay')
                 : record.bookingType === 'event' ? 'Event' : 'Meal Booking' }}
-            · #{{ record.id.slice(0, 8) }}
+            · {{ record.bookingNumber || '#' + record.id.slice(0, 8) }}
           </span>
           <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">
             <template v-if="record.bookerType === 'corporate'">
@@ -380,20 +423,6 @@ function isPdf(url) {
           <!-- â•â•â•â• INDIVIDUAL ACCOMMODATION â•â•â•â• -->
           <template v-else-if="record.bookingType === 'accommodation'">
 
-            <!-- Room image -->
-            <div
-              v-if="record.roomImage"
-              class="rounded-xl overflow-hidden aspect-video border border-(--color-outline-variant)"
-            >
-              <img :src="record.roomImage" :alt="meta.room_name" class="w-full h-full object-cover" />
-            </div>
-            <div
-              v-else
-              class="rounded-xl aspect-video bg-(--color-surface-container) flex flex-col items-center justify-center gap-2 border border-(--color-outline-variant)"
-            >
-              <span class="material-symbols-outlined text-5xl text-(--color-outline)">bed</span>
-            </div>
-
             <!-- Stay details -->
             <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Stay Details</h2>
@@ -533,9 +562,15 @@ function isPdf(url) {
 
           <!-- â•â•â•â• EVENT â•â•â•â• -->
           <template v-else-if="record.bookingType === 'event'">
+
+            <!-- Event Details -->
             <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Event Details</h2>
-              <div class="grid grid-cols-2 gap-5 font-sans text-sm">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div v-if="record.bookingNumber">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Booking No.</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ record.bookingNumber }}</p>
+                </div>
                 <div v-if="eventBlock?.start_date">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Start Date</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ fmt(eventBlock.start_date) }}</p>
@@ -544,9 +579,13 @@ function isPdf(url) {
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">End Date</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ fmt(eventBlock.end_date) }}</p>
                 </div>
-                <div v-if="eventBlock?.reason_for_booking">
-                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Reason</p>
-                  <p class="font-semibold text-(--color-on-surface)">{{ eventBlock.reason_for_booking }}</p>
+                <div v-if="eventSessions.length">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Sessions</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ eventSessions.length }}</p>
+                </div>
+                <div v-if="eventBlock?.schedule_mode">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Schedule</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ eventBlock.schedule_mode.replace('_', ' ') }}</p>
                 </div>
                 <div v-if="meta.currency">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Currency</p>
@@ -568,6 +607,51 @@ function isPdf(url) {
               </div>
             </div>
 
+            <!-- Booked By -->
+            <div
+              v-if="bookedBy || record.bookerName"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div v-if="bookedBy?.name || record.bookerName">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Name</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ bookedBy?.name || record.bookerName }}</p>
+                </div>
+                <div v-if="bookedBy?.email || record.bookerEmail">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Email</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ bookedBy?.email || record.bookerEmail }}</p>
+                </div>
+                <div v-if="bookedBy?.phone || record.bookerPhone">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Phone</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ bookedBy?.phone || record.bookerPhone }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Attendants -->
+            <div
+              v-if="attendants.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants ({{ attendants.length }})</h2>
+              <div
+                v-for="(a, i) in attendants"
+                :key="i"
+                class="flex items-start justify-between py-4 border-b border-(--color-outline-variant) last:border-0"
+              >
+                <div class="font-sans text-sm space-y-1">
+                  <p class="font-semibold text-(--color-on-surface)">
+                    {{ a.full_name }}
+                    <span v-if="a.is_lead_contact" class="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-(--color-savannah-mist) text-(--color-primary) px-2 py-0.5 rounded-full">Lead</span>
+                  </p>
+                  <p v-if="a.id_number" class="text-(--color-on-surface-variant) text-xs">ID: {{ a.id_number }}</p>
+                  <p v-if="a.email" class="text-(--color-on-surface-variant) text-xs">{{ a.email }}</p>
+                  <p v-if="a.phone" class="text-(--color-on-surface-variant) text-xs">{{ a.phone }}</p>
+                </div>
+              </div>
+            </div>
+
             <!-- Sessions -->
             <div
               v-if="eventSessions.length"
@@ -577,33 +661,48 @@ function isPdf(url) {
               <div
                 v-for="(s, i) in eventSessions"
                 :key="i"
-                class="py-4 border-b border-(--color-outline-variant) last:border-0 space-y-2"
+                class="py-4 border-b border-(--color-outline-variant) last:border-0 space-y-3"
               >
-                <div class="flex items-center justify-between">
-                  <p class="font-sans font-semibold text-sm text-(--color-on-surface)">
-                    {{ s.venue_name || s.event_name || 'Session ' + (i + 1) }}
-                  </p>
-                  <span v-if="s.event_type" class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) bg-(--color-primary-container) px-2.5 py-1 rounded-full">{{ s.event_type }}</span>
+                <!-- Name + badges -->
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="font-sans font-semibold text-sm text-(--color-on-surface)">{{ s.event_name || 'Session ' + (i + 1) }}</p>
+                    <p v-if="s.venue_name" class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">{{ s.venue_name }}</p>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5 shrink-0 justify-end">
+                    <span v-if="s.event_type" class="font-sans text-xs font-semibold uppercase tracking-wider bg-(--color-surface-container) text-(--color-on-surface-variant) px-2.5 py-1 rounded-full">{{ s.event_type }}</span>
+                    <span v-if="s.setup_type" class="font-sans text-xs font-semibold uppercase tracking-wider bg-(--color-surface-container) text-(--color-on-surface-variant) px-2.5 py-1 rounded-full capitalize">{{ s.setup_type }}</span>
+                  </div>
                 </div>
-                <div class="flex flex-wrap gap-x-5 gap-y-1 font-sans text-xs text-(--color-on-surface-variant)">
-                  <span v-if="s.event_date">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">calendar_today</span>
+                <!-- Detail chips -->
+                <div class="flex flex-wrap gap-x-5 gap-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+                  <span v-if="s.event_date" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">calendar_today</span>
                     {{ fmt(s.event_date) }}
                   </span>
-                  <span v-if="s.start_time">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">schedule</span>
+                  <span v-if="s.start_time" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
                     {{ fmtTime(s.start_time) }} – {{ fmtTime(s.end_time) }}
                   </span>
-                  <span v-if="s.expected_attendees">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">group</span>
-                    {{ s.expected_attendees }} pax
+                  <span v-if="s.expected_attendees" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">group</span>
+                    {{ s.expected_attendees }} attendees
                   </span>
-                  <span v-if="s.setup_type">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">table_restaurant</span>
-                    {{ s.setup_type }}
+                  <span v-if="s.venue_capacity" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">meeting_room</span>
+                    Capacity {{ s.venue_capacity }}
+                  </span>
+                  <span v-if="s.pricing_basis" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">payments</span>
+                    {{ s.pricing_basis.replace('_', ' ') }}
                   </span>
                 </div>
-                <p v-if="s.special_requirements" class="font-sans text-xs text-(--color-on-surface-variant) italic">
+                <!-- Special requirements -->
+                <p
+                  v-if="s.special_requirements"
+                  class="font-sans text-xs text-(--color-on-surface-variant) bg-(--color-surface-container) rounded-lg px-3 py-2 leading-relaxed"
+                >
+                  <span class="material-symbols-outlined text-[13px] align-middle mr-1">info</span>
                   {{ s.special_requirements }}
                 </p>
               </div>
@@ -612,9 +711,15 @@ function isPdf(url) {
 
           <!-- â•â•â•â• MEAL â•â•â•â• -->
           <template v-else-if="record.bookingType === 'meals'">
+
+            <!-- Meal Details -->
             <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Meal Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
+                <div v-if="record.bookingNumber">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Booking No.</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ record.bookingNumber }}</p>
+                </div>
                 <div v-if="mealBlock?.start_date">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Start Date</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ fmt(mealBlock.start_date) }}</p>
@@ -623,17 +728,21 @@ function isPdf(url) {
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">End Date</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ fmt(mealBlock.end_date) }}</p>
                 </div>
-                <div v-if="meta.participant_count">
-                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Guests</p>
-                  <p class="font-semibold text-(--color-on-surface)">{{ meta.participant_count }}</p>
+                <div v-if="mealSessions.length">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Sessions</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ mealSessions.length }}</p>
+                </div>
+                <div v-if="mealBlock?.schedule_mode">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Schedule</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ mealBlock.schedule_mode.replace('_', ' ') }}</p>
+                </div>
+                <div v-if="mealBlock?.meal_mode">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Mode</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ mealBlock.meal_mode.replace('_', ' ') }}</p>
                 </div>
                 <div v-if="meta.currency">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Currency</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ meta.currency }}</p>
-                </div>
-                <div v-if="mealBlock?.reason_for_booking">
-                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Reason</p>
-                  <p class="font-semibold text-(--color-on-surface)">{{ mealBlock.reason_for_booking }}</p>
                 </div>
               </div>
             </div>
@@ -645,9 +754,59 @@ function isPdf(url) {
                 <div><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Company</p><p class="font-semibold text-(--color-on-surface)">{{ company.name }}</p></div>
                 <div v-if="company.industry"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Industry</p><p class="font-semibold text-(--color-on-surface)">{{ company.industry }}</p></div>
                 <div v-if="company.tpin"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">TPIN</p><p class="font-semibold text-(--color-on-surface)">{{ company.tpin }}</p></div>
+                <div v-if="company.branch_name"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Branch</p><p class="font-semibold text-(--color-on-surface) capitalize">{{ company.branch_name }}</p></div>
                 <div v-if="company.department_name"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Department</p><p class="font-semibold text-(--color-on-surface) capitalize">{{ company.department_name }}</p></div>
                 <div v-if="company.cost_center"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Cost Centre</p><p class="font-semibold text-(--color-on-surface)">{{ company.cost_center }}</p></div>
                 <div v-if="company.gl_code"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">GL Code</p><p class="font-semibold text-(--color-on-surface)">{{ company.gl_code }}</p></div>
+                <div v-if="company.email"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Email</p><p class="font-semibold text-(--color-on-surface)">{{ company.email }}</p></div>
+                <div v-if="company.phone"><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Phone</p><p class="font-semibold text-(--color-on-surface)">{{ company.phone }}</p></div>
+              </div>
+            </div>
+
+            <!-- Contact Details (booked by + approver) -->
+            <div
+              v-if="bookedBy || approver || record.bookerName"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Contact Details</h2>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 font-sans text-sm">
+                <div v-if="bookedBy || record.bookerName" class="space-y-1.5">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-2">Booked By</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ bookedBy?.name || record.bookerName }}</p>
+                  <p v-if="bookedBy?.job_title" class="text-(--color-on-surface-variant) text-xs capitalize">{{ bookedBy.job_title }}<span v-if="bookedBy.man_number"> · #{{ bookedBy.man_number }}</span></p>
+                  <p v-if="bookedBy?.email || record.bookerEmail" class="text-(--color-on-surface-variant) text-xs">{{ bookedBy?.email || record.bookerEmail }}</p>
+                  <p v-if="bookedBy?.phone || record.bookerPhone" class="text-(--color-on-surface-variant) text-xs">{{ bookedBy?.phone || record.bookerPhone }}</p>
+                </div>
+                <div v-if="approver" class="space-y-1.5">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-2">Approver</p>
+                  <p class="font-semibold text-(--color-on-surface)">{{ approver.name }}</p>
+                  <p v-if="approver.title" class="text-(--color-on-surface-variant) text-xs capitalize">{{ approver.title }}</p>
+                  <p v-if="approver.email" class="text-(--color-on-surface-variant) text-xs">{{ approver.email }}</p>
+                  <p v-if="approver.phone" class="text-(--color-on-surface-variant) text-xs">{{ approver.phone }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Attendants -->
+            <div
+              v-if="attendants.length"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            >
+              <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants ({{ attendants.length }})</h2>
+              <div
+                v-for="(a, i) in attendants"
+                :key="i"
+                class="flex items-start justify-between py-4 border-b border-(--color-outline-variant) last:border-0"
+              >
+                <div class="font-sans text-sm space-y-1">
+                  <p class="font-semibold text-(--color-on-surface)">
+                    {{ a.full_name }}
+                    <span v-if="a.is_lead_contact" class="ml-2 text-[10px] font-semibold uppercase tracking-wider bg-(--color-savannah-mist) text-(--color-primary) px-2 py-0.5 rounded-full">Lead</span>
+                  </p>
+                  <p v-if="a.id_number" class="text-(--color-on-surface-variant) text-xs">ID: {{ a.id_number }}</p>
+                  <p v-if="a.email" class="text-(--color-on-surface-variant) text-xs">{{ a.email }}</p>
+                  <p v-if="a.phone" class="text-(--color-on-surface-variant) text-xs">{{ a.phone }}</p>
+                </div>
               </div>
             </div>
 
@@ -660,31 +819,85 @@ function isPdf(url) {
               <div
                 v-for="(s, i) in mealSessions"
                 :key="i"
-                class="py-4 border-b border-(--color-outline-variant) last:border-0 space-y-2"
+                class="py-4 border-b border-(--color-outline-variant) last:border-0 space-y-3"
               >
-                <div class="flex items-center justify-between">
-                  <p class="font-sans font-semibold text-sm text-(--color-on-surface)">
-                    {{ s.session_name || 'Session ' + (i + 1) }}
-                  </p>
-                  <span v-if="s.meal_period" class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) bg-(--color-primary-container) px-2.5 py-1 rounded-full">{{ s.meal_period }}</span>
+                <!-- Name + badges -->
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-sans font-semibold text-sm text-(--color-on-surface)">{{ s.session_name || 'Session ' + (i + 1) }}</p>
+                  <div class="flex flex-wrap gap-1.5 shrink-0 justify-end">
+                    <span v-if="s.meal_period" class="font-sans text-xs font-semibold uppercase tracking-wider bg-(--color-surface-container) text-(--color-on-surface-variant) px-2.5 py-1 rounded-full">{{ s.meal_period }}</span>
+                    <span v-if="s.service_type" class="font-sans text-xs font-semibold uppercase tracking-wider bg-(--color-surface-container) text-(--color-on-surface-variant) px-2.5 py-1 rounded-full capitalize">{{ s.service_type.replace(/_/g, ' ') }}</span>
+                  </div>
                 </div>
-                <div class="flex flex-wrap gap-x-5 gap-y-1 font-sans text-xs text-(--color-on-surface-variant)">
-                  <span v-if="s.meal_date">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">calendar_today</span>
+                <!-- Detail chips -->
+                <div class="flex flex-wrap gap-x-5 gap-y-1.5 font-sans text-xs text-(--color-on-surface-variant)">
+                  <span v-if="s.meal_date" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">calendar_today</span>
                     {{ fmt(s.meal_date) }}
                   </span>
-                  <span v-if="s.pax_count">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">group</span>
-                    {{ s.pax_count }} pax
-                  </span>
-                  <span v-if="s.service_type">
-                    <span class="material-symbols-outlined text-[13px] align-middle mr-0.5">room_service</span>
-                    {{ s.service_type }}
+                  <span v-if="s.pax_count" class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">group</span>
+                    {{ s.pax_count }} {{ s.pax_count === 1 ? 'diner' : 'diners' }}
                   </span>
                 </div>
-                <p v-if="s.dietary_notes" class="font-sans text-xs text-(--color-on-surface-variant) italic">
+                <!-- Dietary notes -->
+                <p
+                  v-if="s.dietary_notes"
+                  class="font-sans text-xs text-(--color-on-surface-variant) bg-(--color-surface-container) rounded-lg px-3 py-2 leading-relaxed"
+                >
+                  <span class="material-symbols-outlined text-[13px] align-middle mr-1">restaurant</span>
                   {{ s.dietary_notes }}
                 </p>
+                <!-- Arrangements notes -->
+                <p
+                  v-if="s.arrangements_notes"
+                  class="font-sans text-xs text-(--color-on-surface-variant) bg-(--color-surface-container) rounded-lg px-3 py-2 leading-relaxed"
+                >
+                  <span class="material-symbols-outlined text-[13px] align-middle mr-1">info</span>
+                  {{ s.arrangements_notes }}
+                </p>
+                <!-- Buffet item -->
+                <div
+                  v-if="s.service_type !== 'individual_order' && s.menu_item_id && menuItemMap[s.menu_item_id]"
+                  class="flex items-center justify-between font-sans text-sm bg-(--color-surface-container) rounded-lg px-3 py-2"
+                >
+                  <span class="flex items-center gap-1.5 text-(--color-on-surface)">
+                    <span class="material-symbols-outlined text-[14px] text-(--color-on-surface-variant)">dinner_dining</span>
+                    {{ menuItemMap[s.menu_item_id].name }}
+                  </span>
+                  <span class="font-semibold text-(--color-on-surface)">K{{ menuItemMap[s.menu_item_id].price?.toLocaleString() }}</span>
+                </div>
+                <!-- Individual orders — grouped by attendant -->
+                <div v-if="s.individual_orders?.length" class="space-y-3 pt-1">
+                  <p class="font-sans text-[11px] font-semibold uppercase tracking-widest text-(--color-on-surface-variant)">Orders</p>
+                  <div
+                    v-for="group in sessionOrderGroups(s)"
+                    :key="group.idx"
+                    class="space-y-1.5"
+                  >
+                    <!-- Attendant name -->
+                    <p class="font-sans text-xs font-semibold text-(--color-on-surface) flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-[13px] text-(--color-on-surface-variant)">person</span>
+                      {{ group.attendant?.full_name || ('Guest ' + (group.idx + 1)) }}
+                      <span v-if="group.attendant?.is_lead_contact" class="text-[9px] font-semibold uppercase tracking-wider bg-(--color-savannah-mist) text-(--color-primary) px-1.5 py-0.5 rounded-full">Lead</span>
+                    </p>
+                    <!-- Items -->
+                    <div
+                      v-for="(order, oi) in group.items"
+                      :key="oi"
+                      class="flex items-center justify-between font-sans text-xs text-(--color-on-surface-variant) pl-5"
+                    >
+                      <span class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[12px]">dinner_dining</span>
+                        <span class="text-(--color-on-surface)">{{ menuItemMap[order.menu_item_id]?.name || '—' }}</span>
+                        <span v-if="order.quantity > 1">× {{ order.quantity }}</span>
+                      </span>
+                      <span v-if="menuItemMap[order.menu_item_id]" class="font-semibold text-(--color-on-surface) shrink-0 ml-4">
+                        K{{ (menuItemMap[order.menu_item_id].price * order.quantity).toLocaleString() }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
@@ -734,7 +947,7 @@ function isPdf(url) {
             <div class="space-y-3 font-sans text-sm">
               <div class="flex justify-between text-(--color-on-surface-variant)">
                 <span>Booking #</span>
-                <span class="font-mono font-semibold text-(--color-on-surface)">{{ record.id.slice(0, 8).toUpperCase() }}</span>
+                <span class="font-mono font-semibold text-(--color-on-surface)">{{ record.bookingNumber || record.id.slice(0, 8).toUpperCase() }}</span>
               </div>
               <div class="flex justify-between text-(--color-on-surface-variant)">
                 <span>Type</span>
