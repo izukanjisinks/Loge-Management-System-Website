@@ -54,6 +54,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
   const costCenter     = ref('')
   const costCenterType = ref('cost_center') // 'cost_center' | 'internal_order'
   const glCode         = ref('')
+  const country        = ref('')
 
   // Corporate approver
   const approverName  = ref('')
@@ -198,6 +199,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
         phone:           companyPhone.value   || null,
         city:            city.value           || null,
         street_address:  streetAddress.value  || null,
+        country:         country.value        || null,
         branch_name:     branchName.value     || null,
         department_name: departmentName.value || null,
         cost_center:      costCenter.value     || null,
@@ -260,7 +262,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
     companyName.value = ''; tpin.value = ''; industry.value = ''
     companyEmail.value = ''; companyPhone.value = ''; city.value = ''
     streetAddress.value = ''; branchName.value = ''; departmentName.value = ''
-    costCenter.value = ''; costCenterType.value = 'cost_center'; glCode.value = ''
+    costCenter.value = ''; costCenterType.value = 'cost_center'; glCode.value = ''; country.value = ''
     approverName.value = ''; approverEmail.value = ''; approverPhone.value = ''; approverTitle.value = ''
   }
 
@@ -269,7 +271,7 @@ export const useEventBookingStore = defineStore('eventBooking', () => {
     bookingContext, isCorporate,
     bookedBy, participantMode, participantCount, attendants,
     companyName, tpin, industry, companyEmail, companyPhone,
-    city, streetAddress, branchName, departmentName, costCenter, costCenterType, glCode,
+    city, streetAddress, country, branchName, departmentName, costCenter, costCenterType, glCode,
     approverName, approverEmail, approverPhone, approverTitle,
     reasonForBooking, startDate, endDate, scheduleMode, masterSessions, dayOverrides,
     notes,

@@ -101,6 +101,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
   const costCenter      = ref('')
   const costCenterType  = ref('cost_center') // 'cost_center' | 'internal_order'
   const glCode          = ref('')
+  const country         = ref('')
   const approverName    = ref('')
   const approverEmail   = ref('')
   const approverPhone   = ref('')
@@ -200,6 +201,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     companyPhone.value       = ''
     city.value               = ''
     streetAddress.value      = ''
+    country.value            = ''
     branchName.value         = ''
     departmentName.value     = ''
     costCenter.value         = ''
@@ -288,6 +290,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
       company_phone:       companyPhone.value   || undefined,
       city:                city.value           || undefined,
       street_address:      streetAddress.value  || undefined,
+      country:             country.value        || undefined,
       branch_name:         branchName.value     || undefined,
       department_name:     departmentName.value || undefined,
       cost_center:         costCenter.value      || undefined,
@@ -396,6 +399,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     companyPhone.value       = ''
     city.value               = ''
     streetAddress.value      = ''
+    country.value            = ''
     branchName.value         = ''
     departmentName.value     = ''
     costCenter.value         = ''
@@ -422,7 +426,7 @@ export const useCorporateBookingStore = defineStore('corporateBooking', () => {
     lodgeId, lodgeName, branchId,
     selectedCompanyId, selectedBranchId, selectedProfileId,
     companyName, tpin, industry,
-    companyEmail, companyPhone, city, streetAddress,
+    companyEmail, companyPhone, city, streetAddress, country,
     branchName, departmentName, costCenter, costCenterType, glCode,
     approverName, approverEmail, approverPhone, approverTitle,
     bookedBy, notes,

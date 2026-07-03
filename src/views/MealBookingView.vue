@@ -257,6 +257,32 @@ function validate() {
     }
   }
 
+  // Reason / Occasion
+  if (!mb.reasonForBooking) e.reasonForBooking = 'Required'
+
+  // Per-session validation (master plan + per-day overrides)
+  const validateSessions = (sessions, pfx) => {
+    sessions.forEach((meal, i) => {
+      if (!meal.sessionName) e[`${pfx}_${i}_name`]   = 'Required'
+      if (!meal.servingTime) e[`${pfx}_${i}_time`]   = 'Required'
+      if (!meal.mealPeriod)  e[`${pfx}_${i}_period`] = 'Required'
+      if (!meal.serviceType) e[`${pfx}_${i}_style`]  = 'Required'
+      if (meal.serviceType === 'buffet' && !meal.buffetItemId)
+        e[`${pfx}_${i}_buffet`] = 'Select a buffet option'
+      if ((meal.serviceType === 'individual_order' || meal.serviceType === 'mixed') &&
+          mb.participantMode === 'detailed') {
+        mb.attendants.forEach((_, ai) => {
+          if (!(meal.individualOrders ?? []).some(o => o.attendantIdx === ai && o.menuItemId))
+            e[`${pfx}_${i}_order_${ai}`] = 'Select a menu item'
+        })
+      }
+    })
+  }
+  validateSessions(mb.masterMeals, 'master')
+  Object.entries(mb.mealOverrides).forEach(([date, ov]) => {
+    if (!ov.excluded && ov.sessions?.length) validateSessions(ov.sessions, `ov_${date}`)
+  })
+
   if (mb.participantMode === 'headcount') {
     if (!mb.participantCount || mb.participantCount < 1)
       e.participantCount = 'Enter the number of guests / diners'
@@ -610,6 +636,11 @@ onMounted(async () => {
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.glCode ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.glCode" class="font-sans text-xs text-(--color-error)">{{ errors.glCode }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Country</label>
+                <input v-model="mb.country" type="text" placeholder="e.g. Zambia"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
               </div>
             </div>
           </section>
@@ -1023,10 +1054,12 @@ onMounted(async () => {
 
               <!-- Reason -->
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Reason / Occasion</label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Reason / Occasion <span class="text-(--color-error)">*</span></label>
                 <textarea v-model="mb.reasonForBooking" rows="2"
                   placeholder="e.g. Conference catering, gala dinner, working lunch, team breakfast…"
-                  class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none transition-all resize-none border-2"
+                  :class="errors.reasonForBooking ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"></textarea>
+                <span v-if="errors.reasonForBooking" class="font-sans text-xs text-(--color-error)">{{ errors.reasonForBooking }}</span>
               </div>
 
               <!-- Date range -->
@@ -1126,35 +1159,52 @@ onMounted(async () => {
                   <div class="p-4 bg-(--color-surface-container-low) space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div class="flex flex-col gap-1 sm:col-span-2">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name <span class="text-(--color-error)">*</span></label>
                         <input v-model="meal.sessionName" type="text" placeholder="e.g. Morning Tea, Working Lunch, Networking Dinner"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`master_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`master_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_name`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Meal Period</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Preferred Serving Time <span class="text-(--color-error)">*</span></label>
+                        <input v-model="meal.servingTime" type="time"
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`master_${i}_time`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`master_${i}_time`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_time`] }}</span>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Meal Period <span class="text-(--color-error)">*</span></label>
                         <select v-model="meal.mealPeriod"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
+                          :class="errors[`master_${i}_period`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
+                          <option value="" disabled>Select meal period…</option>
                           <option v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</option>
                         </select>
+                        <span v-if="errors[`master_${i}_period`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_period`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Service Style</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Service Style <span class="text-(--color-error)">*</span></label>
                         <select v-model="meal.serviceType"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
+                          :class="errors[`master_${i}_style`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
+                          <option value="" disabled>Select service style…</option>
                           <option v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
+                        <span v-if="errors[`master_${i}_style`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_style`] }}</span>
                       </div>
                       <div v-if="meal.serviceType === 'buffet'" class="flex flex-col gap-1 sm:col-span-2">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Buffet Selection</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Buffet Selection <span class="text-(--color-error)">*</span></label>
                         <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
                           <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
                         </p>
                         <p v-else-if="!menuItems.length" class="font-sans text-xs text-(--color-outline) italic">No menu items available for this lodge.</p>
                         <select v-else v-model="meal.buffetItemId"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
+                          :class="errors[`master_${i}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                           <option value="">Select buffet option…</option>
                           <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                         </select>
+                        <span v-if="errors[`master_${i}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_buffet`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Requirements</label>
@@ -1210,7 +1260,9 @@ onMounted(async () => {
                           </button>
                         </div>
                         <!-- Per-diner rows -->
-                        <div v-for="(att, attIdx) in orderAttendants" :key="attIdx" class="rounded-lg border border-(--color-outline-variant) overflow-hidden">
+                        <div v-for="(att, attIdx) in orderAttendants" :key="attIdx"
+                          class="rounded-lg overflow-hidden"
+                          :class="errors[`master_${i}_order_${attIdx}`] ? 'border-2 border-(--color-error)' : 'border border-(--color-outline-variant)'">
                           <div class="flex items-center justify-between px-4 py-2.5 bg-(--color-surface-container)">
                             <div class="flex items-center gap-2">
                               <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-bold text-(--color-primary)">{{ attIdx + 1 }}</span>
@@ -1225,7 +1277,10 @@ onMounted(async () => {
                           </div>
                           <div class="p-3 space-y-2 bg-(--color-surface-container-low)">
                             <p v-if="!meal.individualOrders.some(o => o.attendantIdx === attIdx)"
-                              class="font-sans text-xs text-(--color-outline) text-center py-1">No items assigned yet</p>
+                              class="font-sans text-xs text-center py-1"
+                              :class="errors[`master_${i}_order_${attIdx}`] ? 'text-(--color-error) font-semibold' : 'text-(--color-outline)'">
+                              {{ errors[`master_${i}_order_${attIdx}`] ? 'Menu item required — add at least one item' : 'No items assigned yet' }}
+                            </p>
                             <template v-for="(order, orderIdx) in meal.individualOrders" :key="orderIdx">
                               <div v-if="order.attendantIdx === attIdx" class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                                 <select v-model="order.menuItemId"
@@ -1256,7 +1311,7 @@ onMounted(async () => {
                 class="flex items-center gap-2 text-(--color-primary) font-sans text-sm font-semibold hover:underline"
                 @click="mb.addMasterMeal()">
                 <span class="material-symbols-outlined text-base">add</span>
-                {{ mb.scheduleMode === 'per_day' ? 'Add Meal to Default Plan' : 'Add Another Meal' }}
+                {{ mb.scheduleMode === 'per_day' ? 'Add Meal to Default Plan' : 'Add Another Meal Session' }}
               </button>
 
               <!-- ── Per-day overrides ── -->
@@ -1337,30 +1392,45 @@ onMounted(async () => {
                         <div class="p-4 bg-(--color-savannah-mist) space-y-3">
                           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div class="flex flex-col gap-1">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Meal Period</label>
-                              <select v-model="m.mealPeriod"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
-                                <option v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</option>
-                              </select>
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Preferred Serving Time <span class="text-(--color-error)">*</span></label>
+                              <input v-model="m.servingTime" type="time"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                                :class="errors[`ov_${date}_${mi}_time`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                              <span v-if="errors[`ov_${date}_${mi}_time`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_time`] }}</span>
                             </div>
                             <div class="flex flex-col gap-1">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Service Style</label>
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Meal Period <span class="text-(--color-error)">*</span></label>
+                              <select v-model="m.mealPeriod"
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
+                                :class="errors[`ov_${date}_${mi}_period`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
+                                <option value="" disabled>Select meal period…</option>
+                                <option v-for="p in MEAL_PERIODS" :key="p.value" :value="p.value">{{ p.label }}</option>
+                              </select>
+                              <span v-if="errors[`ov_${date}_${mi}_period`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_period`] }}</span>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Service Style <span class="text-(--color-error)">*</span></label>
                               <select v-model="m.serviceType"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
+                                :class="errors[`ov_${date}_${mi}_style`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
+                                <option value="" disabled>Select service style…</option>
                                 <option v-for="t in SERVICE_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                               </select>
+                              <span v-if="errors[`ov_${date}_${mi}_style`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_style`] }}</span>
                             </div>
                             <div v-if="m.serviceType === 'buffet'" class="flex flex-col gap-1 sm:col-span-2">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Buffet Selection</label>
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Buffet Selection <span class="text-(--color-error)">*</span></label>
                               <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
                               </p>
                               <p v-else-if="!menuItems.length" class="font-sans text-xs text-(--color-outline) italic">No menu items available for this lodge.</p>
                               <select v-else v-model="m.buffetItemId"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
+                                :class="errors[`ov_${date}_${mi}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                                 <option value="">Select buffet option…</option>
                                 <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                               </select>
+                              <span v-if="errors[`ov_${date}_${mi}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_buffet`] }}</span>
                             </div>
                             <div class="flex flex-col gap-1">
                               <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Dietary Notes</label>
@@ -1405,7 +1475,9 @@ onMounted(async () => {
                                 </button>
                               </div>
                               <!-- Per-diner rows -->
-                              <div v-for="(att, attIdx) in orderAttendants" :key="attIdx" class="rounded-lg border border-(--color-outline-variant) overflow-hidden">
+                              <div v-for="(att, attIdx) in orderAttendants" :key="attIdx"
+                                class="rounded-lg overflow-hidden"
+                                :class="errors[`ov_${date}_${mi}_order_${attIdx}`] ? 'border-2 border-(--color-error)' : 'border border-(--color-outline-variant)'">
                                 <div class="flex items-center justify-between px-4 py-2.5 bg-white">
                                   <div class="flex items-center gap-2">
                                     <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-(--color-savannah-mist) font-sans text-xs font-bold text-(--color-primary)">{{ attIdx + 1 }}</span>
@@ -1420,7 +1492,10 @@ onMounted(async () => {
                                 </div>
                                 <div class="p-3 space-y-2 bg-(--color-surface-container-low)">
                                   <p v-if="!m.individualOrders.some(o => o.attendantIdx === attIdx)"
-                                    class="font-sans text-xs text-(--color-outline) text-center py-1">No items assigned yet</p>
+                                    class="font-sans text-xs text-center py-1"
+                                    :class="errors[`ov_${date}_${mi}_order_${attIdx}`] ? 'text-(--color-error) font-semibold' : 'text-(--color-outline)'">
+                                    {{ errors[`ov_${date}_${mi}_order_${attIdx}`] ? 'Menu item required — add at least one item' : 'No items assigned yet' }}
+                                  </p>
                                   <template v-for="(order, orderIdx) in m.individualOrders" :key="orderIdx">
                                     <div v-if="order.attendantIdx === attIdx" class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                                       <select v-model="order.menuItemId"

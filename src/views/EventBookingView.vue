@@ -664,6 +664,11 @@ onMounted(async () => {
                   :class="errors.glCode ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.glCode" class="font-sans text-xs text-(--color-error)">{{ errors.glCode }}</span>
               </div>
+              <div class="flex flex-col gap-1">
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Country</label>
+                <input v-model="eb.country" type="text" placeholder="e.g. Zambia"
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+              </div>
             </div>
           </section>
 

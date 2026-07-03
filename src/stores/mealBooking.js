@@ -11,6 +11,7 @@ function blankMeal() {
   return {
     sessionName:       '',
     mealPeriod:        'lunch',
+    servingTime:       '',
     serviceType:       'buffet',
     buffetItemId:      '',
     paxCount:          10,
@@ -51,6 +52,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
   const costCenter     = ref('')
   const costCenterType = ref('cost_center') // 'cost_center' | 'internal_order'
   const glCode         = ref('')
+  const country        = ref('')
 
   // Corporate approver
   const approverName  = ref('')
@@ -201,6 +203,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
         phone:           companyPhone.value   || null,
         city:            city.value           || null,
         street_address:  streetAddress.value  || null,
+        country:         country.value        || null,
         branch_name:     branchName.value     || null,
         department_name: departmentName.value || null,
         cost_center:      costCenter.value     || null,
@@ -226,6 +229,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
           session_name:       m.sessionName       || null,
           meal_date:          m.mealDate          || null,
           meal_period:        m.mealPeriod,
+          serving_time:       m.servingTime       || null,
           service_type:       m.serviceType,
           menu_item_id:       m.serviceType === 'buffet' ? (m.buffetItemId || null) : null,
           pax_count:          m.paxCount          || null,
@@ -268,7 +272,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
     companyName.value = ''; tpin.value = ''; industry.value = ''
     companyEmail.value = ''; companyPhone.value = ''; city.value = ''
     streetAddress.value = ''; branchName.value = ''; departmentName.value = ''
-    costCenter.value = ''; costCenterType.value = 'cost_center'; glCode.value = ''
+    costCenter.value = ''; costCenterType.value = 'cost_center'; glCode.value = ''; country.value = ''
     approverName.value = ''; approverEmail.value = ''; approverPhone.value = ''; approverTitle.value = ''
   }
 
@@ -277,7 +281,7 @@ export const useMealBookingStore = defineStore('mealBooking', () => {
     bookingContext, isCorporate,
     bookedBy, participantMode, participantCount, attendants,
     companyName, tpin, industry, companyEmail, companyPhone,
-    city, streetAddress, branchName, departmentName, costCenter, costCenterType, glCode,
+    city, streetAddress, country, branchName, departmentName, costCenter, costCenterType, glCode,
     approverName, approverEmail, approverPhone, approverTitle,
     reasonForBooking, startDate, endDate, scheduleMode, masterMeals, mealOverrides,
     notes,
