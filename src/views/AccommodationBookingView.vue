@@ -234,12 +234,13 @@ function validate() {
     if (!ab.approverPhone) e.approverPhone = 'Required'
 
     if (isZS.value) {
-      if (!ab.branchName)         e.branchName        = 'Required'
-      if (!ab.departmentName)     e.departmentName    = 'Required'
-      if (!ab.costCenter)         e.costCenter        = 'Required'
-      if (!ab.glCode)             e.glCode            = 'Required'
-      if (!ab.bookedBy.jobTitle)  e.bookedByJobTitle  = 'Required'
-      if (!ab.bookedBy.manNumber) e.bookedByManNumber = 'Required'
+      if (!ab.branchName)                e.branchName        = 'Required'
+      if (!ab.departmentName)            e.departmentName    = 'Required'
+      if (!ab.costCenter)                e.costCenter        = 'Required'
+      if (!ab.glCode)                    e.glCode            = 'Required'
+      if (!ab.bookedBy.jobTitle)         e.bookedByJobTitle  = 'Required'
+      if (!ab.bookedBy.manNumber)        e.bookedByManNumber = 'Required'
+      if (!approvalDocs.value.length)    e.approvalDocs      = 'At least one supporting document is required'
     }
 
     ab.attendants.forEach((a, i) => {
@@ -291,10 +292,14 @@ function validate() {
   return Object.keys(e).length === 0
 }
 
-function goToReview() {
+async function goToReview() {
   if (!validate()) {
     if (Object.keys(errors.value).some(k => k.startsWith('att_'))) attendantsExpanded.value = true
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    await nextTick()
+    const first = document.querySelector('[class*="border-(--color-error)"]')
+      ?? document.querySelector('span[class*="text-(--color-error)"]')
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    else window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
   invoiceSnapshot.value = buildInvoiceSnapshot()
@@ -1115,13 +1120,21 @@ onMounted(async () => {
           </section>
 
                     <!-- ─── Approval Documents (corporate only) ─── -->
-          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border overflow-hidden transition-colors"
+            :class="errors.approvalDocs ? 'border-(--color-error)' : 'border-(--color-outline-variant)'">
             <div class="flex items-start gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
-              <span class="material-symbols-outlined text-(--color-primary) mt-0.5">attach_file</span>
+              <span class="material-symbols-outlined mt-0.5" :class="errors.approvalDocs ? 'text-(--color-error)' : 'text-(--color-primary)'">attach_file</span>
               <div>
-                <h2 class="font-serif text-xl text-(--color-on-surface)">Supporting Documents</h2>
+                <h2 class="font-serif text-xl text-(--color-on-surface)">
+                  Supporting Documents
+                  <span v-if="isZS" class="text-(--color-error)"> *</span>
+                </h2>
                 <p class="font-sans text-xs text-(--color-on-surface-variant) mt-0.5">
                   Attach any internal approval documents — LPOs, authorisation letters, budget approvals, or travel requests. Accepted: PDF, Word, JPG, PNG · Max 10 MB per file.
+                </p>
+                <p v-if="isZS && !approvalDocs.length" class="font-sans text-xs text-(--color-on-surface-variant) mt-1 flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[13px]">info</span>
+                  Required for Zambia Sugar bookings.
                 </p>
               </div>
             </div>
@@ -1130,9 +1143,11 @@ onMounted(async () => {
               <!-- Drop zone -->
               <label
                 class="flex flex-col items-center justify-center gap-3 w-full rounded-xl border-2 border-dashed py-10 cursor-pointer transition-all"
-                :class="docDragOver
-                  ? 'border-(--color-primary) bg-(--color-savannah-mist)'
-                  : 'border-(--color-outline-variant) hover:border-(--color-primary) hover:bg-(--color-surface-container-low)'"
+                :class="errors.approvalDocs && !approvalDocs.length
+                  ? 'border-(--color-error) bg-(--color-error-container)'
+                  : docDragOver
+                    ? 'border-(--color-primary) bg-(--color-savannah-mist)'
+                    : 'border-(--color-outline-variant) hover:border-(--color-primary) hover:bg-(--color-surface-container-low)'"
                 @dragover.prevent="docDragOver = true"
                 @dragleave.prevent="docDragOver = false"
                 @drop.prevent="onDocDrop">
@@ -1175,6 +1190,7 @@ onMounted(async () => {
               <p v-if="approvalDocs.length" class="font-sans text-xs text-(--color-on-surface-variant) text-center">
                 {{ approvalDocs.length }} file{{ approvalDocs.length !== 1 ? 's' : '' }} attached
               </p>
+              <span v-if="errors.approvalDocs" class="font-sans text-xs text-(--color-error) text-center block">{{ errors.approvalDocs }}</span>
             </div>
           </section>
 
