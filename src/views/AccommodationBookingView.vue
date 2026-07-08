@@ -116,9 +116,13 @@ watch(
 )
 
 const ZAMBIA_SUGAR_TPIN = '1001757365'
-const isZS = computed(() => ab.isCorporate && ab.tpin === ZAMBIA_SUGAR_TPIN)
+const isZS = computed(() => ab.isCorporate && ab.tpin.trim() === ZAMBIA_SUGAR_TPIN)
 watch(() => ab.tpin, tpin => {
-  if (tpin === ZAMBIA_SUGAR_TPIN && !ab.companyName) ab.companyName = 'Zambia Sugar PLC'
+  if (tpin.trim() !== ZAMBIA_SUGAR_TPIN) return
+  if (!ab.companyName) ab.companyName = 'Zambia Sugar PLC'
+  if (!ab.industry)    ab.industry    = 'Agriculture & Agribusiness'
+  if (!ab.city)        ab.city        = 'Mazabuka'
+  if (!ab.country)     ab.country     = 'Zambia'
 })
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -520,7 +524,7 @@ onMounted(async () => {
               </div>
               <div class="flex flex-col gap-1">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN <span class="text-(--color-error)">*</span></label>
-                <input v-model="ab.tpin" type="text" placeholder="e.g. 1234567890"
+                <input v-model.trim="ab.tpin" type="text" placeholder="e.g. 1234567890"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.tpin ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.tpin" class="font-sans text-xs text-(--color-error)">{{ errors.tpin }}</span>

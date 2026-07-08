@@ -84,9 +84,13 @@ const dayRange = computed(() => {
 watch(dayRange, range => { if (range.length <= 1) mb.scheduleMode = 'uniform' })
 
 const ZAMBIA_SUGAR_TPIN = '1001757365'
-const isZS = computed(() => mb.isCorporate && mb.tpin === ZAMBIA_SUGAR_TPIN)
+const isZS = computed(() => mb.isCorporate && mb.tpin.trim() === ZAMBIA_SUGAR_TPIN)
 watch(() => mb.tpin, tpin => {
-  if (tpin === ZAMBIA_SUGAR_TPIN && !mb.companyName) mb.companyName = 'Zambia Sugar PLC'
+  if (tpin.trim() !== ZAMBIA_SUGAR_TPIN) return
+  if (!mb.companyName) mb.companyName = 'Zambia Sugar PLC'
+  if (!mb.industry)    mb.industry    = 'Agriculture & Agribusiness'
+  if (!mb.city)        mb.city        = 'Mazabuka'
+  if (!mb.country)     mb.country     = 'Zambia'
 })
 
 const mealDaySummary = computed(() => {
@@ -126,8 +130,9 @@ function mealLabel(m, i) {
 }
 
 // ── Menu items (fetched from API) ───────────────────────────────────────────
-const menuItems   = ref([])
-const menuLoading = ref(false)
+const menuItems      = ref([])
+const buffetMenuItems = computed(() => menuItems.value.filter(m => m.category === 'buffet'))
+const menuLoading    = ref(false)
 
 async function fetchMenuItems() {
   menuLoading.value = true
@@ -543,7 +548,7 @@ onMounted(async () => {
               </div>
               <div class="flex flex-col gap-1">
                 <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">TPIN <span class="text-(--color-error)">*</span></label>
-                <input v-model="mb.tpin" type="text" placeholder="e.g. 1234567890"
+                <input v-model.trim="mb.tpin" type="text" placeholder="e.g. 1234567890"
                   class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
                   :class="errors.tpin ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
                 <span v-if="errors.tpin" class="font-sans text-xs text-(--color-error)">{{ errors.tpin }}</span>
@@ -1202,12 +1207,12 @@ onMounted(async () => {
                         <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
                           <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
                         </p>
-                        <p v-else-if="!menuItems.length" class="font-sans text-xs text-(--color-outline) italic">No menu items available for this lodge.</p>
+                        <p v-else-if="!buffetMenuItems.length" class="font-sans text-xs text-(--color-outline) italic">No buffet options available for this lodge.</p>
                         <select v-else v-model="meal.buffetItemId"
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
                           :class="errors[`master_${i}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                           <option value="">Select buffet option…</option>
-                          <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                          <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                         </select>
                         <span v-if="errors[`master_${i}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_buffet`] }}</span>
                       </div>
@@ -1428,12 +1433,12 @@ onMounted(async () => {
                               <p v-if="menuLoading" class="font-sans text-xs text-(--color-on-surface-variant) flex items-center gap-1">
                                 <span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Loading menu…
                               </p>
-                              <p v-else-if="!menuItems.length" class="font-sans text-xs text-(--color-outline) italic">No menu items available for this lodge.</p>
+                              <p v-else-if="!buffetMenuItems.length" class="font-sans text-xs text-(--color-outline) italic">No buffet options available for this lodge.</p>
                               <select v-else v-model="m.buffetItemId"
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
                                 :class="errors[`ov_${date}_${mi}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                                 <option value="">Select buffet option…</option>
-                                <option v-for="mi in menuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                                <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
                               </select>
                               <span v-if="errors[`ov_${date}_${mi}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_buffet`] }}</span>
                             </div>
