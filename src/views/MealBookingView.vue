@@ -193,7 +193,7 @@ watchEffect(() => {
 })
 
 function menuItemsForPeriod() {
-  return menuItems.value
+  return menuItems.value.filter(m => m.category !== 'buffet')
 }
 function addOrderItem(session, attendantIdx) {
   session.individualOrders.push({ attendantIdx, menuItemId: '', quantity: 1, notes: '' })
