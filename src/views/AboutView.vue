@@ -133,7 +133,7 @@ const stats = [
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div v-for="v in values" :key="v.title"
-            class="bg-(--color-surface) rounded-2xl p-7 border border-(--color-outline-variant) shadow-sm">
+            class="bg-(--color-surface) rounded-2xl p-7 shadow-sm">
             <span class="material-symbols-outlined text-3xl text-(--color-primary) mb-4 block">{{ v.icon }}</span>
             <h3 class="font-serif text-lg text-(--color-on-surface) font-semibold mb-3">{{ v.title }}</h3>
             <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">{{ v.body }}</p>

@@ -26,7 +26,7 @@ function formatDate(d) {
 </script>
 
 <template>
-  <div class="sticky top-24 bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+  <div class="sticky top-24 bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
 
     <!-- Room image -->
     <div class="relative h-48">

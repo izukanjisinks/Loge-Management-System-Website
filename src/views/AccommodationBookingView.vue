@@ -467,7 +467,7 @@ onMounted(async () => {
         <template v-if="step === 1">
 
           <!-- ─── Context selector ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-5">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Booking Type</p>
             <div class="grid grid-cols-2 gap-3">
               <button type="button"
@@ -500,7 +500,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Corporate: Company Information ─── -->
-          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary)">business</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Company Information</h2>
@@ -623,7 +623,7 @@ onMounted(async () => {
           </section>
 
                     <!-- ─── Booked By ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-4 px-6 py-5">
               <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">account_circle</span>
@@ -717,7 +717,7 @@ onMounted(async () => {
 
 
           <!-- ─── Corporate: Approver ─── -->
-          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary)">verified_user</span>
               <div>
@@ -758,7 +758,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Individual: Additional Guests ─── -->
-          <section v-if="!ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="!ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-stretch">
               <button type="button"
                 class="flex items-center gap-2 flex-1 px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors min-w-0"
@@ -853,7 +853,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Corporate: Delegates ─── -->
-          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-stretch">
               <button type="button"
                 class="flex items-center gap-2 flex-1 px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors min-w-0"
@@ -954,7 +954,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Accommodation Details ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary)">bed</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Accommodation Details</h2>
@@ -1115,7 +1115,7 @@ onMounted(async () => {
           </section>
 
                     <!-- ─── Approval Documents (corporate only) ─── -->
-          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-start gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary) mt-0.5">attach_file</span>
               <div>
@@ -1179,7 +1179,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Notes ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <div class="flex items-center gap-2 mb-4">
               <span class="material-symbols-outlined text-(--color-primary)">notes</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Requests</h2>
@@ -1234,7 +1234,7 @@ onMounted(async () => {
           </div>
 
           <!-- Booked By summary -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">{{ ab.isCorporate ? 'Booking Representative' : 'Booked By' }}</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div>
@@ -1262,7 +1262,7 @@ onMounted(async () => {
 
           <!-- Individual guests detail -->
           <section v-if="!ab.isCorporate && ab.attendants.length"
-            class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Guests ({{ ab.attendants.length }})</p>
             <div>
               <div v-for="(att, i) in ab.attendants" :key="i"
@@ -1305,7 +1305,7 @@ onMounted(async () => {
           </section>
 
           <!-- Corporate: Company summary -->
-          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+          <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Company</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div class="sm:col-span-2">
@@ -1339,7 +1339,7 @@ onMounted(async () => {
           </section>
 
           <!-- Accommodation summary -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Accommodation</p>
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -1427,7 +1427,7 @@ onMounted(async () => {
 
       <!-- ── Summary sidebar ──────────────────────────────────────────────── -->
       <aside class="lg:col-span-4 lg:sticky lg:top-8 space-y-4">
-        <div class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+        <div class="bg-(--color-surface-container-lowest) rounded-xl p-5">
           <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Summary</p>
 
           <!-- Property -->

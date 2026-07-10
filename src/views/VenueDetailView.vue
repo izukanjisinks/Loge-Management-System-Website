@@ -365,7 +365,7 @@ function onBookingTypeConfirmed() {
         </div>
 
         <!-- About -->
-        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant) shadow-sm">
+        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl shadow-sm">
           <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-4">About This Venue</h2>
           <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">
             {{ venue.description }}
@@ -404,7 +404,7 @@ function onBookingTypeConfirmed() {
         </div>
 
         <!-- Amenities -->
-        <div v-if="venue.amenities?.length" class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant)">
+        <div v-if="venue.amenities?.length" class="bg-(--color-surface-container-lowest) p-8 rounded-2xl">
           <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-6">Venue Amenities</h2>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div v-for="a in venue.amenities" :key="a" class="flex items-center gap-3">
@@ -434,7 +434,7 @@ function onBookingTypeConfirmed() {
       <aside class="lg:sticky lg:top-28 space-y-4">
 
         <!-- Booking widget -->
-        <div class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) shadow-lg overflow-hidden">
+        <div class="bg-(--color-surface-container-lowest) rounded-2xl shadow-lg overflow-hidden">
           <div class="px-6 pt-6 pb-4 border-b border-(--color-outline-variant)">
             <h3 class="font-serif text-xl text-(--color-on-surface)">Book This Venue</h3>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
@@ -556,7 +556,7 @@ function onBookingTypeConfirmed() {
 
         <!-- Hosted by card -->
         <div v-if="venue.organization"
-          class="p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+          class="p-5 bg-(--color-surface-container-lowest) rounded-2xl">
           <p class="font-sans text-xs text-(--color-on-surface-variant) uppercase tracking-wider font-semibold mb-2">Hosted by</p>
           <h4 class="font-serif text-base text-(--color-on-surface) mb-3">{{ venue.organization.name }}</h4>
           <RouterLink v-if="orgId" :to="{ name: 'lodge-detail', params: { id: orgId } }"

@@ -144,7 +144,7 @@ const stepDefs = computed(() => [
         <template v-if="step === 1">
 
           <!-- Primary Guest Details -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <div class="flex items-center gap-2 mb-6">
               <span class="material-symbols-outlined text-(--color-primary)">person</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Primary Guest Details</h2>
@@ -228,7 +228,7 @@ const stepDefs = computed(() => [
         <template v-else>
 
           <!-- Guest summary -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl p-8 border border-(--color-outline-variant)">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-8">
             <div class="flex items-center justify-between mb-6">
               <h2 class="font-serif text-xl flex items-center gap-2">
                 <span class="material-symbols-outlined text-(--color-primary)">person</span>
@@ -257,7 +257,7 @@ const stepDefs = computed(() => [
           </section>
 
           <!-- Stay details -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl p-8 border border-(--color-outline-variant)">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-8">
             <div class="flex items-center justify-between mb-6">
               <h2 class="font-serif text-xl flex items-center gap-2">
                 <span class="material-symbols-outlined text-(--color-primary)">calendar_month</span>
@@ -289,7 +289,7 @@ const stepDefs = computed(() => [
             </dl>
           </section>
 
-          <section v-if="booking.specialRequests" class="bg-(--color-surface-container-lowest) rounded-xl p-8 border border-(--color-outline-variant)">
+          <section v-if="booking.specialRequests" class="bg-(--color-surface-container-lowest) rounded-xl p-8">
             <div class="flex items-center justify-between mb-4">
               <h2 class="font-serif text-xl flex items-center gap-2">
                 <span class="material-symbols-outlined text-(--color-primary)">notes</span>

@@ -276,7 +276,7 @@ function isPdf(url) {
           <template v-if="record.bookingType === 'accommodation' && record.bookerType === 'corporate'">
 
             <!-- Dates -->
-            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Stay Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-4 gap-5 font-sans text-sm">
                 <div>
@@ -307,7 +307,7 @@ function isPdf(url) {
             </div>
 
             <!-- Company -->
-            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div>
@@ -352,7 +352,7 @@ function isPdf(url) {
             <!-- Booked by + Approver -->
             <div
               v-if="bookedBy || approver"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Contact Details</h2>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 font-sans text-sm">
@@ -375,7 +375,7 @@ function isPdf(url) {
             <!-- Attendants -->
             <div
               v-if="attendants.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants</h2>
               <div
@@ -398,7 +398,7 @@ function isPdf(url) {
             <!-- Assigned rooms -->
             <div
               v-if="assignedRooms.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Assigned Rooms</h2>
               <div
@@ -424,7 +424,7 @@ function isPdf(url) {
           <template v-else-if="record.bookingType === 'accommodation'">
 
             <!-- Stay details -->
-            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Stay Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div v-if="record.bookingNumber">
@@ -480,7 +480,7 @@ function isPdf(url) {
             </div>
 
             <!-- Booked By -->
-            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div v-if="meta.booked_by?.name || record.bookerName">
@@ -501,7 +501,7 @@ function isPdf(url) {
             <!-- Guests -->
             <div
               v-if="attendants.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Guests ({{ attendants.length }})</h2>
               <div
@@ -531,7 +531,7 @@ function isPdf(url) {
             <!-- Cost Breakdown -->
             <div
               v-if="indRooms.some(r => r.rate_per_night) && indNightCount > 0"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface) mb-4">Cost Breakdown</h2>
               <div class="font-sans text-sm space-y-0.5">
@@ -564,7 +564,7 @@ function isPdf(url) {
           <template v-else-if="record.bookingType === 'event'">
 
             <!-- Event Details -->
-            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Event Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div v-if="record.bookingNumber">
@@ -595,7 +595,7 @@ function isPdf(url) {
             </div>
 
             <!-- Company (corporate event) -->
-            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Company</p><p class="font-semibold text-(--color-on-surface)">{{ company.name }}</p></div>
@@ -610,7 +610,7 @@ function isPdf(url) {
             <!-- Booked By -->
             <div
               v-if="bookedBy || record.bookerName"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Booked By</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
@@ -632,7 +632,7 @@ function isPdf(url) {
             <!-- Attendants -->
             <div
               v-if="attendants.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants ({{ attendants.length }})</h2>
               <div
@@ -655,7 +655,7 @@ function isPdf(url) {
             <!-- Sessions -->
             <div
               v-if="eventSessions.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Sessions</h2>
               <div
@@ -713,7 +713,7 @@ function isPdf(url) {
           <template v-else-if="record.bookingType === 'meals'">
 
             <!-- Meal Details -->
-            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Meal Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div v-if="record.bookingNumber">
@@ -748,7 +748,7 @@ function isPdf(url) {
             </div>
 
             <!-- Company (corporate meal) -->
-            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4">
+            <div v-if="company" class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4">
               <h2 class="font-serif text-xl text-(--color-on-surface)">Company Details</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 font-sans text-sm">
                 <div><p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Company</p><p class="font-semibold text-(--color-on-surface)">{{ company.name }}</p></div>
@@ -766,7 +766,7 @@ function isPdf(url) {
             <!-- Contact Details (booked by + approver) -->
             <div
               v-if="bookedBy || approver || record.bookerName"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-4"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-4"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Contact Details</h2>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 font-sans text-sm">
@@ -790,7 +790,7 @@ function isPdf(url) {
             <!-- Attendants -->
             <div
               v-if="attendants.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Attendants ({{ attendants.length }})</h2>
               <div
@@ -813,7 +813,7 @@ function isPdf(url) {
             <!-- Sessions -->
             <div
               v-if="mealSessions.length"
-              class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+              class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
             >
               <h2 class="font-serif text-xl text-(--color-on-surface)">Sessions</h2>
               <div
@@ -905,7 +905,7 @@ function isPdf(url) {
           <!-- Special requests -->
           <div
             v-if="record.specialRequests || meta.accommodation?.notes || mealBlock?.notes || eventBlock?.notes"
-            class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)"
+            class="bg-(--color-surface-container-lowest) rounded-xl p-6"
           >
             <h2 class="font-serif text-xl text-(--color-on-surface) mb-3">Notes / Special Requests</h2>
             <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed">
@@ -916,7 +916,7 @@ function isPdf(url) {
           <!-- Documents -->
           <div
             v-if="documents.length"
-            class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant) space-y-3"
+            class="bg-(--color-surface-container-lowest) rounded-xl p-6 space-y-3"
           >
             <h2 class="font-serif text-xl text-(--color-on-surface)">Documents</h2>
             <div class="space-y-2">
@@ -942,7 +942,7 @@ function isPdf(url) {
         <!-- â”€â”€ Right: summary + actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
         <aside class="lg:sticky lg:top-28 space-y-4">
 
-          <div class="bg-(--color-surface-container-high) p-6 rounded-xl border border-(--color-outline-variant) shadow-lg">
+          <div class="bg-(--color-surface-container-high) p-6 rounded-xl shadow-lg">
             <h2 class="font-serif text-xl text-(--color-on-surface) mb-4">Summary</h2>
             <div class="space-y-3 font-sans text-sm">
               <div class="flex justify-between text-(--color-on-surface-variant)">

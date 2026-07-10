@@ -57,7 +57,7 @@ function amenityIcon(label) {
 
 <template>
   <div
-    class="reveal bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col cursor-pointer group hover:shadow-lg transition-shadow duration-300"
+    class="reveal bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm flex flex-col cursor-pointer group hover:shadow-lg transition-shadow duration-300"
     :style="`transition-delay: ${index * 80}ms`"
     @click="goToDetail"
   >

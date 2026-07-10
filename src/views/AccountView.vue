@@ -129,7 +129,7 @@ const initials = computed(() => {
       <div class="lg:col-span-2 space-y-6">
 
         <!-- Profile info -->
-        <div class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden">
+        <div class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden">
           <div class="px-6 py-5 border-b border-(--color-outline-variant) flex items-center justify-between">
             <h2 class="font-serif text-lg text-(--color-on-surface)">Personal Information</h2>
             <button v-if="!editingProfile" type="button"
@@ -222,7 +222,7 @@ const initials = computed(() => {
         </div>
 
         <!-- Change password -->
-        <div class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden">
+        <div class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden">
           <div class="px-6 py-5 border-b border-(--color-outline-variant)">
             <h2 class="font-serif text-lg text-(--color-on-surface)">Security</h2>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-0.5">Update your password to keep your account secure.</p>
@@ -315,7 +315,7 @@ const initials = computed(() => {
 
       <!-- ── Right: Quick info sidebar ────────────────────────────────────── -->
       <div class="space-y-4">
-        <div class="bg-(--color-savannah-mist) rounded-2xl p-6 border border-(--color-outline-variant)">
+        <div class="bg-(--color-savannah-mist) rounded-2xl p-6">
           <div class="w-14 h-14 rounded-full bg-(--color-primary) flex items-center justify-center mb-4">
             <span class="font-serif text-xl text-white font-bold">{{ initials }}</span>
           </div>
@@ -328,7 +328,7 @@ const initials = computed(() => {
           </RouterLink>
         </div>
 
-        <div class="bg-(--color-surface-container-lowest) rounded-2xl p-6 border border-(--color-outline-variant)">
+        <div class="bg-(--color-surface-container-lowest) rounded-2xl p-6">
           <p class="font-sans text-xs font-semibold uppercase tracking-wider text-(--color-on-surface-variant) mb-3">Tips</p>
           <ul class="space-y-3">
             <li class="flex items-start gap-2 font-sans text-xs text-(--color-on-surface-variant) leading-relaxed">

@@ -376,7 +376,7 @@ function openBooking() {
         </div>
 
         <!-- About -->
-        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant) shadow-sm">
+        <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl shadow-sm">
           <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-4">About this Room</h2>
           <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">
             {{ room.description || 'A premium retreat designed for discerning travellers seeking comfort, authenticity, and the finest African hospitality.' }}
@@ -402,7 +402,7 @@ function openBooking() {
         </div>
 
         <!-- Amenities -->
-        <div v-if="room.amenities.length" class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant)">
+        <div v-if="room.amenities.length" class="bg-(--color-surface-container-lowest) p-8 rounded-2xl">
           <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-6">Amenities</h2>
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div v-for="a in room.amenities" :key="a.label" class="flex items-center gap-3">
@@ -418,7 +418,7 @@ function openBooking() {
 
       <!-- Right: Sticky Booking Widget -->
       <aside class="lg:sticky lg:top-28 space-y-4">
-        <div class="bg-(--color-surface-container-lowest) p-6 rounded-2xl border border-(--color-outline-variant) shadow-lg">
+        <div class="bg-(--color-surface-container-lowest) p-6 rounded-2xl shadow-lg">
 
           <!-- Price -->
           <div class="flex items-baseline justify-between mb-6">

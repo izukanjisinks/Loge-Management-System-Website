@@ -85,7 +85,7 @@ onMounted(() => reservations.fetchAll())
         <!-- Empty state -->
         <div
           v-if="reservations.active.length === 0"
-          class="text-center py-20 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)"
+          class="text-center py-20 bg-(--color-surface-container-lowest) rounded-2xl"
         >
           <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">calendar_today</span>
           <p class="font-serif text-xl text-(--color-on-surface) mb-2">No upcoming stays</p>
@@ -106,7 +106,7 @@ onMounted(() => reservations.fetchAll())
             v-for="r in reservations.active"
             :key="r.id"
             :to="r.recordType === 'booking' ? `/bookings/${r.id}` : undefined"
-            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col sm:flex-row"
+            class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col sm:flex-row"
             :class="r.recordType === 'booking' ? 'cursor-pointer' : ''"
           >
             <!-- Image / icon panel -->
@@ -291,7 +291,7 @@ onMounted(() => reservations.fetchAll())
             v-for="r in reservations.past"
             :key="r.id"
             :to="`/bookings/${r.id}`"
-            class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-all duration-300"
+            class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-all duration-300"
           >
             <!-- Image -->
             <div class="relative h-44 overflow-hidden">

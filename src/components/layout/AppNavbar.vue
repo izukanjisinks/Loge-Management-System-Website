@@ -34,7 +34,10 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
 </script>
 
 <template>
-  <header class="sticky top-0 z-100 w-full bg-(--color-surface) shadow-sm">
+  <header
+    class="sticky top-0 z-100 w-full shadow-sm backdrop-blur-md"
+    style="background-color: color-mix(in srgb, var(--color-surface) 60%, transparent)"
+  >
     <nav class="flex justify-between items-center w-full px-5 md:px-16 py-4 max-w-[1280px] mx-auto">
 
       <!-- Logo -->
@@ -96,7 +99,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
               leave-to-class="opacity-0 scale-95"
             >
               <div v-if="userMenuOpen"
-                class="absolute right-0 top-full mt-1.5 w-44 bg-(--color-surface) rounded-xl shadow-lg border border-(--color-outline-variant) overflow-hidden z-50 origin-top-right">
+                class="absolute right-0 top-full mt-1.5 w-44 bg-(--color-surface) rounded-xl shadow-lg overflow-hidden z-50 origin-top-right">
                 <RouterLink to="/account"
                   class="flex items-center gap-2.5 px-4 py-3 font-sans text-sm text-(--color-on-surface) hover:bg-(--color-surface-container) transition-colors"
                   @click="userMenuOpen = false">
@@ -205,7 +208,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
       >
         <div
           v-if="showLogoutDialog"
-          class="relative bg-(--color-surface) rounded-2xl shadow-xl p-8 w-full max-w-sm border border-(--color-outline-variant)"
+          class="relative bg-(--color-surface) rounded-2xl shadow-xl p-8 w-full max-w-sm"
         >
           <div class="flex flex-col items-center text-center gap-4">
             <span
@@ -223,7 +226,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
           <div class="flex gap-3 mt-7">
             <button
               type="button"
-              class="flex-1 py-3 rounded-xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface) hover:bg-(--color-surface-container-low) transition-colors"
+              class="flex-1 py-3 rounded-xl font-sans text-sm font-semibold text-(--color-on-surface) hover:bg-(--color-surface-container-low) transition-colors"
               @click="showLogoutDialog = false"
             >
               Cancel

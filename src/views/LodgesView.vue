@@ -87,13 +87,13 @@ const filtered = computed(() => lodges.value)
         <div
           v-for="i in 9"
           :key="i"
-          class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse"
+          class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse"
         >
-          <div class="h-52 bg-(--color-surface-container-highest)"></div>
+          <div class="aspect-[4/3] bg-(--color-surface-container-highest)"></div>
           <div class="p-5 space-y-3">
-            <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-56"></div>
+            <div class="h-5 bg-(--color-surface-container-highest) rounded max-w-56"></div>
             <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-40"></div>
-            <div class="h-3 bg-(--color-surface-container-highest) rounded w-full"></div>
+            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-48"></div>
           </div>
         </div>
       </div>
@@ -101,7 +101,7 @@ const filtered = computed(() => lodges.value)
       <!-- Empty state -->
       <div
         v-else-if="filtered.length === 0"
-        class="flex-1 flex flex-col items-center justify-center py-24 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)"
+        class="flex-1 flex flex-col items-center justify-center py-24 text-center bg-(--color-surface-container-lowest) rounded-2xl"
       >
         <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">search_off</span>
         <p class="font-serif text-xl text-(--color-on-surface) mb-2">No lodges found</p>
@@ -117,10 +117,10 @@ const filtered = computed(() => lodges.value)
           v-for="(lodge, idx) in filtered"
           :key="lodge.id"
           :to="`/lodges/${lodge.id}`"
-          class="group flex flex-col bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+          class="group flex flex-col bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
         >
           <!-- Cover image -->
-          <div class="relative h-52 overflow-hidden">
+          <div class="relative aspect-[4/3] overflow-hidden">
             <img
               v-if="lodge.logo_url"
               :src="lodge.logo_url"
@@ -134,31 +134,35 @@ const filtered = computed(() => lodges.value)
               <span class="material-symbols-outlined text-5xl text-(--color-outline)">holiday_village</span>
               <span class="font-serif text-sm text-(--color-on-surface-variant)">{{ lodge.name }}</span>
             </div>
-            <template v-if="lodge.logo_url">
-              <div class="absolute inset-0 bg-linear-to-t from-black/55 to-transparent"></div>
-              <!-- Lodge name overlay -->
-              <div class="absolute bottom-3 left-4 right-4">
-                <h3 class="font-serif text-xl font-semibold text-white leading-tight group-hover:text-(--color-inverse-primary) transition-colors">
-                  {{ lodge.name }}
-                </h3>
-              </div>
-            </template>
+
+            <!-- Locations chip -->
+            <span
+              v-if="lodge.branches?.length > 1"
+              class="absolute top-4 left-4 inline-flex items-center gap-1 bg-(--color-surface)/90 backdrop-blur-md text-(--color-primary) text-xs font-semibold px-3 py-1 rounded-full"
+            >
+              <span class="material-symbols-outlined text-sm">location_city</span>
+              {{ lodge.branches.length }} Locations
+            </span>
           </div>
 
           <!-- Content -->
           <div class="p-5 flex flex-col flex-1">
-            <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mb-3">
+            <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight group-hover:text-(--color-primary) transition-colors">
+              {{ lodge.name }}
+            </h3>
+
+            <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mt-2">
               <span class="material-symbols-outlined text-base text-(--color-primary)">location_on</span>
               {{ lodge.address }}
             </p>
 
-            <p v-if="lodge.email" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mb-4">
-              <span class="material-symbols-outlined text-base text-(--color-primary)">mail</span>
-              {{ lodge.email }}
+            <p v-if="lodge.email" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mt-1.5 truncate">
+              <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">mail</span>
+              <span class="truncate">{{ lodge.email }}</span>
             </p>
 
             <div class="flex items-center justify-end pt-4 border-t border-(--color-outline-variant) mt-auto">
-              <span class="inline-flex items-center gap-1 bg-(--color-primary) text-white px-5 py-2 rounded-full font-sans text-sm font-semibold group-hover:bg-(--color-primary-container) transition-colors">
+              <span class="inline-flex items-center gap-1 font-sans text-sm font-semibold text-(--color-primary) group-hover:gap-2 transition-all">
                 View Services
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
               </span>

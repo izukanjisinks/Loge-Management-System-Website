@@ -454,7 +454,7 @@ function bookRoom(room) {
           </div>
 
           <!-- Date filter -->
-          <div class="p-5 bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+          <div class="p-5 bg-(--color-surface-container-lowest) rounded-2xl">
             <div class="flex items-center gap-2 mb-4">
               <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
               <span class="font-sans text-sm font-semibold text-(--color-on-surface)">Filter by availability</span>
@@ -526,7 +526,7 @@ function bookRoom(room) {
           <div v-else-if="roomsLoading && !rooms.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="i in 6" :key="i"
-              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
+              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse">
               <div class="h-48 bg-(--color-surface-container-highest)"></div>
               <div class="p-5 space-y-3">
                 <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
@@ -549,7 +549,7 @@ function bookRoom(room) {
             </Transition>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div v-for="room in rooms" :key="room.id"
-                class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+                class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
                 @click="router.push({ name: 'room-detail', params: { id: room.id }, query: { org_id: lodgeId } })">
                 <div class="relative h-48 overflow-hidden">
                   <img :src="roomImage(room)" :alt="room.name"
@@ -607,7 +607,7 @@ function bookRoom(room) {
 
           <!-- Empty rooms -->
           <div v-else-if="!roomsLoading"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
             <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">
               {{ searched ? 'event_busy' : 'bed' }}
             </span>
@@ -690,7 +690,7 @@ function bookRoom(room) {
           <div v-if="venuesLoading && !venues.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="i in 6" :key="i"
-              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
+              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse">
               <div class="h-48 bg-(--color-surface-container-highest)"></div>
               <div class="p-5 space-y-3">
                 <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
@@ -703,7 +703,7 @@ function bookRoom(room) {
 
           <!-- Empty venues -->
           <div v-else-if="!venuesLoading && !venues.length"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
             <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">location_city</span>
             <p class="font-serif text-xl text-(--color-on-surface)">No venues available</p>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">There are no venues listed for this property.</p>
@@ -713,7 +713,7 @@ function bookRoom(room) {
           <div v-else-if="venues.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="venue in venues" :key="venue.id"
-              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
               @click="router.push({ name: 'venue-detail', params: { id: venue.id }, query: { org_id: venue.org_id } })">
               <div class="relative h-48 overflow-hidden">
                 <img v-if="venue.images?.[0]" :src="venue.images[0]" :alt="venue.name"
@@ -765,7 +765,7 @@ function bookRoom(room) {
 
           <!-- Empty venues -->
           <div v-else-if="!venuesLoading"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
             <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event_seat</span>
             <p class="font-serif text-xl text-(--color-on-surface)">No venues listed</p>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no venues configured yet.</p>
@@ -819,7 +819,7 @@ function bookRoom(room) {
           <div v-else-if="menuLoading && !menuItems.length"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div v-for="i in 6" :key="i"
-              class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden animate-pulse">
+              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse">
               <div class="h-60 bg-(--color-surface-container-highest)"></div>
               <div class="p-5 space-y-3">
                 <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
@@ -849,7 +849,7 @@ function bookRoom(room) {
               <!-- Items grid -->
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div v-for="item in items" :key="item.id"
-                  class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden flex flex-col group hover:shadow-md transition-shadow duration-200">
+                  class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden flex flex-col group hover:shadow-md transition-shadow duration-200">
                   <!-- Icon band -->
                   <div class="relative h-65 bg-(--color-surface-container) flex items-center justify-center overflow-hidden">
                     <img v-if="item.image_url" :src="item.image_url" :alt="item.name"
@@ -904,7 +904,7 @@ function bookRoom(room) {
 
           <!-- Branch required — menus are per-location -->
           <div v-else-if="menuNeedsBranch"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
             <span class="material-symbols-outlined text-5xl text-(--color-primary) block mb-4">location_on</span>
             <p class="font-serif text-xl text-(--color-on-surface)">Select a location</p>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2 max-w-md mx-auto">
@@ -923,7 +923,7 @@ function bookRoom(room) {
 
           <!-- Empty menu -->
           <div v-else-if="!menuLoading"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant)">
+            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
             <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">restaurant_menu</span>
             <p class="font-serif text-xl text-(--color-on-surface)">No menu items listed</p>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">The menu for this property hasn't been configured yet.</p>

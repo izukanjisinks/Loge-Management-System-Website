@@ -492,7 +492,7 @@ onMounted(async () => {
         <template v-if="step === 1">
 
           <!-- ─── Booking context ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-5">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Booking Type</p>
             <div class="grid grid-cols-2 gap-3">
               <button type="button" @click="mb.bookingContext = 'individual'"
@@ -523,7 +523,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Corporate: Company Information ─── -->
-          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary)">business</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Company Information</h2>
@@ -646,7 +646,7 @@ onMounted(async () => {
           </section>
 
                     <!-- ─── Booked By ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-4 px-6 py-5">
               <div class="w-10 h-10 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-(--color-primary)" style="font-variation-settings: 'FILL' 1">account_circle</span>
@@ -739,7 +739,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Corporate: Approver ─── -->
-          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary)">verified_user</span>
               <div>
@@ -780,7 +780,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Individual: Guests ─── -->
-          <section v-if="!mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="!mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <button type="button"
               class="flex items-center gap-2 w-full px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors"
               @click="attendantsExpanded = !attendantsExpanded">
@@ -912,7 +912,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Corporate: Guests / Diners ─── -->
-          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <button type="button"
               class="flex items-center gap-2 w-full px-6 py-5 text-left hover:bg-(--color-surface-container-low) transition-colors"
               @click="attendantsExpanded = !attendantsExpanded">
@@ -1045,7 +1045,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Meal Plan ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-center gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary)">restaurant_menu</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Meal Plan</h2>
@@ -1063,7 +1063,7 @@ onMounted(async () => {
               </div>
 
               <!-- Date range -->
-              <div class="p-4 bg-(--color-surface-container) rounded-xl border border-(--color-outline-variant)">
+              <div class="p-4 bg-(--color-surface-container) rounded-xl">
                 <div class="flex items-start gap-2 mb-4">
                   <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0 mt-0.5">date_range</span>
                   <div>
@@ -1534,7 +1534,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Approval Documents (corporate only) ─── -->
-          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) overflow-hidden">
+          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl overflow-hidden">
             <div class="flex items-start gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
               <span class="material-symbols-outlined text-(--color-primary) mt-0.5">attach_file</span>
               <div>
@@ -1593,7 +1593,7 @@ onMounted(async () => {
           </section>
 
           <!-- ─── Notes ─── -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6 border border-(--color-outline-variant)">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <div class="flex items-center gap-2 mb-4">
               <span class="material-symbols-outlined text-(--color-primary)">notes</span>
               <h2 class="font-serif text-xl text-(--color-on-surface)">Additional Requests</h2>
@@ -1637,7 +1637,7 @@ onMounted(async () => {
           </div>
 
           <!-- Booked By -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Contact</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ mb.bookedBy.name || '—' }}</p></div>
@@ -1654,7 +1654,7 @@ onMounted(async () => {
           </section>
 
           <!-- Corporate company -->
-          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+          <section v-if="mb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Company</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div class="sm:col-span-2">
@@ -1719,7 +1719,7 @@ onMounted(async () => {
 
           <!-- Diners list (detailed mode only) -->
           <section v-if="mb.participantMode === 'detailed' && mb.attendants.length"
-            class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Diners ({{ mb.attendants.length }})</p>
             <div>
               <div v-for="(att, i) in mb.attendants" :key="i"
@@ -1757,7 +1757,7 @@ onMounted(async () => {
           </section>
 
           <!-- Meal plan summary -->
-          <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+          <section class="bg-(--color-surface-container-lowest) rounded-xl p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Meal Plan</p>
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Start Date</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ fmt(mb.startDate) }}</p></div>
@@ -1851,7 +1851,7 @@ onMounted(async () => {
 
       <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
       <aside class="lg:col-span-4 lg:sticky lg:top-8 space-y-4">
-        <div class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-5">
+        <div class="bg-(--color-surface-container-lowest) rounded-xl p-5">
           <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Summary</p>
 
           <div class="flex items-center gap-3 mb-4 pb-4 border-b border-(--color-outline-variant)">

@@ -131,7 +131,7 @@ function confirm() { emit('confirm', selectedService.value); close() }
           <!-- Actions -->
           <div class="px-8 pb-8 flex gap-3">
             <button type="button"
-              class="flex-1 py-3 rounded-xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors"
+              class="flex-1 py-3 rounded-xl font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors"
               @click="close">
               Cancel
             </button>
