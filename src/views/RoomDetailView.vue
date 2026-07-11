@@ -366,12 +366,12 @@ function openBooking() {
               <span class="material-symbols-outlined text-(--color-primary)">apartment</span>
               <span class="font-sans text-base">{{ room.orgName }}</span>
             </div>
-            <span class="font-sans text-xs font-semibold px-3 py-1 rounded-full"
+            <!-- <span class="font-sans text-xs font-semibold px-3 py-1 rounded-full"
               :class="room.available
                 ? 'bg-emerald-500/15 text-emerald-700'
                 : 'bg-rose-500/15 text-rose-700'">
               {{ room.available ? 'In Service' : 'Out of Service' }}
-            </span>
+            </span> -->
           </div>
         </div>
 
@@ -379,7 +379,7 @@ function openBooking() {
         <div class="bg-(--color-surface-container-lowest) p-8 rounded-2xl border border-(--color-outline-variant) shadow-sm">
           <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface) mb-4">About this Room</h2>
           <p class="font-sans text-base text-(--color-on-surface-variant) leading-relaxed">
-            {{ room.description || 'A premium retreat designed for discerning travellers seeking comfort, authenticity, and the finest African hospitality.' }}
+            {{ room.description || 'No description available.' }}
           </p>
           <div class="flex flex-wrap gap-4 mt-6 text-(--color-on-surface-variant) font-sans text-sm">
             <div v-if="room.type" class="flex items-center gap-2">

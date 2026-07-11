@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
-import { useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
+import { useRooms, amenityIcon } from '@/composables/useRooms'
 import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
@@ -548,16 +548,24 @@ function bookRoom(room) {
               </div>
             </Transition>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div v-for="room in rooms" :key="room.id"
+              <template v-for="room in rooms" :key="room.id">
+              <div v-if="searched || room.is_available !== false"
                 class="bg-(--color-surface-container-lowest) rounded-2xl border border-(--color-outline-variant) overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
                 @click="router.push({ name: 'room-detail', params: { id: room.id }, query: { org_id: lodgeId } })">
-                <div class="relative h-48 overflow-hidden">
-                  <img :src="roomImage(room)" :alt="room.name"
+                <div class="relative h-48 overflow-hidden"
+                  :class="room.images?.[0] ? '' : 'bg-(--color-savannah-mist)'">
+                  <img v-if="room.images?.[0]" :src="room.images[0]" :alt="room.name"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                  <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
-                  <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
+                  <div v-else class="w-full h-full flex items-center justify-center">
+                    <div class="w-20 h-20 rounded-full bg-(--color-surface-container-high) flex items-center justify-center shadow-sm">
+                      <span class="material-symbols-outlined text-[40px] text-(--color-primary)">bed</span>
+                    </div>
+                  </div>
+                  <div v-if="room.images?.[0]" class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
+                  <span v-if="searched"
+                    :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
                     class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-                    {{ room.is_available ? 'In Service' : 'Out of Service' }}
+                    {{ room.is_available ? 'Available' : 'Not Available' }}
                   </span>
                   <span class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
                     {{ room.type }}
@@ -578,10 +586,10 @@ function bookRoom(room) {
                     Sleeps {{ room.capacity }}
                   </p>
                   <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
-                    {{ room.description || 'A comfortable and well-appointed room.' }}
+                    {{ room.description || 'No description available.' }}
                   </p>
-                  <div class="flex flex-wrap gap-1 mb-4">
-                    <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
+                  <div v-if="(room.amenities ?? []).length" class="flex flex-wrap gap-1 mb-4">
+                    <span v-for="a in room.amenities" :key="a"
                       class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
                       <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
                       {{ a }}
@@ -602,6 +610,7 @@ function bookRoom(room) {
                   </div>
                 </div>
               </div>
+              </template>
             </div>
           </div>
 
