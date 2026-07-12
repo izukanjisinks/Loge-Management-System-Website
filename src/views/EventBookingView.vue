@@ -79,7 +79,9 @@ async function fetchAvailableVenues() {
   venuesLoading.value = true
   venuesError.value   = false
   try {
-    const params = { org_id: lodgeId, venue_type: 'event_space', page_size: 100 }
+    // No venue_type filter — any available venue (conference hall, boardroom,
+    // outdoor, etc.) can host an event, so show all of the lodge's venues.
+    const params = { org_id: lodgeId, page_size: 100 }
     if (eb.branchId)   params.branch_id = eb.branchId
     if (eb.startDate)  params.from      = eb.startDate
     if (eb.endDate)    params.to        = eb.endDate
