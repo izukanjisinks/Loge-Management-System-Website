@@ -195,6 +195,12 @@ watchEffect(() => {
 function menuItemsForPeriod() {
   return menuItems.value.filter(m => m.category !== 'buffet')
 }
+
+function menuItemLabel(mi) {
+  return mi.is_available === false
+    ? `${mi.name} — Unavailable`
+    : `${mi.name} — K ${mi.price}`
+}
 function addOrderItem(session, attendantIdx) {
   session.individualOrders.push({ attendantIdx, menuItemId: '', quantity: 1, notes: '' })
 }
@@ -1251,7 +1257,7 @@ onMounted(async () => {
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
                           :class="errors[`master_${i}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                           <option value="">Select buffet option…</option>
-                          <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                          <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id" :disabled="mi.is_available === false">{{ menuItemLabel(mi) }}</option>
                         </select>
                         <span v-if="errors[`master_${i}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_buffet`] }}</span>
                       </div>
@@ -1298,7 +1304,7 @@ onMounted(async () => {
                           <select v-model="getBulk(`master-${i}`).menuItemId"
                             class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                             <option value="">Quick-fill all diners…</option>
-                            <option v-for="mi in menuItemsForPeriod()" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                            <option v-for="mi in menuItemsForPeriod()" :key="mi.id" :value="mi.id" :disabled="mi.is_available === false">{{ menuItemLabel(mi) }}</option>
                           </select>
                           <input type="number" min="1" v-model.number="getBulk(`master-${i}`).quantity"
                             class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
@@ -1335,7 +1341,7 @@ onMounted(async () => {
                                 <select v-model="order.menuItemId"
                                   class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                                   <option value="">Select menu item…</option>
-                                  <option v-for="mi in menuItemsForPeriod()" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                                  <option v-for="mi in menuItemsForPeriod()" :key="mi.id" :value="mi.id" :disabled="mi.is_available === false">{{ menuItemLabel(mi) }}</option>
                                 </select>
                                 <input type="number" min="1" v-model.number="order.quantity"
                                   class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
@@ -1477,7 +1483,7 @@ onMounted(async () => {
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
                                 :class="errors[`ov_${date}_${mi}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                                 <option value="">Select buffet option…</option>
-                                <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id">{{ mi.name }} — K {{ mi.price }}</option>
+                                <option v-for="bmi in buffetMenuItems" :key="bmi.id" :value="bmi.id" :disabled="bmi.is_available === false">{{ menuItemLabel(bmi) }}</option>
                               </select>
                               <span v-if="errors[`ov_${date}_${mi}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_buffet`] }}</span>
                             </div>
@@ -1513,7 +1519,7 @@ onMounted(async () => {
                                 <select v-model="getBulk(`${date}-${mi}`).menuItemId"
                                   class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                                   <option value="">Quick-fill all diners…</option>
-                                  <option v-for="item in menuItemsForPeriod()" :key="item.id" :value="item.id">{{ item.name }} — K {{ item.price }}</option>
+                                  <option v-for="item in menuItemsForPeriod()" :key="item.id" :value="item.id" :disabled="item.is_available === false">{{ menuItemLabel(item) }}</option>
                                 </select>
                                 <input type="number" min="1" v-model.number="getBulk(`${date}-${mi}`).quantity"
                                   class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
@@ -1550,7 +1556,7 @@ onMounted(async () => {
                                       <select v-model="order.menuItemId"
                                         class="flex-1 min-w-0 bg-(--color-savannah-mist) rounded-lg px-3 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
                                         <option value="">Select menu item…</option>
-                                        <option v-for="item in menuItemsForPeriod()" :key="item.id" :value="item.id">{{ item.name }} — K {{ item.price }}</option>
+                                        <option v-for="item in menuItemsForPeriod()" :key="item.id" :value="item.id" :disabled="item.is_available === false">{{ menuItemLabel(item) }}</option>
                                       </select>
                                       <input type="number" min="1" v-model.number="order.quantity"
                                         class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
