@@ -223,6 +223,42 @@ function attendantsWithOrders(meal) {
   }))
 }
 
+// ── Live validation clearing ─────────────────────────────────────────────────
+watch(() => mb.bookedBy.name,      v => { if (v) delete errors.value.bookedByName })
+watch(() => mb.bookedBy.email,     v => { if (v) delete errors.value.bookedByEmail })
+watch(() => mb.bookedBy.jobTitle,  v => { if (v) delete errors.value.bookedByJobTitle })
+watch(() => mb.bookedBy.manNumber, v => { if (v) delete errors.value.bookedByManNumber })
+watch(() => mb.startDate,          v => { if (v) delete errors.value.startDate })
+watch(() => mb.endDate,            v => { if (v) delete errors.value.endDate })
+watch(() => mb.companyName,        v => { if (v) delete errors.value.companyName })
+watch(() => mb.tpin,               v => { if (v) delete errors.value.tpin })
+watch(() => mb.industry,           v => { if (v) delete errors.value.industry })
+watch(() => mb.companyEmail,       v => { if (v) delete errors.value.companyEmail })
+watch(() => mb.companyPhone,       v => { if (v) delete errors.value.companyPhone })
+watch(() => mb.approverName,       v => { if (v) delete errors.value.approverName })
+watch(() => mb.approverTitle,      v => { if (v) delete errors.value.approverTitle })
+watch(() => mb.approverEmail,      v => { if (v) delete errors.value.approverEmail })
+watch(() => mb.approverPhone,      v => { if (v) delete errors.value.approverPhone })
+watch(() => mb.branchName,         v => { if (v) delete errors.value.branchName })
+watch(() => mb.departmentName,     v => { if (v) delete errors.value.departmentName })
+watch(() => mb.costCenter,         v => { if (v) delete errors.value.costCenter })
+watch(() => mb.glCode,             v => { if (v) delete errors.value.glCode })
+watch(() => mb.reasonForBooking,   v => { if (v) delete errors.value.reasonForBooking })
+watch(() => mb.participantCount,   v => { if (v >= 1) delete errors.value.participantCount })
+watch(approvalDocs,                v => { if (v.length) delete errors.value.approvalDocs }, { deep: true })
+watch(() => mb.attendants, () => {
+  for (const key of Object.keys(errors.value)) {
+    if (!key.startsWith('att_')) continue
+    const [, idxStr, field] = key.split('_')
+    const a = mb.attendants[Number(idxStr)]
+    if (!a) { delete errors.value[key]; continue }
+    if (field === 'name'  && a.fullName) delete errors.value[key]
+    if (field === 'id'    && a.idNumber) delete errors.value[key]
+    if (field === 'email' && a.email)    delete errors.value[key]
+    if (field === 'phone' && a.phone)    delete errors.value[key]
+  }
+}, { deep: true })
+
 // ── Validation ──────────────────────────────────────────────────────────────
 function validate() {
   const e = {}
@@ -342,7 +378,8 @@ function validate() {
 
 async function goToReview() {
   if (!validate()) {
-    if (Object.keys(errors.value).some(k => k.startsWith('att_'))) attendantsExpanded.value = true
+    if (Object.keys(errors.value).some(k => k.startsWith('bookedBy'))) bookedByEditing.value = true
+    if (Object.keys(errors.value).some(k => k.startsWith('att_')))    attendantsExpanded.value = true
     await nextTick()
     const first = document.querySelector('[class*="border-(--color-error)"]')
       ?? document.querySelector('span[class*="text-(--color-error)"]')
@@ -407,9 +444,11 @@ onMounted(async () => {
   if (rd && rd.bookingType === 'meals') {
     if (rd.branchId)       mb.branchId       = rd.branchId
     if (rd.bookingContext) mb.bookingContext  = rd.bookingContext
-    if (rd.bookedBy?.name)  mb.bookedBy.name  = rd.bookedBy.name
-    if (rd.bookedBy?.email) mb.bookedBy.email = rd.bookedBy.email
-    if (rd.bookedBy?.phone) mb.bookedBy.phone = rd.bookedBy.phone
+    if (rd.bookedBy?.name)      mb.bookedBy.name      = rd.bookedBy.name
+    if (rd.bookedBy?.email)     mb.bookedBy.email     = rd.bookedBy.email
+    if (rd.bookedBy?.phone)     mb.bookedBy.phone     = rd.bookedBy.phone
+    if (rd.bookedBy?.jobTitle)  mb.bookedBy.jobTitle  = rd.bookedBy.jobTitle
+    if (rd.bookedBy?.manNumber) mb.bookedBy.manNumber = rd.bookedBy.manNumber
     if (rd.meal?.startDate) mb.startDate = rd.meal.startDate
     if (rd.meal?.endDate)   mb.endDate   = rd.meal.endDate
     if (rd.meal?.reasonForBooking) mb.reasonForBooking = rd.meal.reasonForBooking
@@ -1924,6 +1963,10 @@ onMounted(async () => {
             <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
               {{ mb.participantMode === 'headcount' ? mb.participantCount : mb.attendants.length + ' registered' }}
             </span>
+          </div>
+          <div class="mt-3 pt-3 border-t border-(--color-outline-variant) flex justify-between items-center">
+            <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
+            <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
           </div>
         </div>
       </aside>

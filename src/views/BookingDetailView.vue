@@ -123,10 +123,11 @@ function bookAgain() {
     bookingContext: m.booking_context || (r.bookerType === 'corporate' ? 'corporate' : 'individual'),
     // Booked-by contact
     bookedBy: {
-      name:     m.booked_by?.name  || r.bookerName  || '',
-      email:    m.booked_by?.email || r.bookerEmail || '',
-      phone:    m.booked_by?.phone || r.bookerPhone || '',
-      jobTitle: m.booked_by?.job_title || '',
+      name:      m.booked_by?.name       || r.bookerName  || '',
+      email:     m.booked_by?.email      || r.bookerEmail || '',
+      phone:     m.booked_by?.phone      || r.bookerPhone || '',
+      jobTitle:  m.booked_by?.job_title  || '',
+      manNumber: m.booked_by?.man_number || '',
     },
     // Corporate company
     company: m.company ? {
@@ -361,6 +362,7 @@ function isPdf(url) {
                 <div v-if="bookedBy" class="space-y-2">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Booked By</p>
                   <p class="value font-semibold">{{ bookedBy.name }}</p>
+                  <p v-if="bookedBy.job_title" class="text-(--color-on-surface-variant) capitalize">{{ bookedBy.job_title }}<span v-if="bookedBy.man_number"> · #{{ bookedBy.man_number }}</span></p>
                   <p v-if="bookedBy.email" class="text-(--color-on-surface-variant)">{{ bookedBy.email }}</p>
                   <p v-if="bookedBy.phone" class="text-(--color-on-surface-variant)">{{ bookedBy.phone }}</p>
                 </div>
@@ -619,6 +621,14 @@ function isPdf(url) {
                 <div v-if="bookedBy?.name || record.bookerName">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Name</p>
                   <p class="font-semibold text-(--color-on-surface)">{{ bookedBy?.name || record.bookerName }}</p>
+                </div>
+                <div v-if="bookedBy?.job_title">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Job Title</p>
+                  <p class="font-semibold text-(--color-on-surface) capitalize">{{ bookedBy.job_title }}</p>
+                </div>
+                <div v-if="bookedBy?.man_number">
+                  <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Man Number</p>
+                  <p class="font-semibold text-(--color-on-surface)">#{{ bookedBy.man_number }}</p>
                 </div>
                 <div v-if="bookedBy?.email || record.bookerEmail">
                   <p class="text-xs font-semibold uppercase tracking-widest text-(--color-on-surface-variant) mb-1">Email</p>

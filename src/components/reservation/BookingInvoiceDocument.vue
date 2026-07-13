@@ -27,8 +27,10 @@ const s = {
   badge:      { alignSelf: 'flex-end', marginTop: 6, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 4, backgroundColor: '#743a1c' },
   badgeText:  { fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#ffffff' },
 
-  metaRow:    { flexDirection: 'row', marginBottom: 24, gap: 16 },
+  metaRow:    { flexDirection: 'row', marginBottom: 16, gap: 16 },
   metaBox:    { flex: 1, backgroundColor: '#fff1ea', padding: 12, borderRadius: 4 },
+  stayRow:    { flexDirection: 'row', gap: 12, marginBottom: 24, backgroundColor: '#fff1ea', padding: 12, borderRadius: 4 },
+  stayItem:   { flex: 1 },
   metaLabel:  { fontSize: 8, color: '#86736b', textTransform: 'uppercase', marginBottom: 4, fontFamily: 'Helvetica-Bold' },
   metaValue:  { fontSize: 10, fontFamily: 'Helvetica-Bold', color: '#28180d', marginBottom: 2 },
   metaSmall:  { fontSize: 9, color: '#53433d', marginTop: 2 },
@@ -87,34 +89,72 @@ const s = {
         </View>
       </View>
 
-      <!-- Bill To + Stay Info -->
-      <View :style="s.metaRow">
-        <View :style="s.metaBox">
-          <Text :style="s.metaLabel">{{ isCorporate ? 'Company' : 'Guest' }}</Text>
-          <Text :style="s.metaValue">
-            {{ isCorporate ? booking.corporateClient.companyName : `${booking.guestInfo.firstName} ${booking.guestInfo.lastName}` }}
-          </Text>
-          <Text :style="s.metaSmall">
-            {{ isCorporate ? `HOD: ${booking.corporateClient.contactPerson}` : (booking.guestInfo.email || ' ') }}
-          </Text>
-          <Text :style="s.metaSmall">
-            {{ isCorporate ? `Reg: ${booking.corporateClient.regNumber}` : (booking.guestInfo.phone || ' ') }}
-          </Text>
-          <Text :style="s.metaSmall">{{ isCorporate ? booking.corporateClient.email : ' ' }}</Text>
-          <Text :style="s.metaSmall">{{ isCorporate ? booking.corporateClient.phone : ' ' }}</Text>
-          <Text v-if="isCorporate && booking.corporateClient.tpin" :style="s.metaSmall">TPIN: {{ booking.corporateClient.tpin }}</Text>
-          <Text v-if="isCorporate && booking.corporateClient.costCenter" :style="s.metaSmall">{{ booking.corporateClient.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}: {{ booking.corporateClient.costCenter }}</Text>
-          <Text v-if="isCorporate && booking.corporateClient.glCode" :style="s.metaSmall">GL Code: {{ booking.corporateClient.glCode }}</Text>
+      <!-- Corporate: Bill From + Bill To -->
+      <template v-if="isCorporate">
+        <View :style="s.metaRow">
+          <View :style="s.metaBox">
+            <Text :style="s.metaLabel">Bill From</Text>
+            <Text :style="s.metaValue">{{ booking.lodgeName || 'Mwakwanda' }}</Text>
+            <Text :style="s.metaSmall">Hospitality &amp; Accommodation</Text>
+            <Text v-if="booking.lodgeAddress" :style="s.metaSmall">{{ booking.lodgeAddress }}</Text>
+            <Text v-if="booking.lodgeEmail" :style="s.metaSmall">{{ booking.lodgeEmail }}</Text>
+            <Text v-if="booking.lodgePhone" :style="s.metaSmall">{{ booking.lodgePhone }}</Text>
+          </View>
+          <View :style="s.metaBox">
+            <Text :style="s.metaLabel">Bill To</Text>
+            <Text :style="s.metaValue">{{ booking.corporateClient.companyName }}</Text>
+            <Text v-if="booking.corporateClient.contactPerson" :style="s.metaSmall">Attn: {{ booking.corporateClient.contactPerson }}</Text>
+            <Text v-if="booking.corporateClient.email" :style="s.metaSmall">{{ booking.corporateClient.email }}</Text>
+            <Text v-if="booking.corporateClient.phone" :style="s.metaSmall">{{ booking.corporateClient.phone }}</Text>
+            <Text v-if="booking.corporateClient.tpin" :style="s.metaSmall">TPIN: {{ booking.corporateClient.tpin }}</Text>
+            <Text v-if="booking.corporateClient.costCenter" :style="s.metaSmall">{{ booking.corporateClient.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}: {{ booking.corporateClient.costCenter }}</Text>
+            <Text v-if="booking.corporateClient.glCode" :style="s.metaSmall">GL Code: {{ booking.corporateClient.glCode }}</Text>
+          </View>
         </View>
-        <View :style="s.metaBox">
-          <Text :style="s.metaLabel">Stay Details</Text>
-          <Text :style="s.metaValue">{{ booking.roomType || 'Room' }}</Text>
-          <Text :style="s.metaSmall">Check-in: {{ fmtDate(booking.checkIn) }}</Text>
-          <Text :style="s.metaSmall">Check-out: {{ fmtDate(booking.checkOut) }}</Text>
-          <Text :style="s.metaSmall">Duration: {{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }}</Text>
-          <Text :style="s.metaSmall">{{ !isCorporate ? `Guests: ${booking.guestCount} ${booking.guestCount === 1 ? 'Adult' : 'Adults'}` : ' ' }}</Text>
+        <!-- Stay summary row -->
+        <View :style="s.stayRow">
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Room / Type</Text>
+            <Text :style="s.metaSmall">{{ booking.roomType || 'Accommodation' }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">No. of Rooms</Text>
+            <Text :style="s.metaSmall">{{ booking.roomCount ?? '—' }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Check-in</Text>
+            <Text :style="s.metaSmall">{{ fmtDate(booking.checkIn) }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Check-out</Text>
+            <Text :style="s.metaSmall">{{ fmtDate(booking.checkOut) }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Duration</Text>
+            <Text :style="s.metaSmall">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }}</Text>
+          </View>
         </View>
-      </View>
+      </template>
+
+      <!-- Individual: Guest + Stay Details -->
+      <template v-else>
+        <View :style="s.metaRow">
+          <View :style="s.metaBox">
+            <Text :style="s.metaLabel">Guest</Text>
+            <Text :style="s.metaValue">{{ `${booking.guestInfo.firstName} ${booking.guestInfo.lastName}` }}</Text>
+            <Text :style="s.metaSmall">{{ booking.guestInfo.email || ' ' }}</Text>
+            <Text :style="s.metaSmall">{{ booking.guestInfo.phone || ' ' }}</Text>
+          </View>
+          <View :style="s.metaBox">
+            <Text :style="s.metaLabel">Stay Details</Text>
+            <Text :style="s.metaValue">{{ booking.roomType || 'Room' }}</Text>
+            <Text :style="s.metaSmall">Check-in: {{ fmtDate(booking.checkIn) }}</Text>
+            <Text :style="s.metaSmall">Check-out: {{ fmtDate(booking.checkOut) }}</Text>
+            <Text :style="s.metaSmall">Duration: {{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }}</Text>
+            <Text :style="s.metaSmall">Guests: {{ booking.guestCount }} {{ booking.guestCount === 1 ? 'Adult' : 'Adults' }}</Text>
+          </View>
+        </View>
+      </template>
 
       <!-- Employee list (corporate only) -->
       <template v-if="isCorporate && booking.corporateGuests.length">

@@ -125,6 +125,48 @@ watch(() => ab.tpin, tpin => {
   if (!ab.country)     ab.country     = 'Zambia'
 })
 
+// Default Number of Rooms to participant/guest count
+watch(
+  () => ab.participantMode === 'headcount' ? ab.participantCount : ab.attendants.length,
+  (count) => { ab.roomCount = Math.max(1, count) },
+  { immediate: true }
+)
+
+// ── Live validation clearing ───────────────────────────────────────────────
+watch(() => ab.bookedBy.name,      v => { if (v) delete errors.value.bookedByName })
+watch(() => ab.bookedBy.email,     v => { if (v) delete errors.value.bookedByEmail })
+watch(() => ab.bookedBy.jobTitle,  v => { if (v) delete errors.value.bookedByJobTitle })
+watch(() => ab.bookedBy.manNumber, v => { if (v) delete errors.value.bookedByManNumber })
+watch(() => ab.checkIn,            v => { if (v) delete errors.value.checkIn })
+watch(() => ab.checkOut,           v => { if (v) delete errors.value.checkOut })
+watch(() => ab.companyName,        v => { if (v) delete errors.value.companyName })
+watch(() => ab.tpin,               v => { if (v) delete errors.value.tpin })
+watch(() => ab.industry,           v => { if (v) delete errors.value.industry })
+watch(() => ab.companyEmail,       v => { if (v) delete errors.value.companyEmail })
+watch(() => ab.companyPhone,       v => { if (v) delete errors.value.companyPhone })
+watch(() => ab.approverName,       v => { if (v) delete errors.value.approverName })
+watch(() => ab.approverTitle,      v => { if (v) delete errors.value.approverTitle })
+watch(() => ab.approverEmail,      v => { if (v) delete errors.value.approverEmail })
+watch(() => ab.approverPhone,      v => { if (v) delete errors.value.approverPhone })
+watch(() => ab.branchName,         v => { if (v) delete errors.value.branchName })
+watch(() => ab.departmentName,     v => { if (v) delete errors.value.departmentName })
+watch(() => ab.costCenter,         v => { if (v) delete errors.value.costCenter })
+watch(() => ab.glCode,             v => { if (v) delete errors.value.glCode })
+watch(() => ab.roomCount,          v => { if (v >= 1) delete errors.value.roomCount })
+watch(approvalDocs,                v => { if (v.length) delete errors.value.approvalDocs }, { deep: true })
+watch(() => ab.attendants, () => {
+  for (const key of Object.keys(errors.value)) {
+    if (!key.startsWith('att_')) continue
+    const [, idxStr, field] = key.split('_')
+    const a = ab.attendants[Number(idxStr)]
+    if (!a) { delete errors.value[key]; continue }
+    if (field === 'name'  && a.fullName) delete errors.value[key]
+    if (field === 'id'    && a.idNumber) delete errors.value[key]
+    if (field === 'email' && a.email)    delete errors.value[key]
+    if (field === 'phone' && a.phone)    delete errors.value[key]
+  }
+}, { deep: true })
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function nights(a, b) {
   if (!a || !b) return 0
@@ -146,6 +188,10 @@ function buildInvoiceSnapshot() {
   return {
     bookingType:      ab.isCorporate ? 'corporate' : 'individual',
     lodgeName:        lodge.value?.name ?? '',
+    lodgeAddress:     lodge.value?.address ?? '',
+    lodgeEmail:       lodge.value?.email ?? '',
+    lodgePhone:       lodge.value?.phone ?? '',
+    roomCount:        ab.isCorporate ? ab.roomCount : null,
     roomType:         ab.isCorporate ? (ab.roomTypePreference || 'Corporate Accommodation') : (ab.attendantRooms[0]?.roomName || 'Accommodation'),
     checkIn:          ab.checkIn,
     checkOut:         ab.checkOut,
@@ -298,7 +344,8 @@ function validate() {
 
 async function goToReview() {
   if (!validate()) {
-    if (Object.keys(errors.value).some(k => k.startsWith('att_'))) attendantsExpanded.value = true
+    if (Object.keys(errors.value).some(k => k.startsWith('bookedBy'))) bookedByEditing.value = true
+    if (Object.keys(errors.value).some(k => k.startsWith('att_')))    attendantsExpanded.value = true
     await nextTick()
     const first = document.querySelector('[class*="border-(--color-error)"]')
       ?? document.querySelector('span[class*="text-(--color-error)"]')
@@ -364,9 +411,11 @@ onMounted(async () => {
   if (rd && rd.bookingType === 'accommodation') {
     if (rd.branchId)      ab.branchId        = rd.branchId
     if (rd.bookingContext) ab.bookingContext  = rd.bookingContext
-    if (rd.bookedBy?.name)  ab.bookedBy.name  = rd.bookedBy.name
-    if (rd.bookedBy?.email) ab.bookedBy.email = rd.bookedBy.email
-    if (rd.bookedBy?.phone) ab.bookedBy.phone = rd.bookedBy.phone
+    if (rd.bookedBy?.name)      ab.bookedBy.name      = rd.bookedBy.name
+    if (rd.bookedBy?.email)     ab.bookedBy.email     = rd.bookedBy.email
+    if (rd.bookedBy?.phone)     ab.bookedBy.phone     = rd.bookedBy.phone
+    if (rd.bookedBy?.jobTitle)  ab.bookedBy.jobTitle  = rd.bookedBy.jobTitle
+    if (rd.bookedBy?.manNumber) ab.bookedBy.manNumber = rd.bookedBy.manNumber
     if (rd.accommodation?.checkIn)  ab.checkIn  = rd.accommodation.checkIn
     if (rd.accommodation?.checkOut) ab.checkOut = rd.accommodation.checkOut
     if (rd.company) {
@@ -1525,6 +1574,10 @@ onMounted(async () => {
             <div v-if="ab.roomTypePreference" class="flex justify-between items-center mt-1">
               <span class="font-sans text-xs text-(--color-on-surface-variant)">Type preference</span>
               <span class="font-sans text-sm text-(--color-on-surface) capitalize">{{ ab.roomTypePreference }}</span>
+            </div>
+            <div class="mt-3 pt-3 border-t border-(--color-outline-variant) flex justify-between items-center">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
+              <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
             </div>
           </div>
         </div>

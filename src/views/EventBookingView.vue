@@ -225,6 +225,40 @@ function sessionLabel(s, i) {
     : `Session ${i + 1}`)
 }
 
+// ── Live validation clearing ─────────────────────────────────────────────────
+watch(() => eb.bookedBy.name,      v => { if (v) delete errors.value.bookedByName })
+watch(() => eb.bookedBy.email,     v => { if (v) delete errors.value.bookedByEmail })
+watch(() => eb.bookedBy.jobTitle,  v => { if (v) delete errors.value.bookedByJobTitle })
+watch(() => eb.bookedBy.manNumber, v => { if (v) delete errors.value.bookedByManNumber })
+watch(() => eb.startDate,          v => { if (v) delete errors.value.startDate })
+watch(() => eb.endDate,            v => { if (v) delete errors.value.endDate })
+watch(() => eb.companyName,        v => { if (v) delete errors.value.companyName })
+watch(() => eb.tpin,               v => { if (v) delete errors.value.tpin })
+watch(() => eb.industry,           v => { if (v) delete errors.value.industry })
+watch(() => eb.companyEmail,       v => { if (v) delete errors.value.companyEmail })
+watch(() => eb.companyPhone,       v => { if (v) delete errors.value.companyPhone })
+watch(() => eb.approverName,       v => { if (v) delete errors.value.approverName })
+watch(() => eb.approverTitle,      v => { if (v) delete errors.value.approverTitle })
+watch(() => eb.approverEmail,      v => { if (v) delete errors.value.approverEmail })
+watch(() => eb.approverPhone,      v => { if (v) delete errors.value.approverPhone })
+watch(() => eb.branchName,         v => { if (v) delete errors.value.branchName })
+watch(() => eb.departmentName,     v => { if (v) delete errors.value.departmentName })
+watch(() => eb.costCenter,         v => { if (v) delete errors.value.costCenter })
+watch(() => eb.glCode,             v => { if (v) delete errors.value.glCode })
+watch(approvalDocs,                v => { if (v.length) delete errors.value.approvalDocs }, { deep: true })
+watch(() => eb.attendants, () => {
+  for (const key of Object.keys(errors.value)) {
+    if (!key.startsWith('att_')) continue
+    const [, idxStr, field] = key.split('_')
+    const a = eb.attendants[Number(idxStr)]
+    if (!a) { delete errors.value[key]; continue }
+    if (field === 'name'  && a.fullName) delete errors.value[key]
+    if (field === 'id'    && a.idNumber) delete errors.value[key]
+    if (field === 'email' && a.email)    delete errors.value[key]
+    if (field === 'phone' && a.phone)    delete errors.value[key]
+  }
+}, { deep: true })
+
 // ── Validation ──────────────────────────────────────────────────────────────
 function validate() {
   const e = {}
@@ -353,7 +387,8 @@ function validate() {
 
 async function goToReview() {
   if (!validate()) {
-    if (Object.keys(errors.value).some(k => k.startsWith('att_'))) attendantsExpanded.value = true
+    if (Object.keys(errors.value).some(k => k.startsWith('bookedBy'))) bookedByEditing.value = true
+    if (Object.keys(errors.value).some(k => k.startsWith('att_')))    attendantsExpanded.value = true
     await nextTick()
     const first = document.querySelector('[class*="border-(--color-error)"]')
       ?? document.querySelector('span[class*="text-(--color-error)"]')
@@ -421,9 +456,11 @@ onMounted(async () => {
   if (rd && rd.bookingType === 'event') {
     if (rd.branchId)       eb.branchId       = rd.branchId
     if (rd.bookingContext) eb.bookingContext  = rd.bookingContext
-    if (rd.bookedBy?.name)  eb.bookedBy.name  = rd.bookedBy.name
-    if (rd.bookedBy?.email) eb.bookedBy.email = rd.bookedBy.email
-    if (rd.bookedBy?.phone) eb.bookedBy.phone = rd.bookedBy.phone
+    if (rd.bookedBy?.name)      eb.bookedBy.name      = rd.bookedBy.name
+    if (rd.bookedBy?.email)     eb.bookedBy.email     = rd.bookedBy.email
+    if (rd.bookedBy?.phone)     eb.bookedBy.phone     = rd.bookedBy.phone
+    if (rd.bookedBy?.jobTitle)  eb.bookedBy.jobTitle  = rd.bookedBy.jobTitle
+    if (rd.bookedBy?.manNumber) eb.bookedBy.manNumber = rd.bookedBy.manNumber
     if (rd.event?.startDate)        eb.startDate        = rd.event.startDate
     if (rd.event?.endDate)          eb.endDate          = rd.event.endDate
     if (rd.event?.reasonForBooking) eb.reasonForBooking = rd.event.reasonForBooking
@@ -1817,6 +1854,10 @@ onMounted(async () => {
           <div v-if="eb.participantCount" class="mt-4 pt-4 border-t border-(--color-outline-variant) flex justify-between items-center">
             <span class="font-sans text-xs text-(--color-on-surface-variant)">{{ eb.isCorporate ? 'Delegates' : 'Attendees' }}</span>
             <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.participantCount }}</span>
+          </div>
+          <div class="mt-3 pt-3 border-t border-(--color-outline-variant) flex justify-between items-center">
+            <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
+            <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
           </div>
         </div>
       </aside>
