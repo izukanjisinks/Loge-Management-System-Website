@@ -153,6 +153,7 @@ watch(() => ab.departmentName,     v => { if (v) delete errors.value.departmentN
 watch(() => ab.costCenter,         v => { if (v) delete errors.value.costCenter })
 watch(() => ab.glCode,             v => { if (v) delete errors.value.glCode })
 watch(() => ab.roomCount,          v => { if (v >= 1) delete errors.value.roomCount })
+watch(() => ab.reasonForBooking,   v => { if (v) delete errors.value.reasonForBooking })
 watch(approvalDocs,                v => { if (v.length) delete errors.value.approvalDocs }, { deep: true })
 watch(() => ab.attendants, () => {
   for (const key of Object.keys(errors.value)) {
@@ -250,8 +251,9 @@ function validate() {
   else if (ab.checkIn && ab.checkOut <= ab.checkIn) e.checkOut = 'Check-out must be at least 1 night after check-in'
 
   if (ab.isCorporate) {
-    if (!ab.companyName) e.companyName = 'Required'
-    if (ab.roomCount < 1) e.roomCount = 'Enter at least 1 room'
+    if (!ab.companyName)      e.companyName      = 'Required'
+    if (ab.roomCount < 1)     e.roomCount        = 'Enter at least 1 room'
+    if (!ab.reasonForBooking) e.reasonForBooking = 'Required'
   }
 
   if (!ab.isCorporate && ab.checkIn && ab.checkOut && ab.attendantRooms.length === 0) {
@@ -1167,12 +1169,21 @@ onMounted(async () => {
                     </select>
                   </div>
                 </div>
+                <!-- Reason for Booking -->
+                <div class="flex flex-col gap-1 mt-5">
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Reason for Booking <span class="text-(--color-error)">*</span></label>
+                  <textarea v-model="ab.reasonForBooking" rows="2"
+                    placeholder="e.g. Annual conference, board meeting, employee training, product launch…"
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none transition-all resize-none border-2"
+                    :class="errors.reasonForBooking ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"></textarea>
+                  <span v-if="errors.reasonForBooking" class="font-sans text-xs text-(--color-error)">{{ errors.reasonForBooking }}</span>
+                </div>
               </div>
 
             </div>
           </section>
 
-                    <!-- ─── Approval Documents (corporate only) ─── -->
+          <!-- ─── Approval Documents (corporate only) ─── -->
           <section v-if="ab.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border overflow-hidden transition-colors"
             :class="errors.approvalDocs ? 'border-(--color-error)' : 'border-(--color-outline-variant)'">
             <div class="flex items-start gap-3 px-6 py-5 border-b border-(--color-outline-variant)">
@@ -1441,6 +1452,10 @@ onMounted(async () => {
                 </div>
                 <span v-if="r.rate" class="font-sans text-xs font-semibold text-(--color-primary)">K {{ Number(r.rate).toLocaleString() }}/night</span>
               </div>
+            </div>
+            <div v-if="ab.isCorporate && ab.reasonForBooking" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Reason for Booking</p>
+              <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.reasonForBooking }}</p>
             </div>
             <div v-if="ab.isCorporate" class="mt-3 p-3 rounded-lg bg-(--color-savannah-mist)">
               <p class="font-sans text-xs text-(--color-on-surface-variant)">Room assignments will be confirmed by the property team prior to arrival.</p>

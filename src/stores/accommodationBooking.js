@@ -45,9 +45,10 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
   const approverTitle = ref('')
 
   // Accommodation
-  const checkIn  = ref('')
-  const checkOut = ref('')
-  const notes    = ref('')
+  const checkIn          = ref('')
+  const checkOut         = ref('')
+  const notes            = ref('')
+  const reasonForBooking = ref('')
 
   // Individual: per-slot room assignments  { attendantIdx, roomId, roomName, roomType, rate }
   const attendantRooms = ref([])
@@ -186,9 +187,10 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
       } : null,
 
       accommodation: {
-        check_in:             checkIn.value           || null,
-        check_out:            checkOut.value          || null,
-        notes:                notes.value             || null,
+        check_in:             checkIn.value                                    || null,
+        check_out:            checkOut.value                                   || null,
+        notes:                notes.value                                      || null,
+        reason_for_booking:   isCorporate.value ? (reasonForBooking.value || null) : null,
         room_count:           isCorporate.value ? roomCount.value : null,
         room_type_preference: isCorporate.value ? (roomTypePreference.value || null) : null,
         rooms: !isCorporate.value
@@ -223,6 +225,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
     checkIn.value          = ''
     checkOut.value         = ''
     notes.value            = ''
+    reasonForBooking.value = ''
     roomCount.value        = 1
     roomTypePreference.value = ''
     companyName.value = ''; tpin.value = ''; industry.value = ''
@@ -239,7 +242,7 @@ export const useAccommodationBookingStore = defineStore('accommodationBooking', 
     companyName, tpin, industry, companyEmail, companyPhone,
     city, streetAddress, country, branchName, departmentName, costCenter, costCenterType, glCode,
     approverName, approverEmail, approverPhone, approverTitle,
-    checkIn, checkOut, notes,
+    checkIn, checkOut, notes, reasonForBooking,
     attendantRooms, roomCount, roomTypePreference,
     setLodge, fillFromAuth,
     addAttendant, removeAttendant, setLead,
