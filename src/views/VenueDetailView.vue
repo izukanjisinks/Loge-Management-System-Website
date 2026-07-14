@@ -178,7 +178,9 @@ function onBookingTypeConfirmed() {
     query:  {
       venueId:       venue.value.id,
       venueName:     venue.value.name,
-      venueCapacity: venue.value.capacity ?? undefined,
+      venueCapacity: venue.value.capacity  ?? undefined,
+      venueRateType: venue.value.rate_type ?? undefined,
+      venueBaseRate: venue.value.base_rate ?? undefined,
       startDate:     startDate.value || undefined,
       endDate:       endDate.value   || undefined,
     },

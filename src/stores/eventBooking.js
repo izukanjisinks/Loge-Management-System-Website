@@ -10,14 +10,16 @@ function blankAttendant(isLead = false) {
 function blankSession() {
   return {
     sessionName:         '',
-    eventType:           'conference',
+    eventType:           '',
     startTime:           '09:00',
     endTime:             '17:00',
     expectedAttendees:   10,
-    setupType:           'boardroom',
+    setupType:           '',
     venueId:             '',
     venueName:           '',
     venueCapacity:       null,
+    venueRateType:       null,
+    venueBaseRate:       null,
     pricingBasis:        'full_day',
     specialRequirements: '',
   }

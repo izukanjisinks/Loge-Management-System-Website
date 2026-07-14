@@ -14,10 +14,12 @@ function blankSessionTemplate() {
     endTime: '17:00',
     expectedAttendees: 10,
     setupType: 'boardroom',
-    venueId: '',
-    venueName: '',
+    venueId:       '',
+    venueName:     '',
     venueCapacity: null,
-    pricingBasis: 'full_day',
+    venueRateType: null,
+    venueBaseRate: null,
+    pricingBasis:  'full_day',
     specialRequirements: '',
   }
 }

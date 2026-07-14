@@ -131,15 +131,16 @@ function bookAgain() {
     },
     // Corporate company
     company: m.company ? {
-      name:     m.company.name         || '',
-      tpin:     m.company.tpin         || '',
-      email:    m.company.email        || '',
-      phone:    m.company.phone        || '',
-      industry: m.company.industry     || '',
-      branch:   m.company.branch_name  || '',
-      department: m.company.department_name || '',
-      costCenter: m.company.cost_center    || '',
-      glCode:     m.company.gl_code        || '',
+      name:           m.company.name             || '',
+      tpin:           m.company.tpin             || '',
+      email:          m.company.email            || '',
+      phone:          m.company.phone            || '',
+      industry:       m.company.industry         || '',
+      branch:         m.company.branch_name      || '',
+      department:     m.company.department_name  || '',
+      costCenter:     m.company.cost_center      || '',
+      costCenterType: m.company.cost_center_type || 'cost_center',
+      glCode:         m.company.gl_code          || '',
     } : null,
     // Corporate approver
     approver: m.approver ? {

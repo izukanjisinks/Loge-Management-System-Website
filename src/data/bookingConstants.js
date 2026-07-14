@@ -34,5 +34,4 @@ export const MEAL_PERIODS = [
 export const SERVICE_TYPES = [
   { value: 'buffet',           label: 'Buffet' },
   { value: 'individual_order', label: 'Individual Orders' },
-  { value: 'mixed',            label: 'Mixed (Buffet + Exceptions)' },
 ]

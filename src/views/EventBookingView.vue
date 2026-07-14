@@ -9,6 +9,9 @@ import { useRebookStore } from '@/stores/rebook'
 import { uploadBookingDocument } from '@/services/storage'
 import { EVENT_TYPES, SETUP_TYPES, PRICING_BASIS } from '@/data/bookingConstants'
 import api from '@/lib/api'
+import { PDFDownloadLink } from '@ceereals/vue-pdf'
+import EventBookingInvoiceDocument from '@/components/reservation/EventBookingInvoiceDocument.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const route       = useRoute()
 const router      = useRouter()
@@ -28,8 +31,32 @@ const loading     = ref(false)
 const today       = new Date().toISOString().slice(0, 10)
 const uploading   = ref(false)
 const success     = ref(false)
+
+// ── Confirm dialogs ────────────────────────────────────────────────────────
+const showBookingConfirm = ref(false)
+const showInvoiceConfirm = ref(false)
+const pendingPdfBlob     = ref(null)
+const pendingPdfName     = ref('')
+const invoiceSnapshot    = ref(null)
 const errors      = ref({})
 const submitError = ref('')
+
+function interceptPdfDownload(blob, fileName) {
+  if (!blob) return
+  pendingPdfBlob.value = blob
+  pendingPdfName.value = fileName
+  showInvoiceConfirm.value = true
+}
+function confirmPdfDownload() {
+  showInvoiceConfirm.value = false
+  if (!pendingPdfBlob.value) return
+  const url = URL.createObjectURL(pendingPdfBlob.value)
+  const a   = document.createElement('a')
+  a.href = url; a.download = pendingPdfName.value
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  pendingPdfBlob.value = null
+}
 
 // ── UI state ───────────────────────────────────────────────────────────────
 const attendantsExpanded = ref(false)
@@ -100,10 +127,20 @@ function toggleVenuePicker(key) {
   }
 }
 
+const RATE_TYPE_LABEL = { daily: 'Per Day', hourly: 'Per Hour', half_day: 'Half Day', per_person: 'Per Person' }
+const RATE_TYPE_BASIS = { daily: 'full_day', hourly: 'hourly', half_day: 'half_day' }
+
+function rateBasisLabel(rateType) {
+  return RATE_TYPE_LABEL[rateType] ?? (rateType ?? '').replace(/_/g, ' ')
+}
+
 function selectVenueForSession(session, venue) {
   session.venueId       = venue.id
   session.venueName     = venue.name
-  session.venueCapacity = venue.capacity ?? null
+  session.venueCapacity = venue.capacity   ?? null
+  session.venueRateType = venue.rate_type  ?? null
+  session.venueBaseRate = venue.base_rate  ?? null
+  if (venue.rate_type) session.pricingBasis = RATE_TYPE_BASIS[venue.rate_type] ?? 'full_day'
   expandedVenueKey.value = null
 }
 
@@ -111,6 +148,8 @@ function clearVenueFromSession(session) {
   session.venueId       = ''
   session.venueName     = ''
   session.venueCapacity = null
+  session.venueRateType = null
+  session.venueBaseRate = null
 }
 
 watch(
@@ -181,6 +220,110 @@ const sessionsByDay = computed(() => {
   return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
 })
 
+// Cost estimate from master sessions with venue rates × active days
+const eventCostEstimate = computed(() => {
+  const activeDays = dayRange.value.filter(d => {
+    const ov = eb.dayOverrides[d]
+    return !ov || !ov.excluded
+  }).length
+  if (!activeDays) return null
+  let total = 0
+  let hasCost = false
+  for (const s of eb.masterSessions) {
+    if (!s.venueBaseRate) continue
+    hasCost = true
+    const rate = Number(s.venueBaseRate)
+    if (s.venueRateType === 'per_person') {
+      total += rate * (s.expectedAttendees || 1) * activeDays
+    } else if (s.venueRateType === 'hourly') {
+      const mins = s.startTime && s.endTime ? timeToMin(s.endTime) - timeToMin(s.startTime) : 60
+      total += rate * Math.max(0, mins / 60) * activeDays
+    } else {
+      total += rate * activeDays
+    }
+  }
+  return hasCost ? total : null
+})
+
+function buildEventInvoiceSnapshot() {
+  const activeDays = dayRange.value.filter(d => {
+    const ov = eb.dayOverrides[d]
+    return !ov || !ov.excluded
+  }).length
+  const nameParts = (eb.bookedBy.name || '').trim().split(' ')
+
+  const sessions = eb.masterSessions.map(s => {
+    const rate = s.venueBaseRate ? Number(s.venueBaseRate) : null
+    let cost = null
+    let rateDesc = ''
+    if (rate) {
+      if (s.venueRateType === 'per_person') {
+        cost = rate * (s.expectedAttendees || 1) * activeDays
+        rateDesc = `K${rate.toLocaleString()} × ${s.expectedAttendees || 1} pax × ${activeDays} day${activeDays !== 1 ? 's' : ''}`
+      } else if (s.venueRateType === 'hourly') {
+        const mins = s.startTime && s.endTime ? timeToMin(s.endTime) - timeToMin(s.startTime) : 60
+        const hours = Math.max(0, mins / 60)
+        cost = rate * hours * activeDays
+        rateDesc = `K${rate.toLocaleString()} × ${hours}h × ${activeDays} day${activeDays !== 1 ? 's' : ''}`
+      } else {
+        cost = rate * activeDays
+        rateDesc = `K${rate.toLocaleString()} × ${activeDays} day${activeDays !== 1 ? 's' : ''}`
+      }
+    }
+    return {
+      name:      s.sessionName || EVENT_TYPES.find(t => t.value === s.eventType)?.label || 'Session',
+      eventType: EVENT_TYPES.find(t => t.value === s.eventType)?.label || s.eventType || '',
+      setupType: SETUP_TYPES.find(st => st.value === s.setupType)?.label || s.setupType || '',
+      startTime: s.startTime,
+      endTime:   s.endTime,
+      venueName: s.venueName || null,
+      rateDesc,
+      cost,
+    }
+  })
+
+  const baseTotal  = sessions.reduce((sum, s) => sum + (s.cost ?? 0), 0)
+  const taxes      = Math.round(baseTotal * 0.16 * 100) / 100
+  const grandTotal = baseTotal + taxes
+
+  return {
+    bookingType:      eb.isCorporate ? 'corporate' : 'individual',
+    isEstimate:       true,
+    lodgeName:        lodge.value?.name ?? '',
+    lodgeAddress:     lodge.value?.address ?? '',
+    lodgeEmail:       lodge.value?.email ?? '',
+    lodgePhone:       lodge.value?.phone ?? '',
+    startDate:        eb.startDate,
+    endDate:          eb.endDate,
+    totalDays:        dayRange.value.length,
+    activeDays,
+    totalSessions:    confirmedSessions.value.length,
+    participantCount: eb.participantMode === 'detailed' ? eb.attendants.length : (eb.participantCount || 0),
+    reasonForBooking: eb.reasonForBooking || '',
+    sessions,
+    baseTotal,
+    taxes,
+    grandTotal,
+    specialRequests:  eb.notes,
+    guestInfo: {
+      firstName: nameParts[0] ?? '',
+      lastName:  nameParts.slice(1).join(' ') ?? '',
+      email:     eb.bookedBy.email ?? '',
+      phone:     eb.bookedBy.phone ?? '',
+    },
+    corporateClient: {
+      companyName:    eb.companyName ?? '',
+      contactPerson:  eb.approverName ?? '',
+      email:          eb.companyEmail ?? '',
+      phone:          eb.companyPhone ?? '',
+      tpin:           eb.tpin ?? '',
+      costCenter:     eb.costCenter ?? '',
+      costCenterType: eb.costCenterType ?? '',
+      glCode:         eb.glCode ?? '',
+    },
+  }
+}
+
 function fmtDayLabel(iso) {
   return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
@@ -246,6 +389,23 @@ watch(() => eb.departmentName,     v => { if (v) delete errors.value.departmentN
 watch(() => eb.costCenter,         v => { if (v) delete errors.value.costCenter })
 watch(() => eb.glCode,             v => { if (v) delete errors.value.glCode })
 watch(approvalDocs,                v => { if (v.length) delete errors.value.approvalDocs }, { deep: true })
+watch(() => eb.reasonForBooking,   v => { if (v) delete errors.value.reasonForBooking })
+watch(() => eb.participantCount,   v => { if (v >= 1) delete errors.value.participantCount })
+watch(() => eb.masterSessions, sessions => {
+  sessions.forEach((s, i) => {
+    if (s.sessionName) delete errors.value[`ms_${i}_name`]
+    if (s.eventType)   delete errors.value[`ms_${i}_eventType`]
+    if (s.setupType)   delete errors.value[`ms_${i}_setupType`]
+  })
+}, { deep: true })
+watch(() => eb.dayOverrides, overrides => {
+  Object.entries(overrides).forEach(([date, ov]) => {
+    ;(ov.sessions ?? []).forEach((s, si) => {
+      if (s.eventType) delete errors.value[`ov_${date}_${si}_eventType`]
+      if (s.setupType) delete errors.value[`ov_${date}_${si}_setupType`]
+    })
+  })
+}, { deep: true })
 watch(() => eb.attendants, () => {
   for (const key of Object.keys(errors.value)) {
     if (!key.startsWith('att_')) continue
@@ -299,6 +459,12 @@ function validate() {
     }
   }
 
+  if (!eb.reasonForBooking) e.reasonForBooking = 'Required'
+
+  if (eb.participantMode === 'headcount' && !(eb.participantCount >= 1)) {
+    e.participantCount = 'Required'
+  }
+
   if (eb.participantMode === 'detailed') {
     eb.attendants.forEach((a, i) => {
       if (!a.fullName) e[`att_${i}_name`] = 'Required'
@@ -312,15 +478,20 @@ function validate() {
   }
 
   eb.masterSessions.forEach((s, i) => {
-    if (!s.startTime) e[`ms_${i}_start`] = 'Required'
-    if (!s.endTime)   e[`ms_${i}_end`]   = 'Required'
+    if (!s.sessionName) e[`ms_${i}_name`]      = 'Required'
+    if (!s.eventType)   e[`ms_${i}_eventType`] = 'Required'
+    if (!s.setupType)   e[`ms_${i}_setupType`] = 'Required'
+    if (!s.startTime)   e[`ms_${i}_start`]     = 'Required'
+    if (!s.endTime)     e[`ms_${i}_end`]       = 'Required'
   })
 
   Object.entries(eb.dayOverrides).forEach(([date, ov]) => {
     if (ov.excluded) return
     ov.sessions.forEach((s, si) => {
-      if (!s.startTime) e[`ov_${date}_${si}_start`] = 'Required'
-      if (!s.endTime)   e[`ov_${date}_${si}_end`]   = 'Required'
+      if (!s.eventType) e[`ov_${date}_${si}_eventType`] = 'Required'
+      if (!s.setupType) e[`ov_${date}_${si}_setupType`] = 'Required'
+      if (!s.startTime) e[`ov_${date}_${si}_start`]     = 'Required'
+      if (!s.endTime)   e[`ov_${date}_${si}_end`]       = 'Required'
     })
   })
 
@@ -396,6 +567,7 @@ async function goToReview() {
     else window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
+  invoiceSnapshot.value = buildEventInvoiceSnapshot()
   step.value = 2
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -465,10 +637,16 @@ onMounted(async () => {
     if (rd.event?.endDate)          eb.endDate          = rd.event.endDate
     if (rd.event?.reasonForBooking) eb.reasonForBooking = rd.event.reasonForBooking
     if (rd.company) {
-      eb.companyName  = rd.company.name  || ''
-      eb.tpin         = rd.company.tpin  || ''
-      eb.companyEmail = rd.company.email || ''
-      eb.companyPhone = rd.company.phone || ''
+      eb.companyName    = rd.company.name           || ''
+      eb.tpin           = rd.company.tpin           || ''
+      eb.companyEmail   = rd.company.email          || ''
+      eb.companyPhone   = rd.company.phone          || ''
+      eb.industry       = rd.company.industry       || ''
+      eb.branchName     = rd.company.branch         || ''
+      eb.departmentName = rd.company.department     || ''
+      eb.costCenter     = rd.company.costCenter     || ''
+      eb.costCenterType = rd.company.costCenterType || 'cost_center'
+      eb.glCode         = rd.company.glCode         || ''
     }
     if (rd.approver) {
       eb.approverName  = rd.approver.name  || ''
@@ -498,8 +676,11 @@ onMounted(async () => {
     const s = eb.masterSessions[0]
     if (!s.venueId) {
       s.venueId       = q.venueId
-      s.venueName     = q.venueName || ''
+      s.venueName     = q.venueName     || ''
       s.venueCapacity = q.venueCapacity ? Number(q.venueCapacity) : null
+      s.venueRateType = q.venueRateType || null
+      s.venueBaseRate = q.venueBaseRate ? Number(q.venueBaseRate) : null
+      if (q.venueRateType) s.pricingBasis = RATE_TYPE_BASIS[q.venueRateType] ?? 'full_day'
     }
   }
   if (q.startDate && !eb.startDate) eb.startDate = q.startDate
@@ -905,14 +1086,18 @@ onMounted(async () => {
                 <div class="flex items-center gap-3 mt-2">
                   <input type="number" min="1" v-model.number="eb.participantCount"
                     :disabled="eb.participantMode === 'detailed'"
-                    class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 border-transparent text-center transition-colors focus:outline-none"
+                    class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 text-center transition-colors focus:outline-none"
                     :class="eb.participantMode === 'detailed'
-                      ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
-                      : 'bg-(--color-savannah-mist) text-(--color-on-surface) focus:border-(--color-primary)'" />
+                      ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed border-transparent'
+                      : errors.participantCount
+                        ? 'bg-(--color-savannah-mist) text-(--color-on-surface) border-(--color-error)'
+                        : 'bg-(--color-savannah-mist) text-(--color-on-surface) border-transparent focus:border-(--color-primary)'" />
                   <p v-if="eb.participantMode === 'detailed'" class="font-sans text-xs text-(--color-on-surface-variant)">Set to number of attendees</p>
+                  <p v-else-if="errors.participantCount" class="font-sans text-xs text-(--color-error)">{{ errors.participantCount }}</p>
                 </div>
               </div>
               <div v-if="eb.participantMode === 'detailed'" class="space-y-3">
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each attendee. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in eb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -1042,16 +1227,23 @@ onMounted(async () => {
               </div>
 
               <!-- Headcount -->
-              <div class="flex items-center gap-4">
-                <input type="number" min="1" v-model.number="eb.participantCount"
-                  :disabled="eb.participantMode === 'detailed'"
-                  class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 border-transparent text-center transition-colors focus:outline-none"
-                  :class="eb.participantMode === 'detailed'
-                    ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed'
-                    : 'bg-(--color-savannah-mist) text-(--color-on-surface) focus:border-(--color-primary)'" />
-                <p class="font-sans text-sm text-(--color-on-surface-variant)">
-                  {{ eb.participantMode === 'detailed' ? 'Set to number of registered delegates' : 'Total delegates attending across all sessions' }}
-                </p>
+              <div>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">
+                  Total Delegates <span v-if="eb.participantMode === 'headcount'" class="text-(--color-error)">*</span>
+                </label>
+                <div class="flex items-center gap-4 mt-2">
+                  <input type="number" min="1" v-model.number="eb.participantCount"
+                    :disabled="eb.participantMode === 'detailed'"
+                    class="w-28 rounded-lg px-3 py-3 font-sans text-sm border-2 text-center transition-colors focus:outline-none"
+                    :class="eb.participantMode === 'detailed'
+                      ? 'bg-(--color-surface-container) text-(--color-on-surface-variant) opacity-60 cursor-not-allowed border-transparent'
+                      : errors.participantCount
+                        ? 'bg-(--color-savannah-mist) text-(--color-on-surface) border-(--color-error)'
+                        : 'bg-(--color-savannah-mist) text-(--color-on-surface) border-transparent focus:border-(--color-primary)'" />
+                  <p v-if="eb.participantMode === 'detailed'" class="font-sans text-sm text-(--color-on-surface-variant)">Set to number of registered delegates</p>
+                  <p v-else-if="errors.participantCount" class="font-sans text-xs text-(--color-error)">{{ errors.participantCount }}</p>
+                  <p v-else class="font-sans text-sm text-(--color-on-surface-variant)">Total delegates attending across all sessions</p>
+                </div>
               </div>
 
               <!-- Detailed -->
@@ -1143,10 +1335,12 @@ onMounted(async () => {
 
               <!-- Reason -->
               <div class="flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Reason for Booking</label>
+                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Reason for Booking <span class="text-(--color-error)">*</span></label>
                 <textarea v-model="eb.reasonForBooking" rows="2"
                   placeholder="e.g. Annual strategy conference, product launch, board meeting, team retreat…"
-                  class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all resize-none"></textarea>
+                  class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-on-surface-variant) focus:outline-none transition-all resize-none border-2"
+                  :class="errors.reasonForBooking ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'"></textarea>
+                <span v-if="errors.reasonForBooking" class="font-sans text-xs text-(--color-error)">{{ errors.reasonForBooking }}</span>
               </div>
 
               <!-- Date range -->
@@ -1260,16 +1454,22 @@ onMounted(async () => {
                   <div class="p-4 bg-(--color-surface-container-low) space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div class="flex flex-col gap-1 md:col-span-2">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Session Name <span class="text-(--color-error)">*</span></label>
                         <input v-model="session.sessionName" type="text" placeholder="e.g. Plenary, Workshop A, Closing Ceremony"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                          :class="errors[`ms_${i}_name`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                        <span v-if="errors[`ms_${i}_name`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_name`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Type</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Type <span class="text-(--color-error)">*</span></label>
                         <select v-model="session.eventType"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm border-2 focus:outline-none transition-colors cursor-pointer"
+                          :class="errors[`ms_${i}_eventType`] ? 'border-(--color-error) text-(--color-on-surface)' : 'border-transparent focus:border-(--color-primary) text-(--color-on-surface)'"
+                          :style="!session.eventType ? 'color: var(--color-on-surface-variant)' : ''">
+                          <option value="" disabled>Select type…</option>
                           <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                         </select>
+                        <span v-if="errors[`ms_${i}_eventType`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_eventType`] }}</span>
                       </div>
                       <!-- Venue picker -->
                       <div class="flex flex-col gap-1 md:col-span-2">
@@ -1341,7 +1541,10 @@ onMounted(async () => {
                                     <span class="flex items-center gap-1 font-sans text-xs text-(--color-on-surface-variant)">
                                       <span class="material-symbols-outlined text-sm">group</span>Cap. {{ venue.capacity }}
                                     </span>
-                                    <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ (venue.type ?? '').replace(/_/g, ' ') }}</span>
+                                    <span class="px-1.5 py-0.5 rounded-full bg-(--color-surface-container) font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ (venue.venue_type ?? venue.type ?? '').replace(/_/g, ' ') }}</span>
+                                    <span v-if="venue.base_rate" class="flex items-center gap-0.5 font-sans text-xs font-semibold text-(--color-primary)">
+                                      <span class="material-symbols-outlined text-sm">sell</span>K {{ Number(venue.base_rate).toLocaleString() }} / {{ rateBasisLabel(venue.rate_type) }}
+                                    </span>
                                   </div>
                                 </div>
                               </button>
@@ -1364,18 +1567,25 @@ onMounted(async () => {
                         <span v-if="errors[`ms_${i}_end`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_end`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup</label>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup <span class="text-(--color-error)">*</span></label>
                         <select v-model="session.setupType"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm border-2 focus:outline-none transition-colors cursor-pointer"
+                          :class="errors[`ms_${i}_setupType`] ? 'border-(--color-error) text-(--color-on-surface)' : 'border-transparent focus:border-(--color-primary) text-(--color-on-surface)'"
+                          :style="!session.setupType ? 'color: var(--color-on-surface-variant)' : ''">
+                          <option value="" disabled>Select setup…</option>
                           <option v-for="s in SETUP_TYPES" :key="s.value" :value="s.value">{{ s.label }}</option>
                         </select>
+                        <span v-if="errors[`ms_${i}_setupType`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ms_${i}_setupType`] }}</span>
                       </div>
                       <div class="flex flex-col gap-1">
-                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Pricing Basis</label>
-                        <select v-model="session.pricingBasis"
-                          class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
-                          <option v-for="p in PRICING_BASIS" :key="p.value" :value="p.value">{{ p.label }}</option>
-                        </select>
+                        <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Rate Basis</label>
+                        <div class="flex items-center gap-2 bg-(--color-savannah-mist) rounded-lg px-3 py-2.5">
+                          <span class="material-symbols-outlined text-sm text-(--color-primary)">sell</span>
+                          <span class="font-sans text-sm font-semibold text-(--color-on-surface)">
+                            {{ session.venueRateType ? rateBasisLabel(session.venueRateType) : (PRICING_BASIS.find(p => p.value === session.pricingBasis)?.label ?? 'Full Day') }}
+                          </span>
+                          <span v-if="session.venueBaseRate" class="font-sans text-xs text-(--color-on-surface-variant)">· K {{ Number(session.venueBaseRate).toLocaleString() }}</span>
+                        </div>
                       </div>
                       <div class="flex flex-col gap-1 md:col-span-2">
                         <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Special Requirements</label>
@@ -1478,11 +1688,15 @@ onMounted(async () => {
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
                             </div>
                             <div class="flex flex-col gap-1">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Type</label>
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Event Type <span class="text-(--color-error)">*</span></label>
                               <select v-model="s.eventType"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm border-2 focus:outline-none transition-colors cursor-pointer"
+                                :class="errors[`ov_${date}_${si}_eventType`] ? 'border-(--color-error) text-(--color-on-surface)' : 'border-transparent focus:border-(--color-primary) text-(--color-on-surface)'"
+                                :style="!s.eventType ? 'color: var(--color-on-surface-variant)' : ''">
+                                <option value="" disabled>Select type…</option>
                                 <option v-for="t in EVENT_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
                               </select>
+                              <span v-if="errors[`ov_${date}_${si}_eventType`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${si}_eventType`] }}</span>
                             </div>
                             <!-- Venue picker (override) -->
                             <div class="flex flex-col gap-1 md:col-span-2">
@@ -1549,11 +1763,15 @@ onMounted(async () => {
                               <span v-if="errors[`ov_${date}_${si}_end`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${si}_end`] }}</span>
                             </div>
                             <div class="flex flex-col gap-1">
-                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup</label>
+                              <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Setup <span class="text-(--color-error)">*</span></label>
                               <select v-model="s.setupType"
-                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors cursor-pointer">
+                                class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm border-2 focus:outline-none transition-colors cursor-pointer"
+                                :class="errors[`ov_${date}_${si}_setupType`] ? 'border-(--color-error) text-(--color-on-surface)' : 'border-transparent focus:border-(--color-primary) text-(--color-on-surface)'"
+                                :style="!s.setupType ? 'color: var(--color-on-surface-variant)' : ''">
+                                <option value="" disabled>Select setup…</option>
                                 <option v-for="st in SETUP_TYPES" :key="st.value" :value="st.value">{{ st.label }}</option>
                               </select>
+                              <span v-if="errors[`ov_${date}_${si}_setupType`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${si}_setupType`] }}</span>
                             </div>
                           </div>
                         </div>
@@ -1688,16 +1906,18 @@ onMounted(async () => {
 
           <!-- Booked By -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
-            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booking Contact</p>
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booked By</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.bookedBy.name || '—' }}</p></div>
               <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.email || '—' }}</p></div>
               <div><p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.phone || '—' }}</p></div>
+              <div v-if="eb.isCorporate && eb.bookedBy.jobTitle"><p class="font-sans text-xs text-(--color-on-surface-variant)">Job Title</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.jobTitle }}</p></div>
+              <div v-if="eb.isCorporate && eb.bookedBy.manNumber"><p class="font-sans text-xs text-(--color-on-surface-variant)">Man Number</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.bookedBy.manNumber }}</p></div>
               <div>
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ eb.isCorporate ? 'Delegates' : 'Attendees' }}</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">
                   {{ eb.participantMode === 'headcount'
-                    ? eb.participantCount + ' attendee' + (eb.participantCount !== 1 ? 's' : '')
+                    ? eb.participantCount + (eb.isCorporate ? ' delegate' : ' attendee') + (eb.participantCount !== 1 ? 's' : '')
                     : eb.attendants.length + ' registered' }}
                 </p>
               </div>
@@ -1708,15 +1928,44 @@ onMounted(async () => {
           <section v-if="eb.isCorporate" class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
             <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Company</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
-              <div class="sm:col-span-2"><p class="font-sans text-xs text-(--color-on-surface-variant)">Company Name</p><p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.companyName || '—' }}</p></div>
+              <div class="sm:col-span-2">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Company Name</p>
+                <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.companyName || '—' }}</p>
+              </div>
+              <div v-if="eb.tpin"><p class="font-sans text-xs text-(--color-on-surface-variant)">TPIN</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.tpin }}</p></div>
+              <div v-if="eb.industry"><p class="font-sans text-xs text-(--color-on-surface-variant)">Industry</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.industry }}</p></div>
+              <div v-if="eb.companyEmail"><p class="font-sans text-xs text-(--color-on-surface-variant)">Billing Email</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.companyEmail }}</p></div>
+              <div v-if="eb.companyPhone"><p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.companyPhone }}</p></div>
+              <div v-if="eb.branchName"><p class="font-sans text-xs text-(--color-on-surface-variant)">Branch</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.branchName }}</p></div>
               <div v-if="eb.departmentName"><p class="font-sans text-xs text-(--color-on-surface-variant)">Department</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.departmentName }}</p></div>
-              <div v-if="eb.costCenter"><p class="font-sans text-xs text-(--color-on-surface-variant)">Cost Centre</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.costCenter }}</p></div>
+              <div v-if="eb.costCenter">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ eb.costCenterType === 'internal_order' ? 'Internal Order No.' : 'Cost Centre' }}</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.costCenter }}</p>
+              </div>
+              <div v-if="eb.glCode"><p class="font-sans text-xs text-(--color-on-surface-variant)">GL Code</p><p class="font-sans text-sm text-(--color-on-surface)">{{ eb.glCode }}</p></div>
             </div>
-            <div v-if="eb.approverName" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
-              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Approver</p>
-              <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.approverName }}
-                <span v-if="eb.approverTitle" class="font-sans text-xs font-normal text-(--color-on-surface-variant)"> · {{ eb.approverTitle }}</span>
-              </p>
+
+            <!-- Approver -->
+            <div v-if="eb.approverName" class="mt-5 pt-5 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Approver</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+                <div>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.approverName }}</p>
+                </div>
+                <div v-if="eb.approverTitle">
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Job Title</p>
+                  <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.approverTitle }}</p>
+                </div>
+                <div v-if="eb.approverEmail">
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p>
+                  <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.approverEmail }}</p>
+                </div>
+                <div v-if="eb.approverPhone">
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                  <p class="font-sans text-sm text-(--color-on-surface)">{{ eb.approverPhone }}</p>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -1790,13 +2039,31 @@ onMounted(async () => {
               class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
               Edit Details
             </button>
-            <button type="button" @click="handleSubmit" :disabled="loading"
+            <button type="button" @click="showBookingConfirm = true" :disabled="loading"
               class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
               <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span v-else class="material-symbols-outlined text-base">check</span>
               {{ uploading ? 'Uploading documents…' : loading ? 'Submitting…' : 'Confirm Booking' }}
             </button>
           </div>
+
+          <!-- Proforma PDF download -->
+          <PDFDownloadLink v-if="invoiceSnapshot"
+            :file-name="`event-proforma-${(lodge?.name ?? 'booking').replace(/\s+/g, '-')}.pdf`">
+            <template #default>
+              <EventBookingInvoiceDocument :booking="invoiceSnapshot" />
+            </template>
+            <template #label="{ blob }">
+              <button type="button"
+                @click.prevent.stop="interceptPdfDownload(blob, `event-proforma-${(lodge?.name ?? 'booking').replace(/\s+/g, '-')}.pdf`)"
+                class="w-full h-12 flex items-center justify-center gap-2 border border-(--color-primary) text-(--color-primary) rounded-lg font-sans text-sm font-semibold hover:bg-(--color-savannah-mist) transition-all">
+                <span class="material-symbols-outlined text-base" :class="!blob ? 'animate-spin' : ''">
+                  {{ !blob ? 'progress_activity' : 'download' }}
+                </span>
+                {{ !blob ? 'Generating…' : 'Download Proforma Invoice' }}
+              </button>
+            </template>
+          </PDFDownloadLink>
 
         </template>
       </div>
@@ -1855,13 +2122,55 @@ onMounted(async () => {
             <span class="font-sans text-xs text-(--color-on-surface-variant)">{{ eb.isCorporate ? 'Delegates' : 'Attendees' }}</span>
             <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ eb.participantCount }}</span>
           </div>
-          <div class="mt-3 pt-3 border-t border-(--color-outline-variant) flex justify-between items-center">
-            <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
-            <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
+          <div class="mt-3 pt-3 border-t border-(--color-outline-variant) space-y-1.5">
+            <template v-if="eventCostEstimate !== null">
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Subtotal</span>
+                <span class="font-sans text-sm font-semibold text-(--color-primary)">K {{ eventCostEstimate.toLocaleString() }}</span>
+              </div>
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">+ VAT (16%)</span>
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">K {{ Math.round(eventCostEstimate * 0.16).toLocaleString() }}</span>
+              </div>
+              <div class="flex items-baseline justify-between gap-2 pt-1.5 border-t border-(--color-outline-variant)">
+                <span class="font-sans text-xs font-semibold text-(--color-on-surface)">Est. Total</span>
+                <span class="font-sans text-sm font-semibold text-(--color-primary)">K {{ Math.round(eventCostEstimate * 1.16).toLocaleString() }}</span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="flex justify-between items-center">
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
+                <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Select a venue to estimate</span>
+              </div>
+            </template>
           </div>
         </div>
       </aside>
 
     </div>
   </div>
+
+  <!-- Confirm booking dialog -->
+  <ConfirmDialog
+    :open="showBookingConfirm"
+    title="Confirm Booking"
+    message="Please confirm that all event and session details are correct before submitting. Once submitted, the property team will be in touch to finalise your event."
+    confirm-label="Submit Booking"
+    icon="event"
+    @confirm="showBookingConfirm = false; handleSubmit()"
+    @cancel="showBookingConfirm = false"
+  />
+
+  <!-- Invoice download confirm dialog -->
+  <ConfirmDialog
+    :open="showInvoiceConfirm"
+    title="Download Proforma Invoice"
+    message="This is a cost estimate based on the details provided. Final pricing will be confirmed by the property team after your booking is submitted."
+    confirm-label="Download PDF"
+    cancel-label="Cancel"
+    icon="receipt_long"
+    @confirm="confirmPdfDownload"
+    @cancel="showInvoiceConfirm = false; pendingPdfBlob = null"
+  />
+
 </template>

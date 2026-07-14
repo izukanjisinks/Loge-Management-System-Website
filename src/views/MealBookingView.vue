@@ -7,6 +7,10 @@ import { useMealBookingStore } from '@/stores/mealBooking'
 import { useRebookStore } from '@/stores/rebook'
 import { uploadBookingDocument } from '@/services/storage'
 import { MEAL_PERIODS, SERVICE_TYPES } from '@/data/bookingConstants'
+import { flattenMeals } from '@/stores/corporateBooking'
+import { PDFDownloadLink } from '@ceereals/vue-pdf'
+import MealBookingInvoiceDocument from '@/components/reservation/MealBookingInvoiceDocument.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import api from '@/lib/api'
 
 const route       = useRoute()
@@ -29,6 +33,29 @@ const loading     = ref(false)
 const uploading   = ref(false)
 const success     = ref(false)
 const errors      = ref({})
+
+// ── Confirm dialogs ────────────────────────────────────────────────────────
+const showBookingConfirm = ref(false)
+const showInvoiceConfirm = ref(false)
+const pendingPdfBlob     = ref(null)
+const pendingPdfName     = ref('')
+
+function interceptPdfDownload(blob, fileName) {
+  if (!blob) return
+  pendingPdfBlob.value = blob
+  pendingPdfName.value = fileName
+  showInvoiceConfirm.value = true
+}
+function confirmPdfDownload() {
+  showInvoiceConfirm.value = false
+  if (!pendingPdfBlob.value) return
+  const url = URL.createObjectURL(pendingPdfBlob.value)
+  const a   = document.createElement('a')
+  a.href = url; a.download = pendingPdfName.value
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  pendingPdfBlob.value = null
+}
 const submitError = ref('')
 
 // ── UI state ───────────────────────────────────────────────────────────────
@@ -201,6 +228,21 @@ function menuItemLabel(mi) {
     ? `${mi.name} — Unavailable`
     : `${mi.name} — K ${mi.price}`
 }
+
+function buffetMeetsMinCovers(mi) {
+  const min = mi.buffet_data?.min_covers ?? 0
+  return min === 0 || dinerCount.value >= min
+}
+
+function buffetOptionLabel(mi) {
+  if (mi.is_available === false) return `${mi.name} — Unavailable`
+  const min = mi.buffet_data?.min_covers ?? 0
+  if (min > 0 && dinerCount.value < min) return `${mi.name} — Min. ${min} covers required`
+  return min > 0
+    ? `${mi.name} — K ${mi.price} · min. ${min} covers`
+    : `${mi.name} — K ${mi.price}`
+}
+
 function addOrderItem(session, attendantIdx) {
   session.individualOrders.push({ attendantIdx, menuItemId: '', quantity: 1, notes: '' })
 }
@@ -227,6 +269,129 @@ function attendantsWithOrders(meal) {
     attendant: orderAttendants.value[idx],
     orders:    (meal.individualOrders ?? []).filter(o => o.attendantIdx === idx && o.menuItemId),
   }))
+}
+
+// ── Invoice snapshot ────────────────────────────────────────────────────────
+const invoiceSnapshot = ref(null)
+
+function individualOrderSessionCost(m) {
+  return (m.individualOrders || []).reduce((sum, o) => {
+    if (!o.menuItemId) return sum
+    const mi = menuItems.value.find(mi => mi.id === o.menuItemId)
+    return sum + (mi?.price ?? 0) * (o.quantity || 1)
+  }, 0)
+}
+
+const mealCostEstimate = computed(() => {
+  if (!dayRange.value.length) return null
+  let total = 0
+  let hasKnownCost = false
+  for (const m of mb.masterMeals) {
+    if (m.serviceType === 'buffet' && m.buffetItemId) {
+      const buffet = buffetMenuItems.value.find(b => b.id === m.buffetItemId)
+      if (buffet?.price) {
+        hasKnownCost = true
+        total += buffet.price * (m.paxCount || dinerCount.value) * dayRange.value.length
+      }
+    } else if (m.serviceType === 'individual_order' || m.serviceType === 'mixed') {
+      const cost = individualOrderSessionCost(m)
+      if (cost > 0) { hasKnownCost = true; total += cost * dayRange.value.length }
+    }
+  }
+  return hasKnownCost ? total : null
+})
+
+function buildMealInvoiceSnapshot() {
+  const nameParts  = (mb.bookedBy.name || '').trim().split(' ')
+  const allSessions = flattenMeals({
+    masterMeals:   mb.masterMeals,
+    mealOverrides: mb.mealOverrides,
+    mealMode:      'standalone',
+    startDate:     mb.startDate,
+    endDate:       mb.endDate,
+  }, null)
+
+  const sessions = allSessions.map(m => {
+    const buffet    = m.serviceType === 'buffet' ? buffetMenuItems.value.find(b => b.id === m.buffetItemId) : null
+    const unitPrice = buffet?.price ?? 0
+    const paxCount  = m.paxCount || dinerCount.value
+
+    let attendantOrders = []
+    let subtotal = null
+
+    if (m.serviceType === 'buffet' && unitPrice) {
+      subtotal = unitPrice * paxCount
+    } else if ((m.serviceType === 'individual_order' || m.serviceType === 'mixed') && m.individualOrders?.length) {
+      const indices = [...new Set(
+        m.individualOrders.filter(o => o.menuItemId).map(o => o.attendantIdx)
+      )].sort((a, b) => a - b)
+      attendantOrders = indices.map(idx => {
+        const att = orderAttendants.value[idx]
+        const orders = m.individualOrders
+          .filter(o => o.attendantIdx === idx && o.menuItemId)
+          .map(o => {
+            const mi = menuItems.value.find(mi => mi.id === o.menuItemId)
+            return { name: mi?.name || o.menuItemId, quantity: o.quantity || 1, price: mi?.price ?? 0, subtotal: (mi?.price ?? 0) * (o.quantity || 1) }
+          })
+        return { name: att?.fullName || `Diner ${idx + 1}`, idNumber: att?.idNumber || '', orders, subtotal: orders.reduce((s, o) => s + o.subtotal, 0) }
+      })
+      const orderTotal = attendantOrders.reduce((s, a) => s + a.subtotal, 0)
+      if (orderTotal > 0) subtotal = orderTotal
+    }
+
+    return {
+      date:           m.mealDate    || null,
+      sessionName:    m.sessionName || '',
+      mealPeriod:     m.mealPeriod  || '',
+      serviceType:    m.serviceType || '',
+      buffetName:     buffet?.name  ?? '',
+      unitPrice,
+      paxCount,
+      attendantOrders,
+      subtotal,
+    }
+  })
+
+  const baseTotal  = sessions.reduce((s, r) => s + (r.subtotal ?? 0), 0)
+  const taxes      = Math.round(baseTotal * 0.16 * 100) / 100
+  const grandTotal = baseTotal + taxes
+
+  return {
+    bookingType:      mb.isCorporate ? 'corporate' : 'individual',
+    lodgeName:        lodge.value?.name    ?? '',
+    lodgeAddress:     lodge.value?.address ?? '',
+    lodgeEmail:       lodge.value?.email   ?? '',
+    lodgePhone:       lodge.value?.phone   ?? '',
+    startDate:        mb.startDate,
+    endDate:          mb.endDate,
+    dayCount:         dayRange.value.length,
+    dinerCount:       dinerCount.value,
+    reasonForBooking: mb.reasonForBooking,
+    sessions,
+    baseTotal,
+    taxes,
+    grandTotal,
+    specialRequests:  mb.notes,
+    guestInfo: {
+      firstName: nameParts[0]              ?? '',
+      lastName:  nameParts.slice(1).join(' ') ?? '',
+      email:     mb.bookedBy.email         ?? '',
+      phone:     mb.bookedBy.phone         ?? '',
+    },
+    corporateClient: mb.isCorporate ? {
+      companyName:    mb.companyName    ?? '',
+      contactPerson:  mb.approverName   ?? '',
+      email:          mb.companyEmail   ?? '',
+      phone:          mb.companyPhone   ?? '',
+      tpin:           mb.tpin           ?? '',
+      costCenter:     mb.costCenter     ?? '',
+      costCenterType: mb.costCenterType ?? 'cost_center',
+      glCode:         mb.glCode         ?? '',
+    } : null,
+    corporateGuests: mb.participantMode === 'detailed'
+      ? mb.attendants.map(a => ({ fullName: a.fullName, email: a.email, idNumber: a.idNumber }))
+      : [],
+  }
 }
 
 // ── Live validation clearing ─────────────────────────────────────────────────
@@ -315,8 +480,14 @@ function validate() {
       if (!meal.servingTime) e[`${pfx}_${i}_time`]   = 'Required'
       if (!meal.mealPeriod)  e[`${pfx}_${i}_period`] = 'Required'
       if (!meal.serviceType) e[`${pfx}_${i}_style`]  = 'Required'
-      if (meal.serviceType === 'buffet' && !meal.buffetItemId)
+      if (meal.serviceType === 'buffet' && !meal.buffetItemId) {
         e[`${pfx}_${i}_buffet`] = 'Select a buffet option'
+      } else if (meal.serviceType === 'buffet' && meal.buffetItemId) {
+        const sel = buffetMenuItems.value.find(m => m.id === meal.buffetItemId)
+        const min = sel?.buffet_data?.min_covers ?? 0
+        if (min > 0 && dinerCount.value < min)
+          e[`${pfx}_${i}_buffet`] = `Minimum ${min} covers required — you have ${dinerCount.value} ${dinerCount.value === 1 ? 'diner' : 'diners'}`
+      }
       if ((meal.serviceType === 'individual_order' || meal.serviceType === 'mixed') &&
           mb.participantMode === 'detailed') {
         mb.attendants.forEach((_, ai) => {
@@ -393,6 +564,7 @@ async function goToReview() {
     else window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
+  invoiceSnapshot.value = buildMealInvoiceSnapshot()
   step.value = 2
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -429,7 +601,7 @@ async function handleSubmit() {
 }
 
 function goBack() {
-  if (step.value === 2) { step.value = 1; return }
+  if (step.value === 2) { invoiceSnapshot.value = null; step.value = 1; return }
   router.push({ name: 'lodge-detail', params: { id: lodgeId } })
 }
 
@@ -459,10 +631,16 @@ onMounted(async () => {
     if (rd.meal?.endDate)   mb.endDate   = rd.meal.endDate
     if (rd.meal?.reasonForBooking) mb.reasonForBooking = rd.meal.reasonForBooking
     if (rd.company) {
-      mb.companyName  = rd.company.name  || ''
-      mb.tpin         = rd.company.tpin  || ''
-      mb.companyEmail = rd.company.email || ''
-      mb.companyPhone = rd.company.phone || ''
+      mb.companyName    = rd.company.name           || ''
+      mb.tpin           = rd.company.tpin           || ''
+      mb.companyEmail   = rd.company.email          || ''
+      mb.companyPhone   = rd.company.phone          || ''
+      mb.industry       = rd.company.industry       || ''
+      mb.branchName     = rd.company.branch         || ''
+      mb.departmentName = rd.company.department     || ''
+      mb.costCenter     = rd.company.costCenter     || ''
+      mb.costCenterType = rd.company.costCenterType || 'cost_center'
+      mb.glCode         = rd.company.glCode         || ''
     }
     if (rd.approver) {
       mb.approverName  = rd.approver.name  || ''
@@ -892,6 +1070,7 @@ onMounted(async () => {
                 <p v-if="errors.participantCount && mb.participantMode === 'headcount'" class="font-sans text-xs text-(--color-error) mt-1">{{ errors.participantCount }}</p>
               </div>
               <div v-if="mb.participantMode === 'detailed'" class="space-y-3">
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each diner. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in mb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -1025,6 +1204,7 @@ onMounted(async () => {
                 <p v-if="errors.participantCount && mb.participantMode === 'headcount'" class="font-sans text-xs text-(--color-error) mt-1">{{ errors.participantCount }}</p>
               </div>
               <div v-if="mb.participantMode === 'detailed'" class="space-y-3">
+                <p class="font-sans text-sm text-(--color-on-surface-variant) mb-4">Register each diner. The lead contact receives all booking communications.</p>
                 <div v-for="(att, i) in mb.attendants" :key="i" class="p-4 bg-(--color-surface-container-low) rounded-xl">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
@@ -1257,7 +1437,7 @@ onMounted(async () => {
                           class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
                           :class="errors[`master_${i}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                           <option value="">Select buffet option…</option>
-                          <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id" :disabled="mi.is_available === false">{{ menuItemLabel(mi) }}</option>
+                          <option v-for="mi in buffetMenuItems" :key="mi.id" :value="mi.id" :disabled="mi.is_available === false || !buffetMeetsMinCovers(mi)">{{ buffetOptionLabel(mi) }}</option>
                         </select>
                         <span v-if="errors[`master_${i}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`master_${i}_buffet`] }}</span>
                       </div>
@@ -1483,7 +1663,7 @@ onMounted(async () => {
                                 class="w-full bg-white rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors cursor-pointer"
                                 :class="errors[`ov_${date}_${mi}_buffet`] ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'">
                                 <option value="">Select buffet option…</option>
-                                <option v-for="bmi in buffetMenuItems" :key="bmi.id" :value="bmi.id" :disabled="bmi.is_available === false">{{ menuItemLabel(bmi) }}</option>
+                                <option v-for="bmi in buffetMenuItems" :key="bmi.id" :value="bmi.id" :disabled="bmi.is_available === false || !buffetMeetsMinCovers(bmi)">{{ buffetOptionLabel(bmi) }}</option>
                               </select>
                               <span v-if="errors[`ov_${date}_${mi}_buffet`]" class="font-sans text-xs text-(--color-error)">{{ errors[`ov_${date}_${mi}_buffet`] }}</span>
                             </div>
@@ -1849,6 +2029,16 @@ onMounted(async () => {
                   </div>
                   <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0 mt-0.5">{{ m.paxCount }} cover{{ m.paxCount !== 1 ? 's' : '' }}</span>
                 </div>
+                <div v-if="m.serviceType === 'buffet' && m.buffetItemId && buffetMenuItems.find(b => b.id === m.buffetItemId)?.price"
+                  class="mt-1.5 flex items-baseline justify-between gap-3">
+                  <span class="font-sans text-xs text-(--color-on-surface-variant)">
+                    {{ buffetMenuItems.find(b => b.id === m.buffetItemId)?.name }}
+                    · K{{ buffetMenuItems.find(b => b.id === m.buffetItemId)?.price }}/cover × {{ m.paxCount }} covers × {{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }}
+                  </span>
+                  <span class="font-sans text-xs font-semibold text-(--color-primary) shrink-0">
+                    K {{ ((buffetMenuItems.find(b => b.id === m.buffetItemId)?.price ?? 0) * m.paxCount * dayRange.length).toLocaleString() }}
+                  </span>
+                </div>
                 <div v-if="mb.participantMode === 'detailed' && attendantsWithOrders(m).length"
                   class="mt-3 space-y-3">
                   <div v-for="{ idx, attendant, orders } in attendantsWithOrders(m)" :key="idx"
@@ -1871,6 +2061,13 @@ onMounted(async () => {
                       </p>
                     </div>
                   </div>
+                </div>
+                <div v-if="(m.serviceType === 'individual_order' || m.serviceType === 'mixed') && individualOrderSessionCost(m) > 0"
+                  class="mt-2 pt-2 border-t border-(--color-outline-variant) flex items-baseline justify-between gap-3">
+                  <span class="font-sans text-xs text-(--color-on-surface-variant)">Session total × {{ dayRange.length }} day{{ dayRange.length !== 1 ? 's' : '' }}</span>
+                  <span class="font-sans text-xs font-semibold text-(--color-primary) shrink-0">
+                    K {{ (individualOrderSessionCost(m) * dayRange.length).toLocaleString() }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1896,6 +2093,21 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
+            <div v-if="mealCostEstimate !== null" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
+              <div class="flex justify-between items-baseline">
+                <span class="font-sans text-xs font-semibold text-(--color-on-surface-variant)">Est. Subtotal (ex. VAT)</span>
+                <span class="font-sans text-sm font-semibold text-(--color-primary)">K {{ mealCostEstimate.toLocaleString() }}</span>
+              </div>
+              <div class="flex justify-between items-baseline mt-1">
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">VAT (16%)</span>
+                <span class="font-sans text-xs text-(--color-on-surface-variant)">K {{ (mealCostEstimate * 0.16).toLocaleString(undefined, { maximumFractionDigits: 2 }) }}</span>
+              </div>
+              <div class="flex justify-between items-baseline mt-2 pt-2 border-t border-(--color-outline-variant)">
+                <span class="font-sans text-sm font-semibold text-(--color-on-surface)">Est. Total Payable</span>
+                <span class="font-sans text-base font-semibold text-(--color-primary)">K {{ (mealCostEstimate * 1.16).toLocaleString(undefined, { maximumFractionDigits: 2 }) }}</span>
+              </div>
+              <p class="font-sans text-xs text-(--color-outline) mt-1.5">Based on selected menu items. Day-level customizations and unpriced sessions billed at confirmation.</p>
+            </div>
           </section>
 
           <!-- Submit -->
@@ -1904,13 +2116,30 @@ onMounted(async () => {
               class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
               Edit Details
             </button>
-            <button type="button" @click="handleSubmit" :disabled="loading"
+            <button type="button" @click="showBookingConfirm = true" :disabled="loading"
               class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
               <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span v-else class="material-symbols-outlined text-base">check</span>
               {{ uploading ? 'Uploading documents…' : loading ? 'Submitting…' : 'Confirm Booking' }}
             </button>
           </div>
+
+          <!-- Download Proforma Invoice -->
+          <PDFDownloadLink v-if="!success && invoiceSnapshot" :file-name="`Mwakwanda-Meal-Booking-${lodge?.name || 'Invoice'}.pdf`">
+            <template #default>
+              <MealBookingInvoiceDocument :booking="invoiceSnapshot" />
+            </template>
+            <template #label="{ blob }">
+              <button type="button"
+                @click.prevent.stop="interceptPdfDownload(blob, `Mwakwanda-Meal-Booking-${lodge?.name || 'Invoice'}.pdf`)"
+                class="w-full h-12 flex items-center justify-center gap-2 border border-(--color-primary) text-(--color-primary) rounded-lg font-sans text-sm font-semibold hover:bg-(--color-surface-container-low) transition-all">
+                <span class="material-symbols-outlined text-base" :class="!blob ? 'animate-spin' : ''">
+                  {{ !blob ? 'progress_activity' : 'download' }}
+                </span>
+                {{ !blob ? 'Generating Invoice…' : 'Download Proforma Invoice' }}
+              </button>
+            </template>
+          </PDFDownloadLink>
 
         </template>
       </div>
@@ -1972,11 +2201,37 @@ onMounted(async () => {
           </div>
           <div class="mt-3 pt-3 border-t border-(--color-outline-variant) flex justify-between items-center">
             <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
-            <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
+            <span v-if="mealCostEstimate !== null" class="font-sans text-sm font-semibold text-(--color-primary)">
+              K {{ (mealCostEstimate * 1.16).toLocaleString(undefined, { maximumFractionDigits: 2 }) }}
+            </span>
+            <span v-else class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
           </div>
         </div>
       </aside>
 
     </div>
   </div>
+
+  <!-- Confirm booking dialog -->
+  <ConfirmDialog
+    :open="showBookingConfirm"
+    title="Confirm Booking"
+    message="Please confirm that your meal plan and diner details are correct before submitting. Once submitted, the catering team will be in touch to finalise arrangements."
+    confirm-label="Submit Booking"
+    icon="restaurant"
+    @confirm="showBookingConfirm = false; handleSubmit()"
+    @cancel="showBookingConfirm = false"
+  />
+
+  <!-- Confirm invoice download dialog -->
+  <ConfirmDialog
+    :open="showInvoiceConfirm"
+    title="Download Proforma Invoice"
+    message="This will download a proforma invoice PDF for your records. The figures shown are estimates based on selected menu items and may be adjusted upon confirmation."
+    confirm-label="Download PDF"
+    icon="download"
+    @confirm="confirmPdfDownload"
+    @cancel="showInvoiceConfirm = false"
+  />
+
 </template>

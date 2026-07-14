@@ -51,6 +51,14 @@ const s = {
   colDesc:     { flex: 1 },
   colAmt:      { width: 100, textAlign: 'right' },
 
+  guestBlock:     { paddingVertical: 8, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#ffeade' },
+  guestHeaderRow: { flexDirection: 'row' },
+  guestNameText:  { fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#28180d' },
+  guestIdText:    { fontSize: 9, color: '#86736b' },
+  roomLineRow:    { flexDirection: 'row', paddingLeft: 12, paddingTop: 4 },
+  roomLineDesc:   { flex: 1, fontSize: 9, color: '#53433d' },
+  roomLineAmt:    { width: 100, fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#28180d', textAlign: 'right' },
+
   totals:      { marginTop: 20, flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   subBlock:    { flexDirection: 'column', gap: 4 },
   totalRow:    { flexDirection: 'row', paddingVertical: 2 },
@@ -71,7 +79,7 @@ const s = {
 </script>
 
 <template>
-  <Document title="Booking Invoice">
+  <Document title="Accommodation Proforma Invoice">
     <Page size="A4" :style="s.page">
 
       <!-- Header -->
@@ -81,10 +89,10 @@ const s = {
           <Text :style="s.brandSub">Hospitality &amp; Accommodation</Text>
         </View>
         <View>
-          <Text :style="s.docTitle">BOOKING INVOICE</Text>
-          <Text :style="s.docSub">Generated {{ fmtDate(new Date().toISOString()) }}</Text>
+          <Text :style="s.docTitle">PROFORMA INVOICE</Text>
+          <Text :style="s.docSub">Generated {{ fmtDate(new Date().toISOString().slice(0, 10)) }}</Text>
           <View :style="s.badge">
-            <Text :style="s.badgeText">{{ isCorporate ? 'CORPORATE' : 'INDIVIDUAL' }}</Text>
+            <Text :style="s.badgeText">{{ isCorporate ? 'CORPORATE ACCOMMODATION' : 'INDIVIDUAL ACCOMMODATION' }}</Text>
           </View>
         </View>
       </View>
@@ -136,42 +144,45 @@ const s = {
         </View>
       </template>
 
-      <!-- Individual: Guest + Stay Details -->
+      <!-- Individual: Bill From + Bill To + Stay Strip -->
       <template v-else>
         <View :style="s.metaRow">
           <View :style="s.metaBox">
-            <Text :style="s.metaLabel">Guest</Text>
-            <Text :style="s.metaValue">{{ `${booking.guestInfo.firstName} ${booking.guestInfo.lastName}` }}</Text>
-            <Text :style="s.metaSmall">{{ booking.guestInfo.email || ' ' }}</Text>
-            <Text :style="s.metaSmall">{{ booking.guestInfo.phone || ' ' }}</Text>
+            <Text :style="s.metaLabel">Bill From</Text>
+            <Text :style="s.metaValue">{{ booking.lodgeName || 'Mwakwanda' }}</Text>
+            <Text :style="s.metaSmall">Hospitality &amp; Accommodation</Text>
+            <Text v-if="booking.lodgeAddress" :style="s.metaSmall">{{ booking.lodgeAddress }}</Text>
+            <Text v-if="booking.lodgeEmail" :style="s.metaSmall">{{ booking.lodgeEmail }}</Text>
+            <Text v-if="booking.lodgePhone" :style="s.metaSmall">{{ booking.lodgePhone }}</Text>
           </View>
           <View :style="s.metaBox">
-            <Text :style="s.metaLabel">Stay Details</Text>
-            <Text :style="s.metaValue">{{ booking.roomType || 'Room' }}</Text>
-            <Text :style="s.metaSmall">Check-in: {{ fmtDate(booking.checkIn) }}</Text>
-            <Text :style="s.metaSmall">Check-out: {{ fmtDate(booking.checkOut) }}</Text>
-            <Text :style="s.metaSmall">Duration: {{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }}</Text>
-            <Text :style="s.metaSmall">Guests: {{ booking.guestCount }} {{ booking.guestCount === 1 ? 'Adult' : 'Adults' }}</Text>
+            <Text :style="s.metaLabel">Bill To</Text>
+            <Text :style="s.metaValue">{{ `${booking.guestInfo.firstName} ${booking.guestInfo.lastName}` }}</Text>
+            <Text v-if="booking.guestInfo.email" :style="s.metaSmall">{{ booking.guestInfo.email }}</Text>
+            <Text v-if="booking.guestInfo.phone" :style="s.metaSmall">{{ booking.guestInfo.phone }}</Text>
           </View>
         </View>
-      </template>
-
-      <!-- Employee list (corporate only) -->
-      <template v-if="isCorporate && booking.corporateGuests.length">
-        <Text :style="s.sectionTitle">Employee Guests</Text>
-        <View :style="s.tableHeader">
-          <Text :style="[s.thText, s.colName]">Full Name</Text>
-          <Text :style="[s.thText, s.colId]">ID / Passport</Text>
-          <Text :style="[s.thText, s.colEmail]">Email</Text>
-        </View>
-        <View
-          v-for="(g, i) in booking.corporateGuests"
-          :key="i"
-          :style="i % 2 === 0 ? s.tableRow : s.tableRowAlt"
-        >
-          <Text :style="s.colName">{{ g.fullName || '—' }}</Text>
-          <Text :style="s.colId">{{ g.idNumber || '—' }}</Text>
-          <Text :style="s.colEmail">{{ g.email || '—' }}</Text>
+        <View :style="s.stayRow">
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Room / Type</Text>
+            <Text :style="s.metaSmall">{{ booking.roomType || 'Accommodation' }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Check-in</Text>
+            <Text :style="s.metaSmall">{{ fmtDate(booking.checkIn) }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Check-out</Text>
+            <Text :style="s.metaSmall">{{ fmtDate(booking.checkOut) }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Duration</Text>
+            <Text :style="s.metaSmall">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }}</Text>
+          </View>
+          <View :style="s.stayItem">
+            <Text :style="s.metaLabel">Guests</Text>
+            <Text :style="s.metaSmall">{{ booking.guestCount }} {{ booking.guestCount === 1 ? 'Adult' : 'Adults' }}</Text>
+          </View>
         </View>
       </template>
 
@@ -181,36 +192,42 @@ const s = {
         <Text :style="[s.thText, s.colDesc]">Description</Text>
         <Text :style="[s.thText, s.colAmt]">Amount</Text>
       </View>
-      <!-- Per-room rows (individual bookings with known rates) -->
-      <template v-if="booking.rooms && booking.rooms.length">
+      <!-- Per-guest blocks: each guest then their room line item -->
+      <template v-if="booking.corporateGuests && booking.corporateGuests.length">
+        <View v-for="(g, gi) in booking.corporateGuests" :key="gi" :style="s.guestBlock">
+          <View :style="s.guestHeaderRow">
+            <Text :style="s.guestNameText">{{ g.fullName || '—' }}</Text>
+            <Text v-if="g.idNumber" :style="s.guestIdText">  {{ g.idNumber }}</Text>
+          </View>
+          <View v-if="g.roomName" :style="s.roomLineRow">
+            <Text :style="s.roomLineDesc">→ {{ g.roomName }}{{ g.roomRate ? ` @ K${Number(g.roomRate.toFixed(0)).toLocaleString()} × ${booking.nightCount} ${booking.nightCount === 1 ? 'Night' : 'Nights'}` : '' }}</Text>
+            <Text v-if="g.roomTotal" :style="s.roomLineAmt">{{ fmt(g.roomTotal) }}</Text>
+          </View>
+        </View>
+      </template>
+      <!-- Fallback: per-room rows when no guest data -->
+      <template v-else-if="booking.rooms && booking.rooms.length">
         <View v-for="(r, i) in booking.rooms" :key="i" :style="i % 2 === 0 ? s.costRow : s.costRowAlt">
           <Text :style="s.colDesc">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }} × K{{ Number(r.rate.toFixed(0)).toLocaleString() }} ({{ r.name }})</Text>
           <Text :style="s.colAmt">{{ fmt(r.total) }}</Text>
         </View>
-        <View v-if="booking.mealCost > 0" :style="booking.rooms.length % 2 === 0 ? s.costRow : s.costRowAlt">
-          <Text :style="s.colDesc">{{ booking.mealPlanName }}</Text>
-          <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
-        </View>
-        <View :style="(booking.rooms.length + (booking.mealCost > 0 ? 1 : 0)) % 2 === 0 ? s.costRow : s.costRowAlt">
-          <Text :style="s.colDesc">VAT (16%)</Text>
-          <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
-        </View>
       </template>
-      <!-- Fallback: single combined row -->
+      <!-- Final fallback: single combined row -->
       <template v-else>
         <View :style="s.costRow">
           <Text :style="s.colDesc">{{ booking.nightCount }} {{ booking.nightCount === 1 ? 'night' : 'nights' }} × K{{ Number((booking.baseRatePerNight ?? 0).toFixed(0)).toLocaleString() }} ({{ booking.roomType }})</Text>
           <Text :style="s.colAmt">{{ fmt(booking.baseTotal) }}</Text>
         </View>
-        <View v-if="booking.mealCost > 0" :style="s.costRowAlt">
-          <Text :style="s.colDesc">{{ booking.mealPlanName }}</Text>
-          <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
-        </View>
-        <View :style="booking.mealCost > 0 ? s.costRow : s.costRowAlt">
-          <Text :style="s.colDesc">VAT (16%)</Text>
-          <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
-        </View>
       </template>
+      <!-- Meal cost + VAT -->
+      <View v-if="booking.mealCost > 0" :style="s.costRow">
+        <Text :style="s.colDesc">{{ booking.mealPlanName }}</Text>
+        <Text :style="s.colAmt">{{ fmt(booking.mealCost) }}</Text>
+      </View>
+      <View :style="booking.mealCost > 0 ? s.costRowAlt : s.costRow">
+        <Text :style="s.colDesc">VAT (16%)</Text>
+        <Text :style="s.colAmt">{{ fmt(booking.taxes) }}</Text>
+      </View>
 
       <!-- Totals -->
       <View :style="s.totals">

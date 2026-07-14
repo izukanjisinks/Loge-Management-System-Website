@@ -9,6 +9,7 @@ import { uploadBookingDocument } from '@/services/storage'
 import api from '@/lib/api'
 import { PDFDownloadLink } from '@ceereals/vue-pdf'
 import BookingInvoiceDocument from '@/components/reservation/BookingInvoiceDocument.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const route       = useRoute()
 const router      = useRouter()
@@ -28,6 +29,29 @@ const loading     = ref(false)
 const today       = new Date().toISOString().slice(0, 10)
 const uploading   = ref(false)
 const success     = ref(false)
+
+// ── Confirm dialogs ────────────────────────────────────────────────────────
+const showBookingConfirm = ref(false)
+const showInvoiceConfirm = ref(false)
+const pendingPdfBlob     = ref(null)
+const pendingPdfName     = ref('')
+
+function interceptPdfDownload(blob, fileName) {
+  if (!blob) return
+  pendingPdfBlob.value = blob
+  pendingPdfName.value = fileName
+  showInvoiceConfirm.value = true
+}
+function confirmPdfDownload() {
+  showInvoiceConfirm.value = false
+  if (!pendingPdfBlob.value) return
+  const url = URL.createObjectURL(pendingPdfBlob.value)
+  const a   = document.createElement('a')
+  a.href = url; a.download = pendingPdfName.value
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  pendingPdfBlob.value = null
+}
 const errors      = ref({})
 const submitError = ref('')
 
@@ -115,6 +139,27 @@ watch(
   }
 )
 
+// Unique room types derived from fetched available rooms
+const availableRoomTypes = computed(() => {
+  const seen = new Set()
+  return availableRooms.value
+    .map(r => (r.type || '').toLowerCase())
+    .filter(t => t && !seen.has(t) && seen.add(t))
+})
+
+// Corporate cost estimate: avg rate for preferred type × roomCount × nights
+const corpCostEstimate = computed(() => {
+  if (!ab.isCorporate || !ab.roomTypePreference || !availableRooms.value.length) return null
+  const pref     = ab.roomTypePreference.toLowerCase()
+  const matching = availableRooms.value.filter(r => (r.type || '').toLowerCase() === pref)
+  if (!matching.length) return null
+  const nightCount = nights(ab.checkIn, ab.checkOut)
+  if (!nightCount) return null
+  const avg  = matching.reduce((s, r) => s + Number(r.price_per_night), 0) / matching.length
+  const rate = Math.round(avg)
+  return { rate, total: rate * (ab.roomCount || 1) * nightCount }
+})
+
 const ZAMBIA_SUGAR_TPIN = '1001757365'
 const isZS = computed(() => ab.isCorporate && ab.tpin.trim() === ZAMBIA_SUGAR_TPIN)
 watch(() => ab.tpin, tpin => {
@@ -179,13 +224,35 @@ const invoiceSnapshot = ref(null)
 function buildInvoiceSnapshot() {
   const nameParts  = (ab.bookedBy.name || '').trim().split(' ')
   const nightCount = nights(ab.checkIn, ab.checkOut)
-  const rooms      = ab.attendantRooms
+
+  // Corporate: estimate rate from room type preference against fetched available rooms
+  let corpEstimatedRate = null
+  let corpRoomLabel     = 'TBC'
+  if (ab.isCorporate) {
+    const pref = (ab.roomTypePreference || '').toLowerCase()
+    if (pref && availableRooms.value.length) {
+      const matching = availableRooms.value.filter(r => (r.type || '').toLowerCase() === pref)
+      if (matching.length) {
+        const avg = matching.reduce((s, r) => s + Number(r.price_per_night), 0) / matching.length
+        corpEstimatedRate = Math.round(avg)
+        const label = ab.roomTypePreference.charAt(0).toUpperCase() + ab.roomTypePreference.slice(1)
+        corpRoomLabel = `${label} Room (est.)`
+      }
+    }
+  }
+
+  const rooms            = ab.attendantRooms
     .filter(r => r.rate)
     .map(r => ({ name: r.roomName, rate: Number(r.rate), total: Number(r.rate) * nightCount }))
   const baseRatePerNight = rooms.reduce((s, r) => s + r.rate, 0)
-  const baseTotal  = baseRatePerNight * nightCount
+
+  // Corporate total is based on roomCount × estimated rate; individual uses assigned rooms
+  const baseTotal  = ab.isCorporate
+    ? (corpEstimatedRate ? corpEstimatedRate * (ab.roomCount || 1) * nightCount : 0)
+    : baseRatePerNight * nightCount
   const taxes      = Math.round(baseTotal * 0.16 * 100) / 100
   const grandTotal = baseTotal + taxes
+
   return {
     bookingType:      ab.isCorporate ? 'corporate' : 'individual',
     lodgeName:        lodge.value?.name ?? '',
@@ -226,7 +293,18 @@ function buildInvoiceSnapshot() {
       costCenterType:   ab.costCenterType ?? '',
       glCode:           ab.glCode ?? '',
     },
-    corporateGuests: ab.attendants.map(a => ({ fullName: a.fullName, email: a.email, idNumber: a.idNumber })),
+    corporateGuests: ab.attendants.map((a, i) => {
+      const ar   = ab.isCorporate ? null : ab.attendantRooms.find(r => r.attendantIdx === i)
+      const rate = ab.isCorporate ? corpEstimatedRate : (ar?.rate ? Number(ar.rate) : null)
+      return {
+        fullName:  a.fullName,
+        email:     a.email,
+        idNumber:  a.idNumber,
+        roomName:  ab.isCorporate ? corpRoomLabel : (ar?.roomName || null),
+        roomRate:  rate,
+        roomTotal: rate ? rate * nightCount : null,
+      }
+    }),
   }
 }
 
@@ -429,8 +507,9 @@ onMounted(async () => {
       ab.industry        = rd.company.industry    || ''
       ab.branchName      = rd.company.branch      || ''
       ab.departmentName  = rd.company.department  || ''
-      ab.costCenter      = rd.company.costCenter  || ''
-      ab.glCode          = rd.company.glCode      || ''
+      ab.costCenter      = rd.company.costCenter     || ''
+      ab.costCenterType  = rd.company.costCenterType || 'cost_center'
+      ab.glCode          = rd.company.glCode         || ''
     }
     if (rd.approver) {
       ab.approverName  = rd.approver.name  || ''
@@ -1160,13 +1239,18 @@ onMounted(async () => {
                   <div class="flex flex-col gap-1">
                     <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Room Type Preference</label>
                     <select v-model="ab.roomTypePreference"
-                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors">
-                      <option value="">No preference</option>
-                      <option value="single">Single</option>
-                      <option value="double">Double</option>
-                      <option value="twin">Twin</option>
-                      <option value="suite">Suite</option>
+                      :disabled="!availableRoomTypes.length"
+                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors disabled:opacity-50 disabled:cursor-not-allowed capitalize">
+                      <option value="">{{ availableRoomTypes.length ? 'No preference' : 'Select dates to see types' }}</option>
+                      <option v-for="t in availableRoomTypes" :key="t" :value="t" class="capitalize">
+                        {{ t.charAt(0).toUpperCase() + t.slice(1) }}
+                      </option>
                     </select>
+                    <p v-if="availableRoomTypes.length && !ab.roomTypePreference"
+                      class="font-sans text-xs text-(--color-on-surface-variant) flex items-start gap-1 mt-1.5">
+                      <span class="material-symbols-outlined text-sm shrink-0 mt-px" style="font-size:14px">receipt_long</span>
+                      Leaving this unset means the proforma invoice cannot include a cost estimate.
+                    </p>
                   </div>
                 </div>
                 <!-- Reason for Booking -->
@@ -1315,7 +1399,7 @@ onMounted(async () => {
 
           <!-- Booked By summary -->
           <section class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
-            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">{{ ab.isCorporate ? 'Booking Representative' : 'Booked By' }}</p>
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Booked By</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
               <div>
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p>
@@ -1396,6 +1480,22 @@ onMounted(async () => {
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">TPIN</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.tpin }}</p>
               </div>
+              <div v-if="ab.industry">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Industry</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.industry }}</p>
+              </div>
+              <div v-if="ab.companyEmail">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Billing Email</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.companyEmail }}</p>
+              </div>
+              <div v-if="ab.companyPhone">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.companyPhone }}</p>
+              </div>
+              <div v-if="ab.branchName">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Branch</p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.branchName }}</p>
+              </div>
               <div v-if="ab.departmentName">
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Department</p>
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.departmentName }}</p>
@@ -1409,12 +1509,61 @@ onMounted(async () => {
                 <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.glCode }}</p>
               </div>
             </div>
-            <div v-if="ab.approverName" class="mt-4 pt-4 border-t border-(--color-outline-variant)">
-              <p class="font-sans text-xs text-(--color-on-surface-variant) mb-1">Approver</p>
-              <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.approverName }}
-                <span v-if="ab.approverTitle" class="font-sans text-xs font-normal text-(--color-on-surface-variant)"> · {{ ab.approverTitle }}</span>
-              </p>
-              <p v-if="ab.approverEmail" class="font-sans text-sm text-(--color-on-surface)">{{ ab.approverEmail }}</p>
+            <div v-if="ab.approverName" class="mt-5 pt-5 border-t border-(--color-outline-variant)">
+              <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3">Approver</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6">
+                <div>
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Name</p>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.approverName }}</p>
+                </div>
+                <div v-if="ab.approverTitle">
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Job Title</p>
+                  <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.approverTitle }}</p>
+                </div>
+                <div v-if="ab.approverEmail">
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p>
+                  <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.approverEmail }}</p>
+                </div>
+                <div v-if="ab.approverPhone">
+                  <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                  <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.approverPhone }}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Corporate: Delegates -->
+          <section v-if="ab.isCorporate && ab.attendants.length"
+            class="bg-(--color-surface-container-lowest) rounded-xl border border-(--color-outline-variant) p-6">
+            <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-4">Delegates ({{ ab.attendants.length }})</p>
+            <div>
+              <div v-for="(att, i) in ab.attendants" :key="i"
+                class="py-3 border-b border-(--color-outline-variant) last:border-0">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold font-sans"
+                    :class="att.isLead ? 'bg-(--color-primary) text-white' : 'bg-(--color-surface-container-high) text-(--color-on-surface-variant)'">{{ i + 1 }}</span>
+                  <p class="font-sans text-sm font-semibold text-(--color-on-surface) flex-1 truncate">{{ att.fullName }}</p>
+                  <span v-if="att.isLead" class="font-sans text-xs text-(--color-primary) shrink-0">Lead</span>
+                </div>
+                <div class="pl-9 grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6">
+                  <div v-if="att.email">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Email</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.email }}</p>
+                  </div>
+                  <div v-if="att.phone">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Phone</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.phone }}</p>
+                  </div>
+                  <div v-if="att.idNumber">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">ID / Passport</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.idNumber }}</p>
+                  </div>
+                  <div v-if="att.dietaryNotes">
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Dietary Notes</p>
+                    <p class="font-sans text-sm text-(--color-on-surface)">{{ att.dietaryNotes }}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -1436,9 +1585,11 @@ onMounted(async () => {
               </div>
               <div v-if="ab.isCorporate">
                 <p class="font-sans text-xs text-(--color-on-surface-variant)">Rooms Required</p>
-                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.roomCount }} room{{ ab.roomCount !== 1 ? 's' : '' }}
-                  <span v-if="ab.roomTypePreference" class="capitalize"> · {{ ab.roomTypePreference }}</span>
-                </p>
+                <p class="font-sans text-sm text-(--color-on-surface)">{{ ab.roomCount }} room{{ ab.roomCount !== 1 ? 's' : '' }}</p>
+              </div>
+              <div v-if="ab.isCorporate && ab.roomTypePreference">
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">Preferred Room Type</p>
+                <p class="font-sans text-sm text-(--color-on-surface) capitalize">{{ ab.roomTypePreference }}</p>
               </div>
             </div>
             <!-- Individual room assignments -->
@@ -1482,7 +1633,7 @@ onMounted(async () => {
               class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
               Edit Details
             </button>
-            <button type="button" @click="handleSubmit" :disabled="loading"
+            <button type="button" @click="showBookingConfirm = true" :disabled="loading"
               class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
               <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span class="material-symbols-outlined text-base" v-else>check</span>
@@ -1497,6 +1648,7 @@ onMounted(async () => {
             </template>
             <template #label="{ blob }">
               <button type="button"
+                @click.prevent.stop="interceptPdfDownload(blob, `Mwakwanda-Booking-${lodge?.name || 'Invoice'}.pdf`)"
                 class="w-full h-12 flex items-center justify-center gap-2 border border-(--color-primary) text-(--color-primary) rounded-lg font-sans text-sm font-semibold hover:bg-(--color-surface-container-low) transition-all">
                 <span class="material-symbols-outlined text-base" :class="!blob ? 'animate-spin' : ''">
                   {{ !blob ? 'progress_activity' : 'download' }}
@@ -1586,13 +1738,37 @@ onMounted(async () => {
               <span class="font-sans text-xs text-(--color-on-surface-variant)">Delegates</span>
               <span class="font-sans text-sm font-semibold text-(--color-on-surface)">{{ ab.attendants.length }}</span>
             </div>
+            <div v-if="ab.roomCount" class="flex justify-between items-center mt-1">
+              <span class="font-sans text-xs text-(--color-on-surface-variant)">Rooms</span>
+              <span class="font-sans text-sm text-(--color-on-surface)">{{ ab.roomCount }}</span>
+            </div>
             <div v-if="ab.roomTypePreference" class="flex justify-between items-center mt-1">
               <span class="font-sans text-xs text-(--color-on-surface-variant)">Type preference</span>
               <span class="font-sans text-sm text-(--color-on-surface) capitalize">{{ ab.roomTypePreference }}</span>
             </div>
-            <div class="mt-3 pt-3 border-t border-(--color-outline-variant) flex justify-between items-center">
-              <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
-              <span class="font-sans text-sm text-(--color-on-surface-variant) italic">Quoted on confirmation</span>
+            <div class="mt-3 pt-3 border-t border-(--color-outline-variant) space-y-1.5">
+              <template v-if="corpCostEstimate">
+                <div class="flex items-baseline justify-between gap-2">
+                  <span class="font-sans text-xs text-(--color-on-surface-variant) capitalize">{{ ab.roomTypePreference }} room</span>
+                  <span class="font-sans text-xs text-(--color-on-surface-variant) shrink-0">
+                    K {{ corpCostEstimate.rate.toLocaleString() }} × {{ ab.roomCount || 1 }} × {{ nights(ab.checkIn, ab.checkOut) }} nights
+                  </span>
+                </div>
+                <div class="flex items-baseline justify-between gap-2 pt-1.5 border-t border-(--color-outline-variant)">
+                  <span class="font-sans text-xs font-semibold text-(--color-on-surface)">Est. Total</span>
+                  <span class="font-sans text-sm font-semibold text-(--color-primary)">
+                    K {{ corpCostEstimate.total.toLocaleString() }}
+                  </span>
+                </div>
+              </template>
+              <template v-else>
+                <div class="flex justify-between items-center">
+                  <span class="font-sans text-xs text-(--color-on-surface-variant)">Est. Cost</span>
+                  <span class="font-sans text-sm text-(--color-on-surface-variant) italic">
+                    {{ ab.roomTypePreference ? 'No matching rooms' : 'Select a room type' }}
+                  </span>
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -1600,4 +1776,27 @@ onMounted(async () => {
 
     </div>
   </div>
+
+  <!-- Confirm booking dialog -->
+  <ConfirmDialog
+    :open="showBookingConfirm"
+    title="Confirm Booking"
+    message="Please confirm that all details are correct before submitting. Once submitted, the property team will be in touch to finalise your reservation."
+    confirm-label="Submit Booking"
+    icon="hotel"
+    @confirm="showBookingConfirm = false; handleSubmit()"
+    @cancel="showBookingConfirm = false"
+  />
+
+  <!-- Confirm invoice download dialog -->
+  <ConfirmDialog
+    :open="showInvoiceConfirm"
+    title="Download Invoice"
+    message="This will download a proforma invoice PDF for your records. The figures shown are estimates and may be adjusted upon confirmation."
+    confirm-label="Download PDF"
+    icon="download"
+    @confirm="confirmPdfDownload"
+    @cancel="showInvoiceConfirm = false"
+  />
+
 </template>
