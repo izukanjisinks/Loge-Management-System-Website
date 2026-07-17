@@ -350,7 +350,7 @@ function branchQuery() {
 
             <!-- Filter by price -->
             <div class="space-y-6">
-              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
                 <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Price</h4>
               </div>
               <div class="px-1">
@@ -371,16 +371,16 @@ function branchQuery() {
 
             <!-- Other Products -->
             <div class="space-y-6">
-              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
                 <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
               </div>
               <div class="space-y-2">
                 <button
                   type="button"
-                  class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left"
+                  class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group text-left"
                   @click="activeTab = 'events'"
                 >
-                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-2xl text-(--color-primary)">meeting_room</span>
                   </div>
                   <div class="grow">
@@ -392,10 +392,10 @@ function branchQuery() {
 
                 <button
                   type="button"
-                  class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left"
+                  class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group text-left"
                   @click="activeTab = 'meals'"
                 >
-                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-2xl text-(--color-primary)">restaurant</span>
                   </div>
                   <div class="grow">
@@ -516,7 +516,7 @@ function branchQuery() {
             </div>
             <!-- Filter by capacity -->
             <div class="space-y-6">
-              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
                 <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Capacity</h4>
               </div>
               <div class="px-1">
@@ -530,12 +530,12 @@ function branchQuery() {
             </div>
             <!-- Other Products -->
             <div class="space-y-6">
-              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
                 <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
               </div>
               <div class="space-y-2">
-                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'accommodation'">
-                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group text-left" @click="activeTab = 'accommodation'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-2xl text-(--color-primary)">bed</span>
                   </div>
                   <div class="grow">
@@ -544,8 +544,8 @@ function branchQuery() {
                   </div>
                   <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
                 </button>
-                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'meals'">
-                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group text-left" @click="activeTab = 'meals'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-2xl text-(--color-primary)">restaurant</span>
                   </div>
                   <div class="grow">
@@ -712,7 +712,7 @@ function branchQuery() {
             </div>
             <!-- Filter by category -->
             <div class="space-y-6">
-              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
                 <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Price</h4>
               </div>
               <div class="px-1">
@@ -726,12 +726,12 @@ function branchQuery() {
             </div>
             <!-- Other Products -->
             <div class="space-y-6">
-              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
                 <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
               </div>
               <div class="space-y-2">
-                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'accommodation'">
-                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group text-left" @click="activeTab = 'accommodation'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-2xl text-(--color-primary)">bed</span>
                   </div>
                   <div class="grow">
@@ -740,8 +740,8 @@ function branchQuery() {
                   </div>
                   <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
                 </button>
-                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'events'">
-                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group text-left" @click="activeTab = 'events'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                     <span class="material-symbols-outlined text-2xl text-(--color-primary)">meeting_room</span>
                   </div>
                   <div class="grow">

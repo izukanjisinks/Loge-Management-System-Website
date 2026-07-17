@@ -31,47 +31,33 @@ watch(search, () => {
 onMounted(() => load(1))
 
 const filtered = computed(() => lodges.value)
+
+// "Other Products" — real nav links
+const otherProducts = [
+  { label: 'Rooms',  desc: 'Accommodation & suites',    icon: 'bed',          to: '/rooms' },
+  { label: 'Venues', desc: 'Event & conference spaces', icon: 'meeting_room', to: '/venues' },
+]
 </script>
 
 <template>
   <div class="max-w-[1280px] mx-auto px-5 md:px-16 pt-10 pb-6">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-      <div>
-        <span class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-primary) block mb-1">Explore</span>
-        <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">Our Lodges</h1>
-        <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
-          <template v-if="!loading">
-            {{ filtered.length }} {{ filtered.length === 1 ? 'lodge' : 'lodges' }} available
-          </template>
-          <template v-else>Loading lodges…</template>
-        </p>
-      </div>
-
-      <!-- Search -->
-      <div class="relative w-full md:w-72">
-        <span v-if="!searching"
-          class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-outline) text-base">search</span>
-        <span v-else
-          class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-(--color-primary) text-base animate-spin">progress_activity</span>
-        <input
-          v-model="search"
-          type="text"
-          placeholder="Search by name or location…"
-          class="w-full bg-(--color-savannah-mist) border-none rounded-full pl-9 pr-8 py-2.5 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary)"
-        />
-        <button v-if="search"
-          type="button"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-(--color-outline) hover:text-(--color-on-surface) transition-colors"
-          @click="search = ''">
-          <span class="material-symbols-outlined text-base">close</span>
-        </button>
-      </div>
+    <div class="mb-12">
+      <span class="font-sans text-xs font-bold tracking-[0.2em] uppercase text-(--color-primary) block mb-3">Curated Destinations</span>
+      <h1 class="font-serif text-[40px] leading-none font-bold text-(--color-on-surface)">Our Lodges</h1>
+      <p class="font-sans text-sm text-(--color-on-surface-variant) mt-3">
+        <template v-if="!loading">
+          {{ filtered.length }} {{ filtered.length === 1 ? 'lodge' : 'lodges' }} available
+        </template>
+        <template v-else>Loading lodges…</template>
+      </p>
     </div>
 
-    <!-- Content area with fixed min height -->
-    <div class="min-h-[600px] flex flex-col">
+    <div class="flex flex-col md:flex-row gap-10 items-start">
+
+      <!-- ── Left: Lodge grid (75%) ────────────────────────────────────────── -->
+      <div class="w-full md:w-3/4 min-h-[600px] flex flex-col">
 
       <!-- Error -->
       <div v-if="error" class="py-16 text-center bg-(--color-error-container) rounded-2xl mb-6">
@@ -83,19 +69,12 @@ const filtered = computed(() => lodges.value)
       </div>
 
       <!-- Skeleton loader (initial load only) -->
-      <div v-else-if="loading && initialLoad" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-else-if="loading && initialLoad" class="grid grid-cols-1 sm:grid-cols-2 gap-8">
         <div
-          v-for="i in 9"
+          v-for="i in 6"
           :key="i"
-          class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse"
-        >
-          <div class="aspect-[4/3] bg-(--color-surface-container-highest)"></div>
-          <div class="p-5 space-y-3">
-            <div class="h-5 bg-(--color-surface-container-highest) rounded max-w-56"></div>
-            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-40"></div>
-            <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-48"></div>
-          </div>
-        </div>
+          class="h-[500px] rounded-[2rem] bg-(--color-surface-container-high) overflow-hidden animate-pulse"
+        ></div>
       </div>
 
       <!-- Empty state -->
@@ -112,59 +91,52 @@ const filtered = computed(() => lodges.value)
       </div>
 
       <!-- Lodge cards -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-8">
         <RouterLink
-          v-for="(lodge, idx) in filtered"
+          v-for="lodge in filtered"
           :key="lodge.id"
           :to="`/lodges/${lodge.id}`"
-          class="group flex flex-col bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+          class="group relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl block"
         >
           <!-- Cover image -->
-          <div class="relative aspect-[4/3] overflow-hidden">
-            <img
-              v-if="lodge.logo_url"
-              :src="lodge.logo_url"
-              :alt="lodge.name"
-              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            />
-            <div
-              v-else
-              class="w-full h-full bg-(--color-surface-container-high) flex flex-col items-center justify-center gap-3 group-hover:bg-(--color-surface-container-highest) transition-colors"
-            >
-              <span class="material-symbols-outlined text-5xl text-(--color-outline)">holiday_village</span>
-              <span class="font-serif text-sm text-(--color-on-surface-variant)">{{ lodge.name }}</span>
-            </div>
-
-            <!-- Locations chip -->
-            <span
-              v-if="lodge.branches?.length > 1"
-              class="absolute top-4 left-4 inline-flex items-center gap-1 bg-(--color-surface)/90 backdrop-blur-md text-(--color-primary) text-xs font-semibold px-3 py-1 rounded-full"
-            >
-              <span class="material-symbols-outlined text-sm">location_city</span>
-              {{ lodge.branches.length }} Locations
-            </span>
+          <img
+            v-if="lodge.logo_url"
+            :src="lodge.logo_url"
+            :alt="lodge.name"
+            class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div
+            v-else
+            class="absolute inset-0 bg-(--color-surface-container-high) flex flex-col items-center justify-center gap-3"
+          >
+            <span class="material-symbols-outlined text-6xl text-(--color-outline)">holiday_village</span>
           </div>
 
-          <!-- Content -->
-          <div class="p-5 flex flex-col flex-1">
-            <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight group-hover:text-(--color-primary) transition-colors">
-              {{ lodge.name }}
-            </h3>
+          <!-- Locations badge -->
+          <div
+            v-if="lodge.branches?.length > 1"
+            class="absolute top-5 left-5 z-20 inline-flex items-center gap-1.5 bg-(--color-charcoal) text-white px-4 py-1.5 rounded-full font-sans text-xs font-semibold uppercase tracking-widest shadow-lg"
+          >
+            <span class="material-symbols-outlined text-sm">location_city</span>
+            {{ lodge.branches.length }} Locations
+          </div>
 
-            <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mt-2">
-              <span class="material-symbols-outlined text-base text-(--color-primary)">location_on</span>
-              {{ lodge.address }}
+          <!-- Frosted info panel -->
+          <div class="absolute inset-x-0 bottom-0 z-10 bg-(--color-surface-container-lowest)/90 backdrop-blur-sm p-6 border-t border-white/20">
+            <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight mb-3">{{ lodge.name }}</h3>
+
+            <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mb-1.5">
+              <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">location_on</span>
+              <span class="truncate">{{ lodge.address }}</span>
             </p>
-
-            <p v-if="lodge.email" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mt-1.5 truncate">
+            <p v-if="lodge.email" class="flex items-center gap-1.5 font-sans text-sm text-(--color-on-surface-variant) mb-5">
               <span class="material-symbols-outlined text-base text-(--color-primary) shrink-0">mail</span>
               <span class="truncate">{{ lodge.email }}</span>
             </p>
 
-            <div class="flex items-center justify-end pt-4 border-t border-(--color-outline-variant) mt-auto">
-              <span class="inline-flex items-center gap-1 font-sans text-sm font-semibold text-(--color-primary) group-hover:gap-2 transition-all">
-                View Services
-                <span class="material-symbols-outlined text-base">arrow_forward</span>
+            <div class="flex items-center justify-end">
+              <span class="flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) group-hover:text-(--color-charcoal) transition-colors">
+                View Services <span class="material-symbols-outlined text-base">arrow_forward</span>
               </span>
             </div>
           </div>
@@ -172,21 +144,21 @@ const filtered = computed(() => lodges.value)
       </div>
 
       <!-- Pagination -->
-      <div class="flex items-center justify-center gap-2 mt-10 mb-2">
+      <div v-if="totalPages > 1" class="flex items-center justify-center gap-2 mt-14">
         <button
           :disabled="page <= 1 || loading"
-          class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
           @click="load(page - 1)"
         >
-          <span class="material-symbols-outlined text-base">chevron_left</span>
+          <span class="material-symbols-outlined">chevron_left</span>
         </button>
 
         <button
           v-for="p in totalPages" :key="p"
           :class="p === page
-            ? 'bg-(--color-primary) text-white border-transparent'
-            : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
-          class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
+            ? 'bg-(--color-primary) text-white shadow-lg'
+            : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
+          class="w-12 h-12 rounded-2xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
           @click="load(p)"
         >
           {{ p }}
@@ -194,12 +166,76 @@ const filtered = computed(() => lodges.value)
 
         <button
           :disabled="page >= totalPages || loading"
-          class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
           @click="load(page + 1)"
         >
-          <span class="material-symbols-outlined text-base">chevron_right</span>
+          <span class="material-symbols-outlined">chevron_right</span>
         </button>
       </div>
+
+      </div><!-- /left column -->
+
+      <!-- ── Right: Sidebar filter (25%) ───────────────────────────────────── -->
+      <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] space-y-8 md:sticky md:top-24">
+
+        <!-- Search -->
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <span v-if="searching"
+              class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-(--color-primary) text-base animate-spin">progress_activity</span>
+            <input
+              v-model="search"
+              type="text"
+              placeholder="Search lodges..."
+              class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-2xl px-4 py-3 font-sans text-sm text-(--color-on-surface) placeholder:text-(--color-outline) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all"
+            />
+          </div>
+          <button v-if="search"
+            type="button"
+            class="bg-(--color-primary) text-white px-4 rounded-2xl font-sans text-xs font-bold uppercase tracking-wider hover:bg-(--color-charcoal) transition-all shrink-0"
+            @click="search = ''">
+            Clear
+          </button>
+        </div>
+
+        <!-- Filter by location (static — wiring added later) -->
+        <div class="space-y-6">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
+            <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Location</h4>
+          </div>
+          <select
+            class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-2xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all cursor-pointer">
+            <option value="">All Regions</option>
+            <option value="southern">Southern Africa</option>
+          </select>
+          <button
+            class="w-full bg-(--color-primary) text-white py-4 rounded-2xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">
+            Filter
+          </button>
+        </div>
+
+        <!-- Other Products -->
+        <div class="space-y-6">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
+            <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
+          </div>
+          <div class="space-y-2">
+            <RouterLink
+              v-for="prod in otherProducts" :key="prod.label"
+              :to="prod.to"
+              class="flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group">
+              <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-2xl text-(--color-primary)">{{ prod.icon }}</span>
+              </div>
+              <div class="grow">
+                <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ prod.label }}</h5>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ prod.desc }}</p>
+              </div>
+              <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+            </RouterLink>
+          </div>
+        </div>
+      </aside>
 
     </div>
   </div>

@@ -316,7 +316,7 @@ function resetFilters() {
 
         <!-- Filter by price -->
         <div class="space-y-6">
-          <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
             <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Price</h4>
           </div>
           <div class="px-1">
@@ -333,7 +333,7 @@ function resetFilters() {
 
         <!-- Room type -->
         <div class="space-y-5">
-          <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
             <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Room Type</h4>
           </div>
           <div class="flex flex-col gap-2.5 px-1">
@@ -372,16 +372,16 @@ function resetFilters() {
 
         <!-- Other Products -->
         <div class="space-y-6">
-          <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-2xl text-center shadow-sm">
             <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
           </div>
           <div class="space-y-2">
             <RouterLink
               v-for="prod in otherProducts" :key="prod.label"
               :to="prod.to"
-              class="flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group"
+              class="flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-2xl transition-colors group"
             >
-              <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+              <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-2xl flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-2xl text-(--color-primary)">{{ prod.icon }}</span>
               </div>
               <div class="flex-grow">
