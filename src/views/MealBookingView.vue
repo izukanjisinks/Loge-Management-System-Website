@@ -1255,7 +1255,7 @@ onMounted(async () => {
                             class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
                           <button type="button" @click="applyBulkToAll(meal, `master-${i}`)"
                             :disabled="!getBulk(`master-${i}`).menuItemId"
-                            class="shrink-0 px-3 py-2 rounded-lg bg-(--color-primary) text-white font-sans text-xs font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40">
+                            class="shrink-0 px-3 py-2 rounded-2xl bg-(--color-primary) text-white font-sans text-xs font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40">
                             Apply to All
                           </button>
                         </div>
@@ -1470,7 +1470,7 @@ onMounted(async () => {
                                   class="w-16 shrink-0 bg-(--color-savannah-mist) rounded-lg px-2 py-2 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors text-center" />
                                 <button type="button" @click="applyBulkToAll(m, `${date}-${mi}`)"
                                   :disabled="!getBulk(`${date}-${mi}`).menuItemId"
-                                  class="shrink-0 px-3 py-2 rounded-lg bg-(--color-primary) text-white font-sans text-xs font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40">
+                                  class="shrink-0 px-3 py-2 rounded-2xl bg-(--color-primary) text-white font-sans text-xs font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40">
                                   Apply to All
                                 </button>
                               </div>
@@ -1606,7 +1606,7 @@ onMounted(async () => {
           <!-- Continue -->
           <div class="flex justify-end pt-2">
             <button type="button" @click="goToReview"
-              class="flex items-center gap-2 px-8 py-3 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
+              class="flex items-center gap-2 px-8 py-3 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
               Review Booking
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </button>
@@ -1835,11 +1835,11 @@ onMounted(async () => {
           <!-- Submit -->
           <div class="flex gap-3 pt-2">
             <button type="button" @click="step = 1"
-              class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
+              class="flex-1 py-3.5 rounded-2xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
               Edit Details
             </button>
             <button type="button" @click="handleSubmit" :disabled="loading"
-              class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
+              class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
               <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span v-else class="material-symbols-outlined text-base">check</span>
               {{ uploading ? 'Uploading documents…' : loading ? 'Submitting…' : 'Confirm Booking' }}

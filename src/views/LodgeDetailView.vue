@@ -216,7 +216,7 @@ function branchQuery() {
             </div>
             <RouterLink
               :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
+              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
               Book Accommodation
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </RouterLink>
@@ -302,7 +302,7 @@ function branchQuery() {
             </p>
             <RouterLink
               :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: branchQuery() }"
-              class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors">
+              class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-(--color-charcoal) transition-colors">
               Book Accommodation
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </RouterLink>
@@ -311,12 +311,12 @@ function branchQuery() {
           <!-- Pagination -->
           <div v-if="roomsTotalPages > 1" class="flex items-center justify-center gap-2 pt-6">
             <button :disabled="roomsPage <= 1 || roomsLoading"
-              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+              class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="goToPage(roomsPage - 1)">
               <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <button v-for="p in roomsTotalPages" :key="p"
-              class="w-12 h-12 rounded-xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
+              class="w-12 h-12 rounded-2xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
               :class="p === roomsPage
                 ? 'bg-(--color-primary) text-white shadow-lg'
                 : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
@@ -324,7 +324,7 @@ function branchQuery() {
               {{ p }}
             </button>
             <button :disabled="roomsPage >= roomsTotalPages || roomsLoading"
-              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+              class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="goToPage(roomsPage + 1)">
               <span class="material-symbols-outlined">chevron_right</span>
             </button>
@@ -363,7 +363,7 @@ function branchQuery() {
                 </div>
               </div>
               <button
-                class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg"
+                class="w-full bg-(--color-primary) text-white py-4 rounded-2xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg"
               >
                 Filter
               </button>
@@ -429,7 +429,7 @@ function branchQuery() {
             </div>
             <RouterLink
               :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
+              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
               Book Event Space
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </RouterLink>
@@ -499,7 +499,7 @@ function branchQuery() {
               <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no venues configured yet.</p>
               <RouterLink
                 :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-                class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors">
+                class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-(--color-charcoal) transition-colors">
                 Book Event Space
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
               </RouterLink>
@@ -526,7 +526,7 @@ function branchQuery() {
                   Up to <span class="text-(--color-on-surface) font-bold">500 guests</span>
                 </div>
               </div>
-              <button class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">Filter</button>
+              <button class="w-full bg-(--color-primary) text-white py-4 rounded-2xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">Filter</button>
             </div>
             <!-- Other Products -->
             <div class="space-y-6">
@@ -580,7 +580,7 @@ function branchQuery() {
             </div>
             <RouterLink
               :to="{ name: 'meal-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
+              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
               Book Catering
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </RouterLink>
@@ -650,12 +650,12 @@ function branchQuery() {
             <!-- Menu pagination -->
             <div v-if="menuTotalPages > 1" class="flex items-center justify-center gap-2 pt-6">
               <button :disabled="menuPage <= 1 || menuLoading"
-                class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+                class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
                 @click="loadMenu(menuPage - 1)">
                 <span class="material-symbols-outlined">chevron_left</span>
               </button>
               <button v-for="p in menuTotalPages" :key="p"
-                class="w-12 h-12 rounded-xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
+                class="w-12 h-12 rounded-2xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
                 :class="p === menuPage
                   ? 'bg-(--color-primary) text-white shadow-lg'
                   : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
@@ -663,7 +663,7 @@ function branchQuery() {
                 {{ p }}
               </button>
               <button :disabled="menuPage >= menuTotalPages || menuLoading"
-                class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+                class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
                 @click="loadMenu(menuPage + 1)">
                 <span class="material-symbols-outlined">chevron_right</span>
               </button>
@@ -695,7 +695,7 @@ function branchQuery() {
               <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">The menu for this property hasn't been configured yet.</p>
               <RouterLink
                 :to="{ name: 'meal-booking', params: { id: lodgeId }, query: branchQuery() }"
-                class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors">
+                class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-2xl hover:bg-(--color-charcoal) transition-colors">
                 Book Catering Anyway
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
               </RouterLink>
@@ -722,7 +722,7 @@ function branchQuery() {
                   Up to <span class="text-(--color-on-surface) font-bold">K500</span>
                 </div>
               </div>
-              <button class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">Filter</button>
+              <button class="w-full bg-(--color-primary) text-white py-4 rounded-2xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">Filter</button>
             </div>
             <!-- Other Products -->
             <div class="space-y-6">

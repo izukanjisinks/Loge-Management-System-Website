@@ -11,7 +11,7 @@ const route = useRoute()
   <div class="h-dvh flex flex-col overflow-hidden bg-(--color-background)">
     <!-- Navbar + content share one scroll container so the sticky, translucent
          bar has page content scrolling underneath it (frosted-glass effect). -->
-    <main class="flex-1 min-h-0" :class="route.name === 'home' ? 'overflow-hidden' : 'overflow-y-auto'">
+    <main class="flex-1 min-h-0 overflow-y-auto">
       <AppNavbar />
       <RouterView v-slot="{ Component }">
         <keep-alive>
@@ -19,7 +19,7 @@ const route = useRoute()
         </keep-alive>
         <component v-if="!route.meta.keepAlive" :is="Component" />
       </RouterView>
-      <AppFooter v-if="route.name !== 'home'" />
+      <AppFooter />
     </main>
     <MobileBottomNav />
   </div>

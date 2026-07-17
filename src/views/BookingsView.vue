@@ -92,7 +92,7 @@ onMounted(() => reservations.fetchAll())
           <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Your next adventure is waiting to be planned.</p>
           <RouterLink
             to="/lodges"
-            class="inline-flex items-center gap-2 bg-(--color-primary) text-white px-6 py-2.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-colors"
+            class="inline-flex items-center gap-2 bg-(--color-primary) text-white px-6 py-2.5 rounded-2xl font-sans text-sm font-semibold hover:bg-(--color-primary-container) transition-colors"
           >
             <span class="material-symbols-outlined text-base">search</span>
             Explore Lodges

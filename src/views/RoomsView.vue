@@ -165,7 +165,7 @@ function resetFilters() {
       <section class="w-full md:w-3/4">
 
         <!-- Loading skeleton -->
-        <div v-if="apiLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div v-if="apiLoading" class="grid grid-cols-1 sm:grid-cols-2 gap-8">
           <div
             v-for="n in 6"
             :key="n"
@@ -183,7 +183,7 @@ function resetFilters() {
         <template v-else>
           <Transition enter-active-class="transition duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" mode="out-in">
             <!-- Room grid -->
-            <div v-if="filtered.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div v-if="filtered.length" class="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <RouterLink
                 v-for="room in filtered"
                 :key="room.id"
@@ -243,7 +243,7 @@ function resetFilters() {
           <div v-if="filtered.length" class="flex items-center justify-center gap-2 mt-14">
             <button
               :disabled="page <= 1 || apiLoading"
-              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+              class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="fetchRooms(page - 1)"
             >
               <span class="material-symbols-outlined">chevron_left</span>
@@ -254,7 +254,7 @@ function resetFilters() {
               :class="p === page
                 ? 'bg-(--color-primary) text-white shadow-lg'
                 : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
-              class="w-12 h-12 rounded-xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
+              class="w-12 h-12 rounded-2xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
               @click="fetchRooms(p)"
             >
               {{ p }}
@@ -262,7 +262,7 @@ function resetFilters() {
 
             <button
               :disabled="page >= totalPages || apiLoading"
-              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+              class="w-12 h-12 rounded-2xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="fetchRooms(page + 1)"
             >
               <span class="material-symbols-outlined">chevron_right</span>
@@ -272,7 +272,7 @@ function resetFilters() {
       </section>
 
       <!-- ── Right: Sidebar filter (25%) ───────────────────────────────────── -->
-      <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] border border-(--color-outline-variant) space-y-8 md:sticky md:top-24">
+      <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] space-y-8 md:sticky md:top-24">
 
         <!-- Search -->
         <div class="flex gap-2">
@@ -364,7 +364,7 @@ function resetFilters() {
 
         <!-- Filter / Clear -->
         <button
-          class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg"
+          class="w-full bg-(--color-primary) text-white py-4 rounded-2xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg"
           @click="resetFilters"
         >
           Clear Filters

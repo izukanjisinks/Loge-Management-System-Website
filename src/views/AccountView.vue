@@ -208,12 +208,12 @@ const initials = computed(() => {
 
             <div class="flex gap-3 pt-1">
               <button type="button"
-                class="flex-1 py-3 rounded-xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors"
+                class="flex-1 py-3 rounded-2xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors"
                 @click="cancelProfileEdit">
                 Cancel
               </button>
               <button type="submit" :disabled="profileLoading"
-                class="flex-1 py-3 rounded-xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                class="flex-1 py-3 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
                 <span v-if="profileLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
                 <span v-else>Save Changes</span>
               </button>
@@ -305,7 +305,7 @@ const initials = computed(() => {
             </Transition>
 
             <button type="submit" :disabled="pwLoading"
-              class="w-full py-3.5 rounded-xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+              class="w-full py-3.5 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
               <span v-if="pwLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span v-else>Update Password</span>
             </button>

@@ -111,7 +111,7 @@ const stats = [
           wherever you go, you should feel welcome. <br><br>
         </p>
         <RouterLink to="/lodges"
-          class="inline-flex items-center gap-2 bg-(--color-primary) text-white px-7 py-3.5 rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
+          class="inline-flex items-center gap-2 bg-(--color-primary) text-white px-7 py-3.5 rounded-2xl font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
           Explore Our Lodges
           <span class="material-symbols-outlined text-base">arrow_forward</span>
         </RouterLink>
@@ -177,7 +177,7 @@ const stats = [
           Browse our curated collection of lodges and begin planning a journey that stays with you long after you leave.
         </p>
         <RouterLink to="/lodges"
-          class="inline-flex items-center gap-2 bg-(--color-clay-earth) text-white px-8 py-4 rounded-full font-sans text-sm font-semibold hover:bg-(--color-primary) transition-colors">
+          class="inline-flex items-center gap-2 bg-(--color-clay-earth) text-white px-8 py-4 rounded-2xl font-sans text-sm font-semibold hover:bg-(--color-primary) transition-colors">
           <span class="material-symbols-outlined text-base">explore</span>
           Start Exploring
         </RouterLink>

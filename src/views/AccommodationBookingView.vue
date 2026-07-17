@@ -1200,7 +1200,7 @@ onMounted(async () => {
               </div>
             </Transition>
             <button type="button" @click="goToReview"
-              class="flex items-center gap-2 px-8 py-3 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
+              class="flex items-center gap-2 px-8 py-3 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors">
               Review Booking
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </button>
@@ -1395,11 +1395,11 @@ onMounted(async () => {
           <!-- Submit -->
           <div class="flex gap-3 pt-2">
             <button type="button" @click="step = 1"
-              class="flex-1 py-3.5 rounded-full border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
+              class="flex-1 py-3.5 rounded-2xl border border-(--color-outline-variant) font-sans text-sm font-semibold text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors">
               Edit Details
             </button>
             <button type="button" @click="handleSubmit" :disabled="loading"
-              class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-full bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
+              class="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors disabled:opacity-60">
               <span v-if="loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
               <span class="material-symbols-outlined text-base" v-else>check</span>
               {{ uploading ? 'Uploading documents…' : loading ? 'Submitting…' : 'Confirm Booking' }}

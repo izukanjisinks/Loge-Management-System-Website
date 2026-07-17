@@ -136,7 +136,7 @@ function confirm() { emit('confirm', selectedService.value); close() }
               Cancel
             </button>
             <button type="button"
-              class="flex-1 py-3 rounded-xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2"
+              class="flex-1 py-3 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2"
               @click="confirm">
               Continue
               <span class="material-symbols-outlined text-base">arrow_forward</span>

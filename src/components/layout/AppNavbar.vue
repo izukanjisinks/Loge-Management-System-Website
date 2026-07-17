@@ -126,7 +126,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
         <template v-else>
           <RouterLink
             to="/login"
-            class="bg-(--color-primary) text-white px-6 py-2 rounded-full text-sm font-sans font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) active:scale-90 transition-all"
+            class="bg-(--color-primary) text-white px-6 py-2 rounded-2xl text-sm font-sans font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) active:scale-90 transition-all"
           >
             Sign In
           </RouterLink>
@@ -174,7 +174,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
         <template v-else>
           <RouterLink
             to="/login"
-            class="mt-2 w-full text-center bg-(--color-primary) text-white py-3 rounded-full text-sm font-sans font-semibold tracking-[0.05em]"
+            class="mt-2 w-full text-center bg-(--color-primary) text-white py-3 rounded-2xl text-sm font-sans font-semibold tracking-[0.05em]"
           >
             Sign In
           </RouterLink>
@@ -233,7 +233,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeUserMenu))
             </button>
             <button
               type="button"
-              class="flex-1 py-3 rounded-xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors"
+              class="flex-1 py-3 rounded-2xl bg-(--color-primary) text-white font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors"
               @click="confirmLogout"
             >
               Sign Out

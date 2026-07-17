@@ -104,7 +104,7 @@ defineProps({
             <span class="font-sans text-sm text-(--color-on-surface-variant)"> / night</span>
           </div>
           <span
-            class="bg-(--color-primary) text-white px-6 py-2 rounded-lg font-sans text-sm font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) transition-colors shadow-sm active:scale-95"
+            class="bg-(--color-primary) text-white px-6 py-2 rounded-2xl font-sans text-sm font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) transition-colors shadow-sm active:scale-95"
           >
             View Details
           </span>

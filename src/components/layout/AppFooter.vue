@@ -1,75 +1,59 @@
-﻿<script setup>
+<script setup>
 import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <footer class="w-full border-t border-(--color-outline-variant) bg-(--color-surface-container-low)">
-    <div
-      class="w-full px-5 md:px-16 py-12 max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
+  <footer class="bg-(--color-charcoal) text-white">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-16 max-w-[1280px] mx-auto px-5 md:px-16 py-20">
 
       <!-- Brand -->
-      <div class="max-w-xs">
-        <div class="flex items-center gap-2">
-          <img src="/mwakwanda_favicon.svg" alt="Mwakwanda logo" class="h-8 w-8" />
-          <span class="font-serif text-2xl text-[var(--color-primary)]">
-            Mwakwanda
-          </span>
-        </div>
-
-        <p class="font-sans text-sm text-[var(--color-on-surface-variant)] leading-relaxed mt-2">
-          Simplifying Hospitality.
+      <div class="col-span-1">
+        <div class="font-serif text-2xl font-bold text-(--color-primary-container) mb-6">Mwakwanda</div>
+        <p class="font-sans text-sm text-white/60 leading-relaxed">
+          Defining the art of modern hospitality through minimalist architectural excellence and unparalleled personalized service.
         </p>
       </div>
 
-      <!-- Links -->
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-12">
-        <div class="flex flex-col gap-3">
-          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Company</span>
-          <RouterLink to="/about"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
-            About Us</RouterLink>
-          <!-- <a href="#" class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Sustainability</a> -->
-          <a href="#"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Contact</a>
-        </div>
-        <div class="flex flex-col gap-3">
-          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Explore</span>
-          <RouterLink to="/rooms"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
-            Accommodation</RouterLink>
-          <RouterLink to="/venues"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
-            Venues &amp; Events</RouterLink>
-          <RouterLink to="/lodges"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
-            Partner Lodges</RouterLink>
-          <RouterLink to="/bookings"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">
-            My Reservations</RouterLink>
-        </div>
-        <div class="flex flex-col gap-3">
-          <span class="font-sans text-sm font-semibold text-(--color-on-surface) mb-1">Legal</span>
-          <a href="#"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Privacy
-            Policy</a>
-          <a href="#"
-            class="font-sans text-sm text-(--color-on-surface-variant) hover:text-(--color-primary) transition-colors">Terms
-            of Service</a>
+      <!-- Navigation -->
+      <div>
+        <h5 class="font-sans text-xs font-bold text-white uppercase tracking-[0.2em] mb-8">Navigation</h5>
+        <ul class="space-y-4">
+          <li><RouterLink to="/rooms"    class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">Rooms &amp; Suites</RouterLink></li>
+          <li><RouterLink to="/venues"   class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">Venues &amp; Events</RouterLink></li>
+          <li><RouterLink to="/lodges"   class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">Partner Lodges</RouterLink></li>
+          <li><RouterLink to="/bookings" class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">My Reservations</RouterLink></li>
+        </ul>
+      </div>
+
+      <!-- Support -->
+      <div>
+        <h5 class="font-sans text-xs font-bold text-white uppercase tracking-[0.2em] mb-8">Support</h5>
+        <ul class="space-y-4">
+          <li><RouterLink to="/about" class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">About Us</RouterLink></li>
+          <li><a href="#" class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">Privacy &amp; Legal</a></li>
+          <li><a href="#" class="font-sans text-sm text-white/60 hover:text-(--color-primary-container) transition-colors">Concierge Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Follow -->
+      <div>
+        <h5 class="font-sans text-xs font-bold text-white uppercase tracking-[0.2em] mb-8">Follow Us</h5>
+        <div class="flex gap-4">
+          <a href="#" aria-label="Instagram"
+            class="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 font-sans text-sm font-semibold text-white hover:bg-(--color-primary) hover:border-(--color-primary) transition-all">IG</a>
+          <a href="#" aria-label="Facebook"
+            class="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 font-sans text-sm font-semibold text-white hover:bg-(--color-primary) hover:border-(--color-primary) transition-all">FB</a>
+          <a href="#" aria-label="Twitter"
+            class="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/5 border border-white/10 font-sans text-sm font-semibold text-white hover:bg-(--color-primary) hover:border-(--color-primary) transition-all">TW</a>
         </div>
       </div>
     </div>
 
     <!-- Bottom bar -->
-    <div
-      class="w-full px-5 md:px-16 py-5 max-w-[1280px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4 opacity-60 border-t border-(--color-outline-variant)">
-      <p class="font-sans text-xs text-(--color-on-surface-variant)">
-        Copyright © {{ new Date().getFullYear() }} Mwakwanda Hospitality Group. All rights reserved.
+    <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 border-t border-white/10 text-center md:text-left">
+      <p class="font-sans text-xs text-white/50 uppercase tracking-widest">
+        Copyright © {{ new Date().getFullYear() }} Mwakwanda Hospitality Group. Curated Architectural Stays.
       </p>
-      <div class="flex gap-6">
-        <span class="material-symbols-outlined text-(--color-on-surface-variant) cursor-pointer">language</span>
-        <span
-          class="material-symbols-outlined text-(--color-on-surface-variant) cursor-pointer">account_balance_wallet</span>
-      </div>
     </div>
   </footer>
 </template>

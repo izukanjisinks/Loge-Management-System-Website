@@ -127,7 +127,7 @@ function amenityIcon(label) {
       <!-- CTA -->
       <button
         type="button"
-        class="w-full py-2.5 rounded-full font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors"
+        class="w-full py-2.5 rounded-2xl font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors"
         @click.stop="goToDetail"
       >
         View Details

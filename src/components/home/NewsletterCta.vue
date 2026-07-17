@@ -53,7 +53,7 @@ function submit() {
         />
         <button
           type="submit"
-          class="bg-(--color-primary) text-white px-8 py-3 rounded-lg
+          class="bg-(--color-primary) text-white px-8 py-3 rounded-2xl
                  font-sans font-semibold text-sm tracking-[0.05em]
                  hover:bg-(--color-primary-container) transition-colors duration-200"
         >

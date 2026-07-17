@@ -32,9 +32,9 @@ const tag = computed(() => {
            transition-all duration-200 focus-visible:outline-none focus-visible:ring-2
            focus-visible:ring-(--color-primary) focus-visible:ring-offset-2"
     :class="{
-      'bg-(--color-primary) text-white px-6 py-2.5 rounded-full text-sm font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) active:scale-[0.98]':
+      'bg-(--color-primary) text-white px-6 py-2.5 rounded-2xl text-sm font-semibold tracking-[0.05em] hover:bg-(--color-primary-container) active:scale-[0.98]':
         variant === 'primary',
-      'border-2 border-(--color-primary) text-(--color-primary) px-6 py-2.5 rounded-full text-sm font-semibold tracking-[0.05em] bg-transparent hover:bg-(--color-primary) hover:text-white active:scale-[0.98]':
+      'border-2 border-(--color-primary) text-(--color-primary) px-6 py-2.5 rounded-2xl text-sm font-semibold tracking-[0.05em] bg-transparent hover:bg-(--color-primary) hover:text-white active:scale-[0.98]':
         variant === 'secondary',
       'text-(--color-primary) px-4 py-2 text-sm hover:underline':
         variant === 'ghost',

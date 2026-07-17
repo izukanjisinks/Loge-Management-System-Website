@@ -50,7 +50,7 @@ function search() {
           />
         </div>
         <button
-          class="w-full md:w-auto bg-(--color-clay-earth) text-white px-8 py-4 rounded-xl text-sm font-sans font-semibold tracking-[0.05em] hover:bg-(--color-primary) transition-colors flex items-center justify-center gap-2"
+          class="w-full md:w-auto bg-(--color-clay-earth) text-white px-8 py-4 rounded-2xl text-sm font-sans font-semibold tracking-[0.05em] hover:bg-(--color-primary) transition-colors flex items-center justify-center gap-2"
           @click="search"
         >
           <span class="material-symbols-outlined">search</span>

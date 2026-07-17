@@ -967,14 +967,14 @@ function isPdf(url) {
           <div class="flex flex-col gap-3">
             <button
               v-if="canBookAgain"
-              class="w-full bg-(--color-primary) text-white py-3 rounded-xl font-sans text-sm font-semibold hover:opacity-90 transition-opacity"
+              class="w-full bg-(--color-primary) text-white py-3 rounded-2xl font-sans text-sm font-semibold hover:opacity-90 transition-opacity"
               @click="bookAgain"
             >
               Book Again
             </button>
             <RouterLink
               to="/lodges"
-              class="w-full text-center border-2 border-(--color-primary) text-(--color-primary) py-3 rounded-xl font-sans text-sm font-semibold hover:bg-(--color-primary) hover:text-white transition-all"
+              class="w-full text-center border-2 border-(--color-primary) text-(--color-primary) py-3 rounded-2xl font-sans text-sm font-semibold hover:bg-(--color-primary) hover:text-white transition-all"
             >
               Browse Lodges
             </RouterLink>
