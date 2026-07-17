@@ -1,58 +1,62 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Theme: "Terre-et-Acier" — Minimalist Architectural
+   Earthy terracotta primary, charcoal grounding, cool off-white surfaces.
+   ══════════════════════════════════════════════════════════════════════════ */
 @theme inline {
   /* ── Brand Colors ── */
-  --color-primary:                    oklch(0.55 0.12 45);
+  --color-primary:                    #8a492e;
   --color-on-primary:                 #ffffff;
-  --color-primary-container:          #a46546;
-  --color-on-primary-container:       #fffbff;
-  --color-inverse-primary:            #ffb693;
-  --color-primary-fixed:              #ffdbcc;
-  --color-primary-fixed-dim:          #ffb693;
-  --color-on-primary-fixed:           #351000;
-  --color-on-primary-fixed-variant:   #6d381d;
+  --color-primary-container:          #a86144;
+  --color-on-primary-container:       #fffaf9;
+  --color-inverse-primary:            #ffb599;
+  --color-primary-fixed:              #ffdbce;
+  --color-primary-fixed-dim:          #ffb599;
+  --color-on-primary-fixed:           #370e00;
+  --color-on-primary-fixed-variant:   #71361c;
 
-  --color-secondary:                  #74584a;
+  --color-secondary:                  #5f5e5e;
   --color-on-secondary:               #ffffff;
-  --color-secondary-container:        #fed8c5;
-  --color-on-secondary-container:     #795d4e;
-  --color-secondary-fixed:            #ffdbca;
-  --color-secondary-fixed-dim:        #e3bfad;
-  --color-on-secondary-fixed:         #2a170c;
-  --color-on-secondary-fixed-variant: #5a4134;
+  --color-secondary-container:        #e2dfde;
+  --color-on-secondary-container:     #636262;
+  --color-secondary-fixed:            #e5e2e1;
+  --color-secondary-fixed-dim:        #c8c6c5;
+  --color-on-secondary-fixed:         #1b1b1c;
+  --color-on-secondary-fixed-variant: #474746;
 
-  --color-tertiary:                   #68594a;
+  --color-tertiary:                   #006661;
   --color-on-tertiary:                #ffffff;
-  --color-tertiary-container:         #827261;
-  --color-on-tertiary-container:      #fffbff;
-  --color-tertiary-fixed:             #f4dfcb;
-  --color-tertiary-fixed-dim:         #d7c3b0;
-  --color-on-tertiary-fixed:          #241a0e;
-  --color-on-tertiary-fixed-variant:  #524436;
+  --color-tertiary-container:         #23807a;
+  --color-on-tertiary-container:      #e9fffc;
+  --color-tertiary-fixed:             #9df2ea;
+  --color-tertiary-fixed-dim:         #80d5ce;
+  --color-on-tertiary-fixed:          #00201e;
+  --color-on-tertiary-fixed-variant:  #00504c;
 
   /* ── Surface Colors ── */
-  --color-background:                 #fcf9f4;
-  --color-on-background:              #1c1c19;
-  --color-surface:                    #fcf9f4;
-  --color-surface-dim:                #dcdad5;
-  --color-surface-bright:             #fcf9f4;
+  --color-background:                 #f9f9f9;
+  --color-on-background:              #1a1c1c;
+  --color-surface:                    #f9f9f9;
+  --color-surface-dim:                #dadada;
+  --color-surface-bright:             #f9f9f9;
   --color-surface-container-lowest:   #ffffff;
-  --color-surface-container-low:      #f6f3ee;
-  --color-surface-container:          #f0ede9;
-  --color-surface-container-high:     #ebe8e3;
-  --color-surface-container-highest:  #e5e2dd;
-  --color-on-surface:                 #1c1c19;
-  --color-on-surface-variant:         #53443d;
-  --color-inverse-surface:            #31302d;
-  --color-inverse-on-surface:         #f3f0eb;
-  --color-surface-variant:            #e5e2dd;
-  --color-surface-tint:               #8a4f32;
+  --color-surface-container-low:      #f3f3f3;
+  --color-surface-container:          #eeeeee;
+  --color-surface-container-high:     #e8e8e8;
+  --color-surface-container-highest:  #e2e2e2;
+  --color-on-surface:                 #1a1c1c;
+  --color-on-surface-variant:         #53433d;
+  --color-inverse-surface:            #2f3131;
+  --color-inverse-on-surface:         #f1f1f1;
+  --color-surface-variant:            #e2e2e2;
+  --color-surface-tint:               #8e4c31;
 
   /* ── Outline ── */
-  --color-outline:                    #85736c;
-  --color-outline-variant:            #d8c2b9;
+  --color-outline:                    #86736c;
+  --color-outline-variant:            #d9c2ba;
 
   /* ── Semantic ── */
   --color-error:                      #ba1a1a;
@@ -60,14 +64,18 @@
   --color-error-container:            #ffdad6;
   --color-on-error-container:         #93000a;
 
-  /* ── Brand Accents ── */
-  --color-clay-earth:                 #A3644D;
-  --color-savannah-mist:              #F3EBE3;
-  --color-deep-obsidian:              #1F1A17;
+  /* ── Brand Accents ──
+     Kept for backwards-compat (used across ~29 files); re-pointed to the
+     Terre-et-Acier palette. clay-earth → terracotta, deep-obsidian → charcoal. */
+  --color-clay-earth:                 #a86144;
+  --color-savannah-mist:              #f3f3f3;
+  --color-deep-obsidian:              #1e1e1e;
+  --color-terracotta:                 #a86144;
+  --color-charcoal:                   #1e1e1e;
 
   /* ── Typography ── */
-  --font-serif: 'Inter', system-ui, serif;
-  --font-sans:  'Inter', system-ui, sans-serif;
+  --font-serif: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-sans:  'Hanken Grotesk', system-ui, sans-serif;
 
   /* ── Border Radius ── */
   --radius-sm:      0.25rem;

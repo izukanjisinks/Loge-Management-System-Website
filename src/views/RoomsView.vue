@@ -3,7 +3,6 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useScrollReveal } from '@/composables/useScrollReveal'
 import { useLodgesStore } from '@/stores/lodges'
-import RoomCard from '@/components/rooms/RoomCard.vue'
 import api from '@/lib/api'
 
 useScrollReveal()
@@ -60,10 +59,17 @@ const filterType        = ref('All')
 const filterCapacity    = ref(1)
 const filterMaxPrice    = ref(1000)
 const showAvailableOnly = ref(false)
+const searchQuery       = ref('')   // client-side name/description search
 
 const availableBranches = computed(() =>
   filterLodge.value ? lodgesStore.branchesFor(filterLodge.value) : []
 )
+
+// "Other Products" — real nav links (no fabricated prices/ratings)
+const otherProducts = [
+  { label: 'Venues',  desc: 'Event & conference spaces', icon: 'meeting_room', to: '/venues' },
+  { label: 'Explore', desc: 'Browse everything',          icon: 'explore',      to: '/explore' },
+]
 
 watch(filterLodge, () => {
   filterBranch.value = ''
@@ -115,15 +121,17 @@ watch(
   { immediate: true }
 )
 
-const filtered = computed(() =>
-  rooms.value.filter(r => {
+const filtered = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  return rooms.value.filter(r => {
     if (filterType.value !== 'All' && r.type !== filterType.value) return false
     if (r.capacity < filterCapacity.value) return false
     if (r.price > filterMaxPrice.value)    return false
     if (showAvailableOnly.value && !r.available) return false
+    if (q && !(`${r.name} ${r.type} ${r.description}`.toLowerCase().includes(q))) return false
     return true
   })
-)
+})
 
 const resultLabel = computed(() =>
   filtered.value.length === 1 ? '1 premium escape' : `${filtered.value.length} premium escapes`
@@ -136,200 +144,117 @@ function resetFilters() {
   filterCapacity.value    = 1
   filterMaxPrice.value    = priceSliderMax.value
   showAvailableOnly.value = false
+  searchQuery.value       = ''
   fetchRooms(1)
 }
 </script>
 
 <template>
-  <div class="max-w-[1280px] mx-auto px-5 md:px-16 pt-8 pb-4 flex flex-col md:flex-row gap-6">
+  <div class="max-w-[1280px] mx-auto px-5 md:px-16 pt-8 pb-16">
 
-    <!-- Left Sidebar: Filters -->
-    <aside class="w-full md:w-64 shrink-0">
-      <div class="sticky top-28 flex flex-col gap-8">
-        <h2 class="font-serif text-2xl text-(--color-on-surface)">Filters</h2>
+    <!-- Section header -->
+    <div class="mb-12">
+      <span class="font-sans text-xs font-bold tracking-[0.2em] uppercase text-(--color-primary) block mb-3">Exquisite Living</span>
+      <h1 class="font-serif text-[40px] leading-none font-bold text-(--color-on-surface)">Featured Accommodations</h1>
+      <p class="font-sans text-sm text-(--color-on-surface-variant) mt-3">Showing {{ resultLabel }} in Southern Africa</p>
+    </div>
 
-        <!-- Lodge filter -->
-        <div class="flex flex-col gap-2">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Lodge</span>
-          <select
-            v-model="filterLodge"
-            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all cursor-pointer"
-          >
-            <option value="">All Lodges</option>
-            <option v-for="l in lodgesStore.lodges" :key="l.id" :value="l.id">{{ l.name }}</option>
-          </select>
-        </div>
+    <div class="flex flex-col md:flex-row gap-10 items-start">
 
-        <!-- Branch filter -->
-        <div v-if="availableBranches.length" class="flex flex-col gap-2">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Branch</span>
-          <select
-            v-model="filterBranch"
-            class="w-full bg-(--color-savannah-mist) border-none rounded-lg px-3 py-2.5 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) transition-all cursor-pointer"
-          >
-            <option value="">All Branches</option>
-            <option v-for="b in availableBranches" :key="b.id" :value="b.id">{{ b.name }}</option>
-          </select>
-        </div>
+      <!-- ── Left: Room grid (75%) ─────────────────────────────────────────── -->
+      <section class="w-full md:w-3/4">
 
-        <div class="h-px bg-(--color-outline-variant)"></div>
-
-        <!-- Price Range -->
-        <div class="flex flex-col gap-3">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Price Range</span>
-          <input
-            v-model.number="filterMaxPrice"
-            type="range" min="100" :max="priceSliderMax" step="10"
-            class="w-full h-1 bg-(--color-surface-container-highest) rounded-lg appearance-none cursor-pointer accent-(--color-primary)"
-          />
-          <div class="flex justify-between font-sans text-xs text-(--color-on-surface-variant)">
-            <span>K100</span>
-            <span>K{{ filterMaxPrice.toLocaleString() }}/night</span>
-          </div>
-        </div>
-
-        <div class="h-px bg-(--color-outline-variant)"></div>
-
-        <!-- Lodge Type -->
-        <div class="flex flex-col gap-3">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">Lodge Type</span>
-          <div class="flex flex-col gap-2">
-            <label
-              v-for="t in TYPES"
-              :key="t"
-              class="flex items-center gap-3 cursor-pointer group"
-            >
-              <input
-                v-model="filterType"
-                :value="t"
-                type="radio"
-                class="w-4 h-4 rounded-full border-(--color-outline) text-(--color-primary) focus:ring-(--color-primary)"
-              />
-              <span class="font-sans text-sm text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">
-                {{ t }}
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div class="h-px bg-(--color-outline-variant)"></div>
-
-        <!-- Min Guests -->
-        <div class="flex flex-col gap-3">
-          <span class="font-sans text-xs font-semibold tracking-[0.05em] uppercase text-(--color-on-surface-variant)">
-            Min Guests &mdash; <span class="text-(--color-on-surface)">{{ filterCapacity }}</span>
-          </span>
-          <input
-            v-model.number="filterCapacity"
-            type="range" min="1" max="6" step="1"
-            class="w-full h-1 bg-(--color-surface-container-highest) rounded-lg appearance-none cursor-pointer accent-(--color-primary)"
-          />
-          <div class="flex justify-between font-sans text-xs text-(--color-on-surface-variant)">
-            <span>1</span><span>6</span>
-          </div>
-        </div>
-
-        <div class="h-px bg-(--color-outline-variant)"></div>
-
-        <!-- Available only -->
-        <label class="flex items-center gap-3 cursor-pointer group">
-          <input
-            v-model="showAvailableOnly"
-            type="checkbox"
-            class="w-5 h-5 rounded border-(--color-outline) text-(--color-primary) focus:ring-(--color-primary)"
-          />
-          <span class="font-sans text-sm text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">
-            Available only
-          </span>
-        </label>
-
-        <button
-          class="w-full mt-2 bg-(--color-surface-container-high) text-(--color-on-surface-variant) py-3 rounded-lg font-sans text-sm font-semibold tracking-[0.05em] hover:bg-(--color-surface-container-highest) transition-colors"
-          @click="resetFilters"
-        >
-          Clear All Filters
-        </button>
-      </div>
-    </aside>
-
-    <!-- Right: Results -->
-    <section class="flex-1 flex flex-col">
-      <!-- Header row -->
-      <div class="flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4">
-        <div>
-          <h1 class="font-serif text-[32px] font-semibold leading-10 text-(--color-on-surface)">Available Lodges</h1>
-          <p class="font-sans text-sm text-(--color-on-surface-variant)">
-            Showing {{ resultLabel }} in Southern Africa
-          </p>
-        </div>
-      </div>
-
-      <!-- Content area with fixed min height -->
-      <div class="flex-1 min-h-[600px] flex flex-col">
         <!-- Loading skeleton -->
-        <div v-if="apiLoading" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div v-if="apiLoading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           <div
-            v-for="n in 4"
+            v-for="n in 6"
             :key="n"
-            class="rounded-xl bg-(--color-surface-container-lowest) border border-(--color-savannah-mist) overflow-hidden animate-pulse"
-          >
-            <div class="h-64 bg-(--color-surface-container-high)"></div>
-            <div class="p-6 space-y-3">
-              <div class="h-4 bg-(--color-surface-container-high) rounded max-w-48"></div>
-              <div class="h-3 bg-(--color-surface-container-high) rounded max-w-32"></div>
-            </div>
-          </div>
+            class="h-[500px] rounded-[2rem] bg-(--color-surface-container-high) overflow-hidden animate-pulse"
+          ></div>
         </div>
 
         <!-- API error -->
-        <div v-else-if="apiError" class="flex-1 flex flex-col items-center justify-center py-24 text-center">
+        <div v-else-if="apiError" class="flex flex-col items-center justify-center py-24 text-center">
           <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-4">error</span>
           <p class="font-serif text-xl text-(--color-on-surface) mb-2">Something went wrong</p>
           <p class="font-sans text-sm text-(--color-on-surface-variant)">{{ apiError }}</p>
         </div>
 
         <template v-else>
-          <!-- Room grid -->
           <Transition enter-active-class="transition duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" mode="out-in">
-            <div v-if="filtered.length" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <RoomCard
-                v-for="(room, i) in filtered"
+            <!-- Room grid -->
+            <div v-if="filtered.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <RouterLink
+                v-for="room in filtered"
                 :key="room.id"
-                :room="room"
-                :index="i"
-              />
+                :to="`/rooms/${room.id}`"
+                class="group relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl block"
+              >
+                <!-- Image -->
+                <img
+                  v-if="room.image"
+                  :src="room.image"
+                  :alt="room.name"
+                  class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div v-else class="absolute inset-0 bg-(--color-surface-container-high) flex items-center justify-center">
+                  <span class="material-symbols-outlined text-6xl text-(--color-outline)">bed</span>
+                </div>
+
+                <!-- Type badge -->
+                <div v-if="room.type" class="absolute top-5 left-5 z-20 bg-(--color-charcoal) text-white px-4 py-1.5 rounded-full font-sans text-xs font-semibold uppercase tracking-widest shadow-lg">
+                  {{ room.type }}
+                </div>
+
+                <!-- Frosted info panel -->
+                <div class="absolute inset-x-0 bottom-0 z-10 bg-(--color-surface-container-lowest)/90 backdrop-blur-sm p-6 border-t border-white/20">
+                  <div class="flex justify-between items-start gap-3 mb-3">
+                    <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight">{{ room.name }}</h3>
+                    <span class="shrink-0 flex items-center gap-1 font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                      <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
+                      {{ room.capacity }}
+                    </span>
+                  </div>
+                  <p v-if="room.description" class="font-sans text-sm text-(--color-on-surface-variant) mb-6 line-clamp-2">
+                    {{ room.description }}
+                  </p>
+                  <div class="flex justify-between items-center">
+                    <span class="font-sans text-xl font-bold text-(--color-on-surface)">
+                      K{{ Number(room.price).toLocaleString() }}<span class="text-sm font-normal text-(--color-on-surface-variant)">/night</span>
+                    </span>
+                    <span class="flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) group-hover:text-(--color-charcoal) transition-colors">
+                      Details <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    </span>
+                  </div>
+                </div>
+              </RouterLink>
             </div>
 
             <!-- Empty state -->
-            <div v-else class="flex-1 flex flex-col items-center justify-center py-24 text-center">
+            <div v-else class="flex flex-col items-center justify-center py-24 text-center">
               <span class="material-symbols-outlined text-4xl text-(--color-on-surface-variant) block mb-4">search_off</span>
-              <p class="font-serif text-xl text-(--color-on-surface) mb-2">No lodges match your filters</p>
+              <p class="font-serif text-xl text-(--color-on-surface) mb-2">No rooms match your filters</p>
               <p class="font-sans text-sm text-(--color-on-surface-variant) mb-6">Try adjusting the type, capacity, or price range.</p>
-              <button
-                class="font-sans text-sm text-(--color-primary) hover:underline"
-                @click="resetFilters"
-              >
-                Clear all filters
-              </button>
+              <button class="font-sans text-sm text-(--color-primary) hover:underline" @click="resetFilters">Clear all filters</button>
             </div>
           </Transition>
 
           <!-- Pagination -->
-          <div class="flex items-center justify-center gap-2 mt-10 mb-2">
+          <div v-if="filtered.length" class="flex items-center justify-center gap-2 mt-14">
             <button
               :disabled="page <= 1 || apiLoading"
-              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="fetchRooms(page - 1)"
             >
-              <span class="material-symbols-outlined text-base">chevron_left</span>
+              <span class="material-symbols-outlined">chevron_left</span>
             </button>
 
             <button
               v-for="p in totalPages" :key="p"
               :class="p === page
-                ? 'bg-(--color-primary) text-white border-transparent'
-                : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
-              class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
+                ? 'bg-(--color-primary) text-white shadow-lg'
+                : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
+              class="w-12 h-12 rounded-xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
               @click="fetchRooms(p)"
             >
               {{ p }}
@@ -337,15 +262,138 @@ function resetFilters() {
 
             <button
               :disabled="page >= totalPages || apiLoading"
-              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="fetchRooms(page + 1)"
             >
-              <span class="material-symbols-outlined text-base">chevron_right</span>
+              <span class="material-symbols-outlined">chevron_right</span>
             </button>
           </div>
         </template>
-      </div>
-    </section>
+      </section>
 
+      <!-- ── Right: Sidebar filter (25%) ───────────────────────────────────── -->
+      <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] border border-(--color-outline-variant) space-y-8 md:sticky md:top-24">
+
+        <!-- Search -->
+        <div class="flex gap-2">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search rooms..."
+            class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all"
+          />
+          <button
+            class="bg-(--color-primary) text-white px-5 rounded-xl font-sans text-xs font-bold uppercase tracking-wider hover:bg-(--color-charcoal) transition-all shrink-0"
+          >
+            Search
+          </button>
+        </div>
+
+        <!-- Lodge / Branch -->
+        <div class="space-y-4">
+          <div class="flex flex-col gap-2">
+            <span class="font-sans text-xs font-bold tracking-widest uppercase text-(--color-on-surface-variant)">Lodge</span>
+            <select
+              v-model="filterLodge"
+              class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all cursor-pointer"
+            >
+              <option value="">All Lodges</option>
+              <option v-for="l in lodgesStore.lodges" :key="l.id" :value="l.id">{{ l.name }}</option>
+            </select>
+          </div>
+
+          <div v-if="availableBranches.length" class="flex flex-col gap-2">
+            <span class="font-sans text-xs font-bold tracking-widest uppercase text-(--color-on-surface-variant)">Branch</span>
+            <select
+              v-model="filterBranch"
+              class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all cursor-pointer"
+            >
+              <option value="">All Branches</option>
+              <option v-for="b in availableBranches" :key="b.id" :value="b.id">{{ b.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filter by price -->
+        <div class="space-y-6">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+            <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Price</h4>
+          </div>
+          <div class="px-1">
+            <input
+              v-model.number="filterMaxPrice"
+              type="range" min="100" :max="priceSliderMax" step="10"
+              class="w-full h-2 bg-(--color-surface-container-highest) rounded-full appearance-none cursor-pointer accent-(--color-primary)"
+            />
+            <div class="mt-4 text-center font-sans text-sm text-(--color-on-surface-variant)">
+              Price: <span class="text-(--color-on-surface) font-bold">K100 — K{{ filterMaxPrice.toLocaleString() }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Room type -->
+        <div class="space-y-5">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+            <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Room Type</h4>
+          </div>
+          <div class="flex flex-col gap-2.5 px-1">
+            <label v-for="t in TYPES" :key="t" class="flex items-center gap-3 cursor-pointer group">
+              <input v-model="filterType" :value="t" type="radio" class="w-4 h-4 accent-(--color-primary)" />
+              <span class="font-sans text-sm text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ t }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Min guests + available -->
+        <div class="space-y-5 px-1">
+          <div class="space-y-3">
+            <span class="font-sans text-xs font-bold tracking-widest uppercase text-(--color-on-surface-variant)">
+              Min Guests &mdash; <span class="text-(--color-on-surface)">{{ filterCapacity }}</span>
+            </span>
+            <input
+              v-model.number="filterCapacity"
+              type="range" min="1" max="6" step="1"
+              class="w-full h-2 bg-(--color-surface-container-highest) rounded-full appearance-none cursor-pointer accent-(--color-primary)"
+            />
+          </div>
+          <label class="flex items-center gap-3 cursor-pointer group">
+            <input v-model="showAvailableOnly" type="checkbox" class="w-5 h-5 accent-(--color-primary)" />
+            <span class="font-sans text-sm text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Available only</span>
+          </label>
+        </div>
+
+        <!-- Filter / Clear -->
+        <button
+          class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg"
+          @click="resetFilters"
+        >
+          Clear Filters
+        </button>
+
+        <!-- Other Products -->
+        <div class="space-y-6">
+          <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+            <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
+          </div>
+          <div class="space-y-2">
+            <RouterLink
+              v-for="prod in otherProducts" :key="prod.label"
+              :to="prod.to"
+              class="flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group"
+            >
+              <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-2xl text-(--color-primary)">{{ prod.icon }}</span>
+              </div>
+              <div class="flex-grow">
+                <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">{{ prod.label }}</h5>
+                <p class="font-sans text-xs text-(--color-on-surface-variant)">{{ prod.desc }}</p>
+              </div>
+              <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+            </RouterLink>
+          </div>
+        </div>
+      </aside>
+
+    </div>
   </div>
 </template>

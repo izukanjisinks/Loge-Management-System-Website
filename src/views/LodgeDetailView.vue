@@ -2,10 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLodgesStore } from '@/stores/lodges'
-import { useRooms, amenityIcon, roomImage } from '@/composables/useRooms'
-import { parseDate, today, getLocalTimeZone } from '@internationalized/date'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover/index'
+import { useRooms, roomImage } from '@/composables/useRooms'
 import api from '@/lib/api'
 
 const route = useRoute()
@@ -31,69 +28,21 @@ const VALID_TABS = ['accommodation', 'events', 'meals']
 const selectedBranch = ref(route.query.branch ?? '')
 const activeTab      = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'accommodation')
 
-// Date filter
-const todayDate    = today(getLocalTimeZone())
-const checkInOpen  = ref(false)
-const checkOutOpen = ref(false)
-const checkIn      = ref('')
-const checkOut     = ref('')
-const searched     = ref(false)
-const dateFilters  = ref({})
-
 // Venues
 const venues        = ref([])
 const venuesLoading = ref(false)
 const venuesError   = ref('')
 
-// ── Date helpers ──────────────────────────────────────────────────────────────
-function toIso(cd) {
-  if (!cd) return ''
-  return `${cd.year}-${String(cd.month).padStart(2, '0')}-${String(cd.day).padStart(2, '0')}`
-}
-function fmt(iso) {
-  if (!iso) return null
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-const checkInValue = computed({
-  get: () => checkIn.value ? parseDate(checkIn.value) : undefined,
-  set: (v) => { checkIn.value = toIso(v); checkInOpen.value = false },
-})
-const checkOutValue = computed({
-  get: () => checkOut.value ? parseDate(checkOut.value) : undefined,
-  set: (v) => { checkOut.value = toIso(v); checkOutOpen.value = false },
-})
-const checkOutMin = computed(() =>
-  checkIn.value ? parseDate(checkIn.value).add({ days: 1 }) : todayDate.add({ days: 1 })
-)
-const nights = computed(() => {
-  if (!checkIn.value || !checkOut.value) return 0
-  return Math.max(0, Math.floor((new Date(checkOut.value) - new Date(checkIn.value)) / 86400000))
-})
-
 // ── Data ──────────────────────────────────────────────────────────────────────
+// NOTE: room filtering (search / price / type) is intentionally not wired yet —
+// the sidebar controls are static and will be hooked up later.
 function buildRoomParams(extra = {}) {
-  const p = { org_id: lodgeId, ...dateFilters.value, ...extra }
+  const p = { org_id: lodgeId, ...extra }
   if (selectedBranch.value) p.branch_id = selectedBranch.value
   return p
 }
 
 function loadRooms(extra = {}) { fetchRooms(buildRoomParams(extra)) }
-
-async function checkAvailability() {
-  if (nights.value === 0) return
-  dateFilters.value = { check_in: checkIn.value, check_out: checkOut.value }
-  await fetchRooms(buildRoomParams())
-  searched.value = true
-}
-
-function clearDates() {
-  checkIn.value = ''
-  checkOut.value = ''
-  dateFilters.value = {}
-  searched.value = false
-  loadRooms()
-}
 
 async function goToPage(p) { await fetchRooms(buildRoomParams({ page: p })) }
 
@@ -113,9 +62,12 @@ async function loadVenues() {
 }
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
-const menuItems   = ref([])
-const menuLoading = ref(false)
-const menuError   = ref('')
+const menuItems      = ref([])
+const menuLoading    = ref(false)
+const menuError      = ref('')
+const menuPage       = ref(1)
+const menuTotalPages = ref(1)
+const MENU_PAGE_SIZE = 6
 
 function menuBranchId() {
   if (selectedBranch.value) return selectedBranch.value
@@ -130,36 +82,25 @@ const menuNeedsBranch = computed(() =>
   branches.value.length > 1 && !selectedBranch.value
 )
 
-async function loadMenu() {
+async function loadMenu(p = 1) {
   menuLoading.value = true
   menuError.value   = ''
-  menuItems.value   = []
+  menuPage.value    = p
   try {
-    const params = { org_id: lodgeId }
+    const params = { org_id: lodgeId, page: p, page_size: MENU_PAGE_SIZE }
     const branchId = menuBranchId()
     if (branchId) params.branch_id = branchId
 
     const { data } = await api.get('/guest/menu', { params })
     const wrapper  = data.items
-    const firstPage = wrapper?.data ?? []
-    const total     = wrapper?.total    ?? firstPage.length
-    const pageSize  = wrapper?.page_size ?? 10
-    const totalPages = Math.ceil(total / pageSize)
-
-    // Fetch remaining pages in parallel so all categories show
-    let rest = []
-    if (totalPages > 1) {
-      const requests = Array.from({ length: totalPages - 1 }, (_, i) =>
-        api.get('/guest/menu', { params: { ...params, page: i + 2, page_size: pageSize } })
-      )
-      const results = await Promise.all(requests)
-      rest = results.flatMap(r => r.data.items?.data ?? [])
-    }
-
-    menuItems.value = [...firstPage, ...rest]
+    menuItems.value      = wrapper?.data ?? []
+    const total          = wrapper?.total     ?? menuItems.value.length
+    const pageSize       = wrapper?.page_size ?? MENU_PAGE_SIZE
+    menuTotalPages.value = Math.max(1, Math.ceil(total / pageSize))
   } catch (err) {
     if (err.response?.status === 400 || err.response?.status === 404) {
       menuItems.value = []
+      menuTotalPages.value = 1
     } else {
       menuError.value = 'Unable to load menu. Please try again.'
     }
@@ -184,32 +125,9 @@ function menuCategoryLabel(c) {
   return c.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 }
 
-const menuByCategory = computed(() => {
-  const order = ['breakfast', 'brunch', 'starter', 'appetizer', 'soup', 'salad',
-                  'main', 'main_course', 'lunch', 'dinner', 'buffet',
-                  'dessert', 'snack', 'bakery', 'beverage', 'drinks']
-  const map = {}
-  for (const item of menuItems.value) {
-    const key = item.category ?? 'other'
-    if (!map[key]) map[key] = []
-    map[key].push(item)
-  }
-  return Object.entries(map).sort(([a], [b]) => {
-    const ia = order.indexOf(a), ib = order.indexOf(b)
-    if (ia === -1 && ib === -1) return a.localeCompare(b)
-    if (ia === -1) return 1
-    if (ib === -1) return -1
-    return ia - ib
-  })
-})
-
 // ── Watchers ──────────────────────────────────────────────────────────────────
 watch(selectedBranch, (val) => {
   router.replace({ query: { ...route.query, branch: val || undefined } })
-  checkIn.value = ''
-  checkOut.value = ''
-  dateFilters.value = {}
-  searched.value = false
   loadRooms()
   if (activeTab.value === 'events') loadVenues()
   if (activeTab.value === 'meals') {
@@ -226,14 +144,6 @@ watch(activeTab, (tab) => {
 })
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-const COVERS = [
-  'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80',
-  'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=1200&q=80',
-  'https://images.unsplash.com/photo-1444201983204-c43cbd584d93?w=1200&q=80',
-  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80',
-]
-function lodgeCover(i) { return lodge.value?.logoUrl ?? COVERS[i % COVERS.length] }
-
 onMounted(async () => {
   await lodgesStore.fetchLodges()
   lodgesStore.fetchLodgeDetail(lodgeId)
@@ -249,53 +159,11 @@ function venueLocationIcon(t) {
 function venueLocationLabel(t) {
   return t === 'outdoor' ? 'Outdoor' : t === 'semi_outdoor' ? 'Semi-Outdoor' : 'Indoor'
 }
-function venueTypeIcon(type) {
-  const m = {
-    conference_room: 'corporate_fare', boardroom: 'meeting_room',
-    banquet_hall: 'celebration',       wedding_venue: 'favorite',
-    garden: 'local_florist',           marquee: 'festival',
-    training_room: 'school',           exhibition: 'museum',
-    amphitheatre: 'theater_comedy',
-  }
-  return m[type] ?? 'event'
-}
-function venueAmenityIcon(label) {
-  const l = (label ?? '').toLowerCase()
-  if (l.includes('wifi') || l.includes('wi-fi'))         return 'wifi'
-  if (l.includes('projector') || l.includes('screen'))   return 'connected_tv'
-  if (l.includes('pa') || l.includes('sound'))           return 'volume_up'
-  if (l.includes('air') || l.includes('climate'))        return 'ac_unit'
-  if (l.includes('stage') || l.includes('podium'))       return 'mic'
-  if (l.includes('parking'))                             return 'local_parking'
-  if (l.includes('catering') || l.includes('dining'))    return 'restaurant'
-  if (l.includes('bar'))                                 return 'local_bar'
-  if (l.includes('video') || l.includes('conferencing')) return 'videocam'
-  if (l.includes('whiteboard') || l.includes('flip'))    return 'draw'
-  if (l.includes('display') || l.includes('4k'))         return 'monitor'
-  if (l.includes('generator'))                           return 'bolt'
-  return 'check_circle'
-}
 
 // ── Booking ───────────────────────────────────────────────────────────────────
 function branchQuery() {
   const id = selectedBranch.value || (branches.value.length === 1 ? String(branches.value[0].id) : null)
   return id ? { branchId: id } : {}
-}
-
-function bookRoom(room) {
-  router.push({
-    name:   'accommodation-booking',
-    params: { id: lodgeId },
-    query:  {
-      roomId:   room.id,
-      roomName: room.name,
-      roomType: room.type ?? room.type_label ?? '',
-      rate:     parseFloat(room.price_per_night) || 0,
-      ...(checkIn.value  ? { checkIn:  checkIn.value  } : {}),
-      ...(checkOut.value ? { checkOut: checkOut.value } : {}),
-      ...branchQuery(),
-    },
-  })
 }
 
 </script>
@@ -319,97 +187,7 @@ function bookRoom(room) {
   <!-- ── Lodge page ────────────────────────────────────────────────────────── -->
   <div v-else-if="lodge" class="pb-24">
 
-    <!-- ── Hero ──────────────────────────────────────────────────────────── -->
-    <section class="relative h-64 md:h-80 overflow-hidden">
-      <img :src="lodgeCover(0)" :alt="lodge.name" class="absolute inset-0 w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/30 to-transparent"></div>
-      <div class="relative z-10 h-full flex flex-col justify-end px-5 md:px-16 pb-10 max-w-[1280px] mx-auto">
-        <RouterLink to="/lodges"
-          class="flex items-center gap-1 font-sans text-sm text-white/70 hover:text-white mb-4 transition-colors w-fit">
-          <span class="material-symbols-outlined text-base">arrow_back</span>
-          All lodges
-        </RouterLink>
-        <h1 class="font-serif text-3xl md:text-4xl font-semibold text-white">{{ lodge.name }}</h1>
-        <div class="flex flex-wrap items-center gap-4 mt-2">
-          <p v-if="lodge.address" class="flex items-center gap-1.5 font-sans text-sm text-white/80">
-            <span class="material-symbols-outlined text-base">location_on</span>
-            {{ lodge.address }}
-          </p>
-          <a v-if="lodge.email" :href="`mailto:${lodge.email}`"
-            class="flex items-center gap-1.5 font-sans text-sm text-white/70 hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-base">mail</span>
-            {{ lodge.email }}
-          </a>
-          <a v-if="lodge.phone" :href="`tel:${lodge.phone}`"
-            class="flex items-center gap-1.5 font-sans text-sm text-white/70 hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-base">phone</span>
-            {{ lodge.phone }}
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Step 1: Branch selector ────────────────────────────────────────── -->
-    <section v-if="branches.length > 1"
-      class="bg-(--color-surface-container-lowest) border-b border-(--color-outline-variant)">
-      <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-5">
-        <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-3 flex items-center gap-2">
-          <span class="material-symbols-outlined text-base text-(--color-primary)">location_on</span>
-          Select a location
-        </p>
-        <div class="flex flex-wrap gap-2">
-          <button
-            @click="selectedBranch = ''"
-            class="flex items-center gap-2 px-4 py-2 rounded-full font-sans text-sm font-semibold border-2 transition-all"
-            :class="!selectedBranch
-              ? 'border-(--color-primary) bg-(--color-primary) text-white'
-              : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary)'">
-            <span class="material-symbols-outlined text-base">language</span>
-            All Locations
-          </button>
-          <button
-            v-for="b in branches" :key="b.id"
-            @click="selectedBranch = String(b.id)"
-            class="flex items-center gap-2 px-4 py-2 rounded-full font-sans text-sm font-semibold border-2 transition-all"
-            :class="selectedBranch === String(b.id)
-              ? 'border-(--color-primary) bg-(--color-primary) text-white'
-              : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary)'">
-            <span class="material-symbols-outlined text-base">villa</span>
-            {{ b.name }}
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Step 2: Service tab nav (sticky) ───────────────────────────────── -->
-    <div class="sticky top-0 z-20 bg-(--color-surface)/95 backdrop-blur-sm border-b border-(--color-outline-variant)">
-      <div class="max-w-[1280px] mx-auto px-5 md:px-16">
-        <div class="flex items-center gap-1 py-2 overflow-x-auto">
-          <!-- Branch context chip -->
-          <div v-if="selectedBranchObj"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-(--color-savannah-mist) border border-(--color-primary) mr-3 shrink-0">
-            <span class="material-symbols-outlined text-sm text-(--color-primary)">location_on</span>
-            <span class="font-sans text-xs font-semibold text-(--color-primary) whitespace-nowrap">{{ selectedBranchObj.name }}</span>
-          </div>
-          <!-- Tabs -->
-          <button v-for="tab in [
-            { id: 'accommodation', icon: 'bed',        label: 'Accommodation' },
-            { id: 'events',        icon: 'event',      label: 'Events' },
-            { id: 'meals',         icon: 'restaurant', label: 'Meals' },
-          ]" :key="tab.id"
-            @click="activeTab = tab.id"
-            class="flex items-center gap-2 px-5 py-2.5 rounded-lg font-sans text-sm font-semibold transition-all shrink-0"
-            :class="activeTab === tab.id
-              ? 'bg-(--color-primary) text-white shadow-sm'
-              : 'text-(--color-on-surface-variant) hover:text-(--color-on-surface) hover:bg-(--color-surface-container)'">
-            <span class="material-symbols-outlined text-base">{{ tab.icon }}</span>
-            {{ tab.label }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Step 3: Tab content ────────────────────────────────────────────── -->
+    <!-- ── Tab content ────────────────────────────────────────────────────── -->
     <div class="max-w-[1280px] mx-auto px-5 md:px-16 py-8 min-h-[70vh]">
       <Transition
         enter-active-class="transition-opacity duration-150"
@@ -421,99 +199,34 @@ function bookRoom(room) {
         mode="out-in">
 
         <!-- ════════════ ACCOMMODATION ════════════ -->
-        <div v-if="activeTab === 'accommodation'" key="accommodation" class="space-y-8">
+        <div v-if="activeTab === 'accommodation'" key="accommodation">
 
-          <!-- Rooms header + booking CTA -->
-          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <!-- Section header -->
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-10">
             <div>
-              <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface)">
-                {{ searched ? 'Available Rooms' : 'Rooms &amp; Accommodation' }}
-              </h2>
-              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
+              <span class="font-sans text-xs font-bold tracking-[0.2em] uppercase text-(--color-primary) block mb-2">Exquisite Living</span>
+              <h2 class="font-serif text-[32px] leading-none font-bold text-(--color-on-surface)">Rooms &amp; Accommodation</h2>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-3">
                 <template v-if="roomsLoading">Loading rooms…</template>
                 <template v-else>
                   {{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }}
                   at {{ selectedBranchObj?.name ?? lodge.name }}
-                  <template v-if="searched"> · {{ checkIn && checkOut ? `${fmt(checkIn)} – ${fmt(checkOut)}` : '' }}</template>
                 </template>
               </p>
             </div>
-            <div class="flex items-center gap-2 shrink-0 flex-wrap">
-              <RouterLink
-                :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-                class="flex items-center gap-2 px-5 py-2.5 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors whitespace-nowrap">
-                Book Accommodation
-                <span class="material-symbols-outlined text-base">arrow_forward</span>
-              </RouterLink>
-              <!-- <RouterLink
-                :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: { context: 'corporate', ...branchQuery() } }"
-                class="flex items-center gap-2 px-5 py-2.5 border-2 border-(--color-primary) text-(--color-primary) font-sans text-sm font-semibold rounded-full hover:bg-(--color-savannah-mist) transition-colors whitespace-nowrap">
-                Corporate
-              </RouterLink> -->
-            </div>
+            <RouterLink
+              :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
+              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
+              Book Accommodation
+              <span class="material-symbols-outlined text-base">arrow_forward</span>
+            </RouterLink>
           </div>
 
-          <!-- Date filter -->
-          <div class="p-5 bg-(--color-surface-container-lowest) rounded-2xl">
-            <div class="flex items-center gap-2 mb-4">
-              <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
-              <span class="font-sans text-sm font-semibold text-(--color-on-surface)">Filter by availability</span>
-              <button v-if="searched" @click="clearDates"
-                class="ml-auto font-sans text-xs text-(--color-primary) hover:underline flex items-center gap-1">
-                <span class="material-symbols-outlined text-sm">close</span>
-                Clear dates
-              </button>
-            </div>
-            <div class="flex flex-col sm:flex-row gap-3">
-              <div class="flex-1 flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-in</label>
-                <Popover v-model:open="checkInOpen">
-                  <PopoverTrigger as-child>
-                    <button type="button"
-                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 flex items-center gap-2 text-left focus:outline-none">
-                      <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
-                      <span class="font-sans text-sm" :class="checkIn ? 'text-(--color-on-surface)' : 'text-(--color-outline)'">
-                        {{ fmt(checkIn) || 'Select date' }}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" class="w-auto">
-                    <Calendar v-model="checkInValue" :min-value="todayDate" layout="month-and-year" />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div class="flex-1 flex flex-col gap-1">
-                <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Check-out</label>
-                <Popover v-model:open="checkOutOpen">
-                  <PopoverTrigger as-child>
-                    <button type="button"
-                      class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-2.5 flex items-center gap-2 text-left focus:outline-none">
-                      <span class="material-symbols-outlined text-base text-(--color-primary)">calendar_today</span>
-                      <span class="font-sans text-sm" :class="checkOut ? 'text-(--color-on-surface)' : 'text-(--color-outline)'">
-                        {{ fmt(checkOut) || 'Select date' }}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" class="w-auto">
-                    <Calendar v-model="checkOutValue" :min-value="checkOutMin" layout="month-and-year" />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div class="flex items-end">
-                <button
-                  :disabled="nights === 0 || roomsLoading"
-                  class="w-full sm:w-auto px-7 py-2.5 bg-(--color-primary) text-white rounded-full font-sans text-sm font-semibold hover:bg-(--color-clay-earth) transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                  @click="checkAvailability">
-                  <span v-if="roomsLoading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                  <span v-else class="material-symbols-outlined text-base">search</span>
-                  {{ roomsLoading ? 'Checking…' : nights > 0 ? `Check (${nights} night${nights !== 1 ? 's' : ''})` : 'Check Availability' }}
-                </button>
-              </div>
-            </div>
-            <p v-if="searched && !roomsLoading" class="mt-3 font-sans text-sm text-(--color-on-surface-variant)">
-              Showing {{ rooms.length }} room{{ rooms.length !== 1 ? 's' : '' }} available for selected dates.
-            </p>
-          </div>
+          <!-- Two-column: grid + sidebar filter -->
+          <div class="flex flex-col md:flex-row gap-10 items-start">
+
+          <!-- ── Left: Room grid (75%) ──────────────────────────────────────── -->
+          <div class="w-full md:w-3/4 space-y-8">
 
           <!-- Rooms error -->
           <div v-if="roomsError && !roomsLoading"
@@ -524,17 +237,9 @@ function bookRoom(room) {
 
           <!-- Rooms skeleton -->
           <div v-else-if="roomsLoading && !rooms.length"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            class="grid grid-cols-1 sm:grid-cols-2 gap-8">
             <div v-for="i in 6" :key="i"
-              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse">
-              <div class="h-48 bg-(--color-surface-container-highest)"></div>
-              <div class="p-5 space-y-3">
-                <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
-                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
-                <div class="h-3 bg-(--color-surface-container-highest) rounded"></div>
-                <div class="h-9 bg-(--color-surface-container-highest) rounded-full mt-4"></div>
-              </div>
-            </div>
+              class="h-[500px] rounded-[2rem] bg-(--color-surface-container-high) overflow-hidden animate-pulse"></div>
           </div>
 
           <!-- Room cards -->
@@ -547,58 +252,40 @@ function bookRoom(room) {
                 <span class="material-symbols-outlined text-4xl text-(--color-primary) animate-spin">progress_activity</span>
               </div>
             </Transition>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
               <div v-for="room in rooms" :key="room.id"
-                class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+                class="group relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl cursor-pointer"
                 @click="router.push({ name: 'room-detail', params: { id: room.id }, query: { org_id: lodgeId } })">
-                <div class="relative h-48 overflow-hidden">
-                  <img :src="roomImage(room)" :alt="room.name"
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                  <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
-                  <span :class="room.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
-                    class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-                    {{ room.is_available ? 'In Service' : 'Out of Service' }}
-                  </span>
-                  <span class="absolute bottom-3 left-3 font-sans text-xs font-semibold bg-(--color-primary) text-white px-2.5 py-1 rounded-full capitalize">
-                    {{ room.type }}
-                  </span>
+                <!-- Image -->
+                <img :src="roomImage(room)" :alt="room.name"
+                  class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+
+                <!-- Type badge -->
+                <div v-if="room.type"
+                  class="absolute top-5 left-5 z-20 bg-(--color-charcoal) text-white px-4 py-1.5 rounded-full font-sans text-xs font-semibold uppercase tracking-widest shadow-lg capitalize">
+                  {{ room.type }}
                 </div>
-                <div class="p-5 flex flex-col flex-1">
-                  <div class="flex items-start justify-between gap-2 mb-2">
-                    <h3 class="font-serif text-lg text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">
-                      {{ room.name }}
-                    </h3>
-                    <div class="text-right shrink-0">
-                      <p class="font-serif text-lg text-(--color-primary)">K{{ Number(room.price_per_night).toLocaleString() }}</p>
-                      <span class="font-sans text-xs text-(--color-on-surface-variant)">/ night</span>
-                    </div>
-                  </div>
-                  <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
-                    <span class="material-symbols-outlined text-sm text-(--color-primary)">people</span>
-                    Sleeps {{ room.capacity }}
-                  </p>
-                  <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
-                    {{ room.description || 'A comfortable and well-appointed room.' }}
-                  </p>
-                  <div class="flex flex-wrap gap-1 mb-4">
-                    <span v-for="a in (room.amenities ?? []).slice(0, 3)" :key="a"
-                      class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
-                      <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ amenityIcon(a) }}</span>
-                      {{ a }}
+
+                <!-- Frosted info panel -->
+                <div class="absolute inset-x-0 bottom-0 z-10 bg-(--color-surface-container-lowest)/90 backdrop-blur-sm p-6 border-t border-white/20">
+                  <div class="flex justify-between items-start gap-3 mb-2">
+                    <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight">{{ room.name }}</h3>
+                    <span class="shrink-0 flex items-center gap-1 font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                      <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
+                      {{ room.capacity }}
                     </span>
                   </div>
-                  <div class="flex gap-2">
-                    <button
-                      class="flex-1 py-2.5 rounded-full font-sans text-sm font-semibold border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) transition-colors"
-                      @click.stop="router.push({ name: 'room-detail', params: { id: room.id }, query: { org_id: lodgeId } })">
-                      View Details
-                    </button>
-                    <button
-                      :disabled="!searched || !room.is_available"
-                      class="flex-1 py-2.5 rounded-full font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      @click.stop="bookRoom(room)">
-                      {{ room.is_available ? 'Reserve' : 'Unavailable' }}
-                    </button>
+                  <p class="font-sans text-sm text-(--color-on-surface-variant) mb-5 line-clamp-2">
+                    {{ room.description || 'A comfortable and well-appointed room.' }}
+                  </p>
+                  <div class="flex justify-between items-center">
+                    <span class="font-sans text-xl font-bold text-(--color-on-surface)">
+                      K{{ Number(room.price_per_night).toLocaleString() }}<span class="text-sm font-normal text-(--color-on-surface-variant)">/night</span>
+                    </span>
+                    <span
+                      class="flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) group-hover:text-(--color-charcoal) transition-colors">
+                      Details <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -608,62 +295,131 @@ function bookRoom(room) {
           <!-- Empty rooms -->
           <div v-else-if="!roomsLoading"
             class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">
-              {{ searched ? 'event_busy' : 'bed' }}
-            </span>
-            <p class="font-serif text-xl text-(--color-on-surface)">
-              {{ searched ? 'No rooms available' : 'No rooms listed' }}
-            </p>
+            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">bed</span>
+            <p class="font-serif text-xl text-(--color-on-surface)">No rooms listed</p>
             <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">
-              {{ searched
-                ? 'All rooms are booked for those dates. Try different dates or book directly.'
-                : 'This property has no rooms configured yet.' }}
+              This property has no rooms configured yet.
             </p>
-            <div class="flex items-center justify-center gap-3 mt-6">
-              <button v-if="searched" @click="clearDates"
-                class="font-sans text-sm text-(--color-primary) hover:underline">
-                Show all rooms
-              </button>
-              <RouterLink
-                :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: branchQuery() }"
-                class="inline-flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
-                Book Accommodation
-                <span class="material-symbols-outlined text-base">arrow_forward</span>
-              </RouterLink>
-            </div>
+            <RouterLink
+              :to="{ name: 'accommodation-booking', params: { id: lodgeId }, query: branchQuery() }"
+              class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors">
+              Book Accommodation
+              <span class="material-symbols-outlined text-base">arrow_forward</span>
+            </RouterLink>
           </div>
 
           <!-- Pagination -->
-          <div v-if="roomsTotalPages > 1" class="flex items-center justify-center gap-2 pt-2">
+          <div v-if="roomsTotalPages > 1" class="flex items-center justify-center gap-2 pt-6">
             <button :disabled="roomsPage <= 1 || roomsLoading"
-              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 transition-colors"
+              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="goToPage(roomsPage - 1)">
-              <span class="material-symbols-outlined text-base">chevron_left</span>
+              <span class="material-symbols-outlined">chevron_left</span>
             </button>
             <button v-for="p in roomsTotalPages" :key="p"
-              class="w-9 h-9 flex items-center justify-center rounded-full border font-sans text-sm font-medium transition-colors"
+              class="w-12 h-12 rounded-xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
               :class="p === roomsPage
-                ? 'bg-(--color-primary) text-white border-transparent'
-                : 'border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container)'"
+                ? 'bg-(--color-primary) text-white shadow-lg'
+                : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
               @click="goToPage(p)">
               {{ p }}
             </button>
             <button :disabled="roomsPage >= roomsTotalPages || roomsLoading"
-              class="w-9 h-9 flex items-center justify-center rounded-full border border-(--color-outline-variant) text-(--color-on-surface-variant) hover:bg-(--color-surface-container) disabled:opacity-30 transition-colors"
+              class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
               @click="goToPage(roomsPage + 1)">
-              <span class="material-symbols-outlined text-base">chevron_right</span>
+              <span class="material-symbols-outlined">chevron_right</span>
             </button>
           </div>
+          </div><!-- /left column -->
+
+          <!-- ── Right: Sidebar filter (25%) · static — wiring added later ──────── -->
+          <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] space-y-8 md:sticky md:top-24">
+
+            <!-- Search -->
+            <div class="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search rooms..."
+                class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all"
+              />
+              <button
+                class="bg-(--color-primary) text-white px-5 rounded-xl font-sans text-xs font-bold uppercase tracking-wider hover:bg-(--color-charcoal) transition-all shrink-0"
+              >
+                Search
+              </button>
+            </div>
+
+            <!-- Filter by price -->
+            <div class="space-y-6">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+                <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Price</h4>
+              </div>
+              <div class="px-1">
+                <input
+                  type="range" min="40" max="2350" value="2350"
+                  class="w-full h-2 bg-(--color-surface-container-highest) rounded-full appearance-none cursor-pointer accent-(--color-primary)"
+                />
+                <div class="mt-4 text-center font-sans text-sm text-(--color-on-surface-variant)">
+                  Price: <span class="text-(--color-on-surface) font-bold">K40 — K2,350</span>
+                </div>
+              </div>
+              <button
+                class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg"
+              >
+                Filter
+              </button>
+            </div>
+
+            <!-- Other Products -->
+            <div class="space-y-6">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+                <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
+              </div>
+              <div class="space-y-2">
+                <button
+                  type="button"
+                  class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left"
+                  @click="activeTab = 'events'"
+                >
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-(--color-primary)">meeting_room</span>
+                  </div>
+                  <div class="grow">
+                    <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Venues</h5>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Event & conference spaces</p>
+                  </div>
+                  <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left"
+                  @click="activeTab = 'meals'"
+                >
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-(--color-primary)">restaurant</span>
+                  </div>
+                  <div class="grow">
+                    <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Meals</h5>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Catering & dining menu</p>
+                  </div>
+                  <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          </div><!-- /two-column -->
         </div>
 
         <!-- ════════════ EVENTS ════════════ -->
-        <div v-else-if="activeTab === 'events'" key="events" class="space-y-8">
+        <div v-else-if="activeTab === 'events'" key="events">
 
-          <!-- Header + CTA -->
-          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <!-- Section header -->
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-10">
             <div>
-              <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface)">Event Spaces &amp; Venues</h2>
-              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
+              <span class="font-sans text-xs font-bold tracking-[0.2em] uppercase text-(--color-primary) block mb-2">Gather & Celebrate</span>
+              <h2 class="font-serif text-[32px] leading-none font-bold text-(--color-on-surface)">Event Spaces &amp; Venues</h2>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-3">
                 <template v-if="venuesLoading">Loading venues…</template>
                 <template v-else>
                   {{ venues.length }} venue{{ venues.length !== 1 ? 's' : '' }}
@@ -671,123 +427,149 @@ function bookRoom(room) {
                 </template>
               </p>
             </div>
-            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+            <RouterLink
+              :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
+              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
+              Book Event Space
+              <span class="material-symbols-outlined text-base">arrow_forward</span>
+            </RouterLink>
+          </div>
+
+          <!-- Two-column: grid + sidebar filter -->
+          <div class="flex flex-col md:flex-row gap-10 items-start">
+
+          <!-- ── Left: Venue grid (75%) ─────────────────────────────────────── -->
+          <div class="w-full md:w-3/4 space-y-8">
+
+            <!-- Venues skeleton -->
+            <div v-if="venuesLoading && !venues.length"
+              class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div v-for="i in 6" :key="i"
+                class="h-[500px] rounded-[2rem] bg-(--color-surface-container-high) overflow-hidden animate-pulse"></div>
+            </div>
+
+            <!-- Venue cards -->
+            <div v-else-if="venues.length" class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div v-for="venue in venues" :key="venue.id"
+                class="group relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl cursor-pointer"
+                @click="router.push({ name: 'venue-detail', params: { id: venue.id }, query: { org_id: venue.org_id } })">
+                <!-- Image -->
+                <img v-if="venue.images?.[0]" :src="venue.images[0]" :alt="venue.name"
+                  class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                <div v-else class="absolute inset-0 bg-(--color-surface-container-high) flex items-center justify-center">
+                  <span class="material-symbols-outlined text-6xl text-(--color-outline)">event</span>
+                </div>
+
+                <!-- Type badge -->
+                <div v-if="venue.type_label"
+                  class="absolute top-5 left-5 z-20 bg-(--color-charcoal) text-white px-4 py-1.5 rounded-full font-sans text-xs font-semibold uppercase tracking-widest shadow-lg">
+                  {{ venue.type_label }}
+                </div>
+
+                <!-- Frosted info panel -->
+                <div class="absolute inset-x-0 bottom-0 z-10 bg-(--color-surface-container-lowest)/90 backdrop-blur-sm p-6 border-t border-white/20">
+                  <div class="flex justify-between items-start gap-3 mb-2">
+                    <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight">{{ venue.name }}</h3>
+                    <span class="shrink-0 flex items-center gap-1 font-sans text-xs font-semibold text-(--color-on-surface-variant)">
+                      <span class="material-symbols-outlined text-base text-(--color-primary)">group</span>
+                      {{ venue.capacity }}
+                    </span>
+                  </div>
+                  <p class="font-sans text-sm text-(--color-on-surface-variant) mb-5 line-clamp-2">
+                    {{ venue.description || 'A versatile space for your event.' }}
+                  </p>
+                  <div class="flex justify-between items-center">
+                    <span class="flex items-center gap-1.5 font-sans text-sm font-semibold text-(--color-on-surface-variant)">
+                      <span class="material-symbols-outlined text-base text-(--color-primary)">{{ venueLocationIcon(venue.location_type) }}</span>
+                      {{ venueLocationLabel(venue.location_type) }}
+                    </span>
+                    <span class="flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-wider text-(--color-primary) group-hover:text-(--color-charcoal) transition-colors">
+                      Details <span class="material-symbols-outlined text-base">arrow_forward</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty venues -->
+            <div v-else-if="!venuesLoading"
+              class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
+              <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event_seat</span>
+              <p class="font-serif text-xl text-(--color-on-surface)">No venues listed</p>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no venues configured yet.</p>
               <RouterLink
                 :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-                class="flex items-center gap-2 px-5 py-2.5 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors whitespace-nowrap">
+                class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors">
                 Book Event Space
                 <span class="material-symbols-outlined text-base">arrow_forward</span>
               </RouterLink>
-              <!-- <RouterLink
-                :to="{ name: 'event-booking', params: { id: lodgeId }, query: { context: 'corporate', ...branchQuery() } }"
-                class="flex items-center gap-2 px-5 py-2.5 border-2 border-(--color-primary) text-(--color-primary) font-sans text-sm font-semibold rounded-full hover:bg-(--color-savannah-mist) transition-colors whitespace-nowrap">
-                Corporate
-              </RouterLink> -->
             </div>
-          </div>
+          </div><!-- /left column -->
 
-          <!-- Venues skeleton -->
-          <div v-if="venuesLoading && !venues.length"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div v-for="i in 6" :key="i"
-              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse">
-              <div class="h-48 bg-(--color-surface-container-highest)"></div>
-              <div class="p-5 space-y-3">
-                <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
-                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
-                <div class="h-3 bg-(--color-surface-container-highest) rounded"></div>
-                <div class="h-9 bg-(--color-surface-container-highest) rounded-full mt-4"></div>
-              </div>
+          <!-- ── Right: Sidebar filter (25%) · static — wiring added later ──────── -->
+          <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] space-y-8 md:sticky md:top-24">
+            <!-- Search -->
+            <div class="flex gap-2">
+              <input type="text" placeholder="Search venues..."
+                class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all" />
+              <button class="bg-(--color-primary) text-white px-5 rounded-xl font-sans text-xs font-bold uppercase tracking-wider hover:bg-(--color-charcoal) transition-all shrink-0">Search</button>
             </div>
-          </div>
-
-          <!-- Empty venues -->
-          <div v-else-if="!venuesLoading && !venues.length"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">location_city</span>
-            <p class="font-serif text-xl text-(--color-on-surface)">No venues available</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">There are no venues listed for this property.</p>
-          </div>
-
-          <!-- Venue cards -->
-          <div v-else-if="venues.length"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div v-for="venue in venues" :key="venue.id"
-              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden shadow-sm flex flex-col group hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-              @click="router.push({ name: 'venue-detail', params: { id: venue.id }, query: { org_id: venue.org_id } })">
-              <div class="relative h-48 overflow-hidden">
-                <img v-if="venue.images?.[0]" :src="venue.images[0]" :alt="venue.name"
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" loading="lazy" />
-                <div v-else class="w-full h-full bg-(--color-surface-container) flex items-center justify-center">
-                  <span class="material-symbols-outlined text-5xl text-(--color-outline)">event</span>
-                </div>
-                <div class="absolute inset-0 bg-linear-to-t from-black/40 to-transparent"></div>
-                <span class="absolute top-3 left-3 flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
-                  <span class="material-symbols-outlined text-sm">{{ venueLocationIcon(venue.location_type) }}</span>
-                  {{ venueLocationLabel(venue.location_type) }}
-                </span>
-                <span class="absolute top-3 right-3 flex items-center gap-1 bg-white/90 text-(--color-on-surface) px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
-                  <span class="material-symbols-outlined text-sm text-(--color-primary)">group</span>
-                  up to {{ venue.capacity }}
-                </span>
-                <span class="absolute bottom-3 left-3 flex items-center gap-1 bg-(--color-primary) text-white px-2.5 py-1 rounded-full font-sans text-xs font-semibold">
-                  <span class="material-symbols-outlined text-sm">{{ venueTypeIcon(venue.type) }}</span>
-                  {{ venue.type_label }}
-                </span>
+            <!-- Filter by capacity -->
+            <div class="space-y-6">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+                <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Capacity</h4>
               </div>
-              <div class="p-5 flex flex-col flex-1">
-                <h3 class="font-serif text-lg text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors mb-2">
-                  {{ venue.name }}
-                </h3>
-                <p class="flex items-center gap-1.5 font-sans text-xs text-(--color-on-surface-variant) mb-3">
-                  <span class="material-symbols-outlined text-sm text-(--color-primary)">groups</span>
-                  Up to {{ venue.capacity }} guests
-                </p>
-                <p class="font-sans text-sm text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mb-4 flex-1">
-                  {{ venue.description }}
-                </p>
-                <div class="flex flex-wrap gap-1 mb-4">
-                  <span v-for="a in (venue.amenities ?? []).slice(0, 3)" :key="a"
-                    class="flex items-center gap-1 bg-(--color-savannah-mist) text-(--color-on-surface-variant) px-2 py-0.5 rounded font-sans text-xs">
-                    <span class="material-symbols-outlined text-sm text-(--color-primary)">{{ venueAmenityIcon(a) }}</span>
-                    {{ a }}
-                  </span>
+              <div class="px-1">
+                <input type="range" min="10" max="500" value="500"
+                  class="w-full h-2 bg-(--color-surface-container-highest) rounded-full appearance-none cursor-pointer accent-(--color-primary)" />
+                <div class="mt-4 text-center font-sans text-sm text-(--color-on-surface-variant)">
+                  Up to <span class="text-(--color-on-surface) font-bold">500 guests</span>
                 </div>
-                <button
-                  type="button"
-                  class="w-full py-2.5 rounded-full font-sans text-sm font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors"
-                  @click.stop="router.push({ name: 'venue-detail', params: { id: venue.id }, query: { org_id: venue.org_id } })">
-                  View Details
+              </div>
+              <button class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">Filter</button>
+            </div>
+            <!-- Other Products -->
+            <div class="space-y-6">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+                <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
+              </div>
+              <div class="space-y-2">
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'accommodation'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-(--color-primary)">bed</span>
+                  </div>
+                  <div class="grow">
+                    <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Rooms</h5>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Accommodation & suites</p>
+                  </div>
+                  <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+                </button>
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'meals'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-(--color-primary)">restaurant</span>
+                  </div>
+                  <div class="grow">
+                    <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Meals</h5>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Catering & dining menu</p>
+                  </div>
+                  <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
                 </button>
               </div>
             </div>
-          </div>
+          </aside>
 
-          <!-- Empty venues -->
-          <div v-else-if="!venuesLoading"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">event_seat</span>
-            <p class="font-serif text-xl text-(--color-on-surface)">No venues listed</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">This property has no venues configured yet.</p>
-            <div class="flex items-center justify-center mt-6">
-              <RouterLink
-                :to="{ name: 'event-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-                class="inline-flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
-                Book Event Space
-                <span class="material-symbols-outlined text-base">arrow_forward</span>
-              </RouterLink>
-            </div>
-          </div>
+          </div><!-- /two-column -->
         </div>
 
         <!-- ════════════ MEALS ════════════ -->
-        <div v-else-if="activeTab === 'meals'" key="meals" class="space-y-8">
+        <div v-else-if="activeTab === 'meals'" key="meals">
 
-          <!-- Header + CTA -->
-          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <!-- Section header -->
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-10">
             <div>
-              <h2 class="font-serif text-2xl font-semibold text-(--color-on-surface)">Catering &amp; Meals</h2>
-              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-1">
+              <span class="font-sans text-xs font-bold tracking-[0.2em] uppercase text-(--color-primary) block mb-2">Curated Flavours</span>
+              <h2 class="font-serif text-[32px] leading-none font-bold text-(--color-on-surface)">Catering &amp; Meals</h2>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-3">
                 <template v-if="menuLoading">Loading menu…</template>
                 <template v-else-if="menuNeedsBranch">Select a location to view its menu</template>
                 <template v-else>
@@ -796,144 +578,183 @@ function bookRoom(room) {
                 </template>
               </p>
             </div>
-            <div class="flex items-center gap-2 shrink-0 flex-wrap">
-              <RouterLink
-                :to="{ name: 'meal-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
-                class="flex items-center gap-2 px-5 py-2.5 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors whitespace-nowrap">
-                Book Catering
-                <span class="material-symbols-outlined text-base">arrow_forward</span>
-              </RouterLink>
-            </div>
-          </div>
-
-          <!-- Menu error -->
-          <div v-if="menuError && !menuLoading"
-            class="py-12 text-center bg-(--color-error-container) rounded-2xl">
-            <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
-            <p class="font-sans text-sm text-(--color-on-error-container)">{{ menuError }}</p>
-            <button @click="loadMenu"
-              class="mt-4 font-sans text-sm text-(--color-primary) hover:underline">Try again</button>
-          </div>
-
-          <!-- Menu skeleton -->
-          <div v-else-if="menuLoading && !menuItems.length"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div v-for="i in 6" :key="i"
-              class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden animate-pulse">
-              <div class="h-60 bg-(--color-surface-container-highest)"></div>
-              <div class="p-5 space-y-3">
-                <div class="h-4 bg-(--color-surface-container-highest) rounded max-w-48"></div>
-                <div class="h-3 bg-(--color-surface-container-highest) rounded max-w-32"></div>
-                <div class="h-3 bg-(--color-surface-container-highest) rounded"></div>
-                <div class="h-9 bg-(--color-surface-container-highest) rounded-full mt-4"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Menu items — grouped by category -->
-          <div v-else-if="menuItems.length" class="space-y-10">
-            <div v-for="[category, items] in menuByCategory" :key="category">
-              <!-- Category header -->
-              <div class="flex items-center gap-3 mb-5">
-                <div class="w-9 h-9 rounded-full bg-(--color-savannah-mist) flex items-center justify-center shrink-0">
-                  <span class="material-symbols-outlined text-lg text-(--color-primary)"
-                    style="font-variation-settings: 'FILL' 1">{{ menuCategoryIcon(category) }}</span>
-                </div>
-                <h3 class="font-serif text-xl text-(--color-on-surface)">{{ menuCategoryLabel(category) }}</h3>
-                <span class="font-sans text-xs text-(--color-on-surface-variant) bg-(--color-surface-container) px-2.5 py-0.5 rounded-full">
-                  {{ items.length }} item{{ items.length !== 1 ? 's' : '' }}
-                </span>
-                <div class="flex-1 h-px bg-(--color-outline-variant)"></div>
-              </div>
-
-              <!-- Items grid -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div v-for="item in items" :key="item.id"
-                  class="bg-(--color-surface-container-lowest) rounded-2xl overflow-hidden flex flex-col group hover:shadow-md transition-shadow duration-200">
-                  <!-- Icon band -->
-                  <div class="relative h-65 bg-(--color-surface-container) flex items-center justify-center overflow-hidden">
-                    <img v-if="item.image_url" :src="item.image_url" :alt="item.name"
-                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    <span v-else
-                      class="material-symbols-outlined text-6xl text-(--color-outline) group-hover:text-(--color-primary) transition-colors duration-300"
-                      style="font-variation-settings: 'FILL' 1">{{ menuCategoryIcon(item.category) }}</span>
-                    <div class="absolute inset-0 bg-linear-to-t from-black/10 to-transparent"></div>
-                    <span :class="item.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
-                      class="absolute top-3 right-3 text-white font-sans text-xs font-semibold px-2.5 py-1 rounded-full">
-                      {{ item.is_available ? 'Available' : 'Unavailable' }}
-                    </span>
-                  </div>
-                  <!-- Info -->
-                  <div class="p-5 flex flex-col flex-1">
-                    <div class="flex items-start justify-between gap-2 mb-1">
-                      <p class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors leading-snug flex-1">
-                        {{ item.name }}
-                      </p>
-                      <p v-if="item.price" class="font-serif text-base text-(--color-primary) shrink-0">
-                        K{{ Number(item.price).toLocaleString() }}
-                      </p>
-                    </div>
-                    <p v-if="item.description"
-                      class="font-sans text-xs text-(--color-on-surface-variant) leading-relaxed line-clamp-2 mt-1 mb-4 flex-1">
-                      {{ item.description }}
-                    </p>
-                    <!-- <RouterLink v-if="item.is_available"
-                      :to="{ name: 'meal-booking', params: { id: lodgeId }, query: branchQuery() }"
-                      class="mt-auto w-full py-2 rounded-full font-sans text-xs font-semibold bg-(--color-primary) text-white hover:bg-(--color-clay-earth) transition-colors text-center block">
-                      Book Now
-                    </RouterLink> -->
-                    <!-- <button v-else disabled
-                      class="mt-auto w-full py-2 rounded-full font-sans text-xs font-semibold bg-(--color-surface-container) text-(--color-on-surface-variant) cursor-not-allowed text-center">
-                      Not Available
-                    </button> -->
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Book CTA footer -->
-            <div class="pt-2 flex justify-center">
-              <RouterLink
-                :to="{ name: 'meal-booking', params: { id: lodgeId }, query: branchQuery() }"
-                class="inline-flex items-center gap-2 px-8 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
-                Book Catering
-                <span class="material-symbols-outlined text-base">arrow_forward</span>
-              </RouterLink>
-            </div>
-          </div>
-
-          <!-- Branch required — menus are per-location -->
-          <div v-else-if="menuNeedsBranch"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
-            <span class="material-symbols-outlined text-5xl text-(--color-primary) block mb-4">location_on</span>
-            <p class="font-serif text-xl text-(--color-on-surface)">Select a location</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2 max-w-md mx-auto">
-              Menus vary by location. Choose a branch to view its catering menu.
-            </p>
-            <div class="flex flex-wrap justify-center gap-2 mt-6">
-              <button
-                v-for="b in branches" :key="b.id"
-                @click="selectedBranch = String(b.id)"
-                class="flex items-center gap-2 px-4 py-2 rounded-full font-sans text-sm font-semibold border-2 border-(--color-outline-variant) text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary) transition-all">
-                <span class="material-symbols-outlined text-base">villa</span>
-                {{ b.name }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Empty menu -->
-          <div v-else-if="!menuLoading"
-            class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
-            <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">restaurant_menu</span>
-            <p class="font-serif text-xl text-(--color-on-surface)">No menu items listed</p>
-            <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">The menu for this property hasn't been configured yet.</p>
             <RouterLink
-              :to="{ name: 'meal-booking', params: { id: lodgeId }, query: branchQuery() }"
-              class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-sm font-semibold rounded-full hover:bg-(--color-clay-earth) transition-colors">
-              Book Catering Anyway
+              :to="{ name: 'meal-booking', params: { id: lodgeId }, query: { ...branchQuery() } }"
+              class="flex items-center gap-2 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors whitespace-nowrap shrink-0 shadow-lg">
+              Book Catering
               <span class="material-symbols-outlined text-base">arrow_forward</span>
             </RouterLink>
           </div>
+
+          <!-- Two-column: grid + sidebar filter -->
+          <div class="flex flex-col md:flex-row gap-10 items-start">
+
+          <!-- ── Left: Menu grid (75%) ──────────────────────────────────────── -->
+          <div class="w-full md:w-3/4 space-y-8">
+
+            <!-- Menu error -->
+            <div v-if="menuError && !menuLoading"
+              class="py-12 text-center bg-(--color-error-container) rounded-2xl">
+              <span class="material-symbols-outlined text-4xl text-(--color-error) block mb-3">wifi_off</span>
+              <p class="font-sans text-sm text-(--color-on-error-container)">{{ menuError }}</p>
+              <button @click="loadMenu()" class="mt-4 font-sans text-sm text-(--color-primary) hover:underline">Try again</button>
+            </div>
+
+            <!-- Menu skeleton -->
+            <div v-else-if="menuLoading && !menuItems.length"
+              class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div v-for="i in 6" :key="i"
+                class="h-[500px] rounded-[2rem] bg-(--color-surface-container-high) overflow-hidden animate-pulse"></div>
+            </div>
+
+            <!-- Menu items — flat overlay-card grid -->
+            <template v-else-if="menuItems.length">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              <div v-for="item in menuItems" :key="item.id"
+                class="group relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl">
+                <!-- Image -->
+                <img v-if="item.image_url" :src="item.image_url" :alt="item.name"
+                  class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div v-else class="absolute inset-0 bg-(--color-surface-container-high) flex items-center justify-center">
+                  <span class="material-symbols-outlined text-6xl text-(--color-outline)"
+                    style="font-variation-settings: 'FILL' 1">{{ menuCategoryIcon(item.category) }}</span>
+                </div>
+
+                <!-- Category badge -->
+                <div v-if="item.category"
+                  class="absolute top-5 left-5 z-20 bg-(--color-charcoal) text-white px-4 py-1.5 rounded-full font-sans text-xs font-semibold uppercase tracking-widest shadow-lg">
+                  {{ menuCategoryLabel(item.category) }}
+                </div>
+
+                <!-- Availability chip -->
+                <div :class="item.is_available ? 'bg-emerald-500/90' : 'bg-rose-500/90'"
+                  class="absolute top-5 right-5 z-20 text-white font-sans text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg">
+                  {{ item.is_available ? 'Available' : 'Unavailable' }}
+                </div>
+
+                <!-- Frosted info panel -->
+                <div class="absolute inset-x-0 bottom-0 z-10 bg-(--color-surface-container-lowest)/90 backdrop-blur-sm p-6 border-t border-white/20">
+                  <div class="flex justify-between items-start gap-3 mb-2">
+                    <h3 class="font-serif text-xl font-semibold text-(--color-on-surface) leading-tight">{{ item.name }}</h3>
+                    <span v-if="item.price" class="shrink-0 font-sans text-xl font-bold text-(--color-on-surface)">
+                      K{{ Number(item.price).toLocaleString() }}
+                    </span>
+                  </div>
+                  <p v-if="item.description" class="font-sans text-sm text-(--color-on-surface-variant) line-clamp-2">
+                    {{ item.description }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Menu pagination -->
+            <div v-if="menuTotalPages > 1" class="flex items-center justify-center gap-2 pt-6">
+              <button :disabled="menuPage <= 1 || menuLoading"
+                class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+                @click="loadMenu(menuPage - 1)">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+              <button v-for="p in menuTotalPages" :key="p"
+                class="w-12 h-12 rounded-xl flex items-center justify-center font-sans text-sm font-semibold transition-all"
+                :class="p === menuPage
+                  ? 'bg-(--color-primary) text-white shadow-lg'
+                  : 'border border-transparent text-(--color-on-surface) hover:border-(--color-outline-variant) hover:text-(--color-primary)'"
+                @click="loadMenu(p)">
+                {{ p }}
+              </button>
+              <button :disabled="menuPage >= menuTotalPages || menuLoading"
+                class="w-12 h-12 rounded-xl border border-(--color-outline-variant) flex items-center justify-center text-(--color-on-surface) hover:bg-(--color-primary) hover:text-white hover:border-(--color-primary) disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-(--color-on-surface) transition-all"
+                @click="loadMenu(menuPage + 1)">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+            </div>
+            </template>
+
+            <!-- Branch required — menus are per-location -->
+            <div v-else-if="menuNeedsBranch"
+              class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
+              <span class="material-symbols-outlined text-5xl text-(--color-primary) block mb-4">location_on</span>
+              <p class="font-serif text-xl text-(--color-on-surface)">Select a location</p>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2 max-w-md mx-auto">
+                Menus vary by location. Choose a branch to view its catering menu.
+              </p>
+              <div class="flex flex-wrap justify-center gap-2 mt-6">
+                <button v-for="b in branches" :key="b.id" @click="selectedBranch = String(b.id)"
+                  class="flex items-center gap-2 px-4 py-2 rounded-xl font-sans text-sm font-semibold border-2 border-(--color-outline-variant) text-(--color-on-surface-variant) hover:border-(--color-primary) hover:text-(--color-primary) transition-all">
+                  <span class="material-symbols-outlined text-base">villa</span>
+                  {{ b.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty menu -->
+            <div v-else-if="!menuLoading"
+              class="py-16 text-center bg-(--color-surface-container-lowest) rounded-2xl">
+              <span class="material-symbols-outlined text-5xl text-(--color-outline) block mb-4">restaurant_menu</span>
+              <p class="font-serif text-xl text-(--color-on-surface)">No menu items listed</p>
+              <p class="font-sans text-sm text-(--color-on-surface-variant) mt-2">The menu for this property hasn't been configured yet.</p>
+              <RouterLink
+                :to="{ name: 'meal-booking', params: { id: lodgeId }, query: branchQuery() }"
+                class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-(--color-primary) text-white font-sans text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-(--color-charcoal) transition-colors">
+                Book Catering Anyway
+                <span class="material-symbols-outlined text-base">arrow_forward</span>
+              </RouterLink>
+            </div>
+          </div><!-- /left column -->
+
+          <!-- ── Right: Sidebar filter (25%) · static — wiring added later ──────── -->
+          <aside class="w-full md:w-1/4 bg-(--color-surface-container-low) p-8 rounded-[2rem] space-y-8 md:sticky md:top-24">
+            <!-- Search -->
+            <div class="flex gap-2">
+              <input type="text" placeholder="Search menu..."
+                class="w-full bg-(--color-surface-container-lowest) border border-(--color-outline-variant) rounded-xl px-4 py-3 font-sans text-sm text-(--color-on-surface) focus:outline-none focus:ring-2 focus:ring-(--color-primary) focus:border-(--color-primary) transition-all" />
+              <button class="bg-(--color-primary) text-white px-5 rounded-xl font-sans text-xs font-bold uppercase tracking-wider hover:bg-(--color-charcoal) transition-all shrink-0">Search</button>
+            </div>
+            <!-- Filter by category -->
+            <div class="space-y-6">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+                <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Filter by Price</h4>
+              </div>
+              <div class="px-1">
+                <input type="range" min="10" max="500" value="500"
+                  class="w-full h-2 bg-(--color-surface-container-highest) rounded-full appearance-none cursor-pointer accent-(--color-primary)" />
+                <div class="mt-4 text-center font-sans text-sm text-(--color-on-surface-variant)">
+                  Up to <span class="text-(--color-on-surface) font-bold">K500</span>
+                </div>
+              </div>
+              <button class="w-full bg-(--color-primary) text-white py-4 rounded-xl font-sans text-xs font-bold uppercase tracking-widest hover:bg-(--color-charcoal) transition-all shadow-lg">Filter</button>
+            </div>
+            <!-- Other Products -->
+            <div class="space-y-6">
+              <div class="bg-(--color-surface-container-lowest) py-4 rounded-xl text-center shadow-sm">
+                <h4 class="font-sans text-xs font-bold text-(--color-on-surface) uppercase tracking-widest">Other Products</h4>
+              </div>
+              <div class="space-y-2">
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'accommodation'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-(--color-primary)">bed</span>
+                  </div>
+                  <div class="grow">
+                    <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Rooms</h5>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Accommodation & suites</p>
+                  </div>
+                  <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+                </button>
+                <button type="button" class="w-full flex gap-4 items-center p-2 hover:bg-(--color-surface-container-lowest) rounded-xl transition-colors group text-left" @click="activeTab = 'events'">
+                  <div class="w-16 h-16 bg-(--color-surface-container-high) rounded-lg flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-2xl text-(--color-primary)">meeting_room</span>
+                  </div>
+                  <div class="grow">
+                    <h5 class="font-sans text-sm font-semibold text-(--color-on-surface) group-hover:text-(--color-primary) transition-colors">Venues</h5>
+                    <p class="font-sans text-xs text-(--color-on-surface-variant)">Event & conference spaces</p>
+                  </div>
+                  <span class="material-symbols-outlined text-base text-(--color-outline) group-hover:text-(--color-primary) transition-colors">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          </div><!-- /two-column -->
         </div>
       </Transition>
     </div>
