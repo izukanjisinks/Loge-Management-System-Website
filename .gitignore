@@ -10,6 +10,8 @@ dist-ssr/
 .env.local
 .env.*.local
 
+docs/
+
 # Logs
 logs/
 *.log
