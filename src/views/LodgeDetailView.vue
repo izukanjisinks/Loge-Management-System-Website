@@ -212,6 +212,7 @@ watch(selectedBranch, (val) => {
   searched.value = false
   loadRooms()
   if (activeTab.value === 'events') loadVenues()
+  else venues.value = []  // clear stale venues so next tab switch reloads with new branch
   if (activeTab.value === 'meals') {
     if (menuNeedsBranch.value) menuItems.value = []  // back to "All Locations" → show prompt
     else loadMenu()
@@ -220,7 +221,7 @@ watch(selectedBranch, (val) => {
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab: tab === 'accommodation' ? undefined : tab } })
-  if (tab === 'events' && !venues.value.length && !venuesLoading.value) loadVenues()
+  if (tab === 'events') loadVenues()
   // Multi-branch + "All Locations" → show the branch prompt instead of loading.
   if (tab === 'meals' && !menuNeedsBranch.value) loadMenu()
 })

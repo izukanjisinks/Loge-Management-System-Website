@@ -371,6 +371,7 @@ function sessionLabel(s, i) {
 // ── Live validation clearing ─────────────────────────────────────────────────
 watch(() => eb.bookedBy.name,      v => { if (v) delete errors.value.bookedByName })
 watch(() => eb.bookedBy.email,     v => { if (v) delete errors.value.bookedByEmail })
+watch(() => eb.bookedBy.phone,     v => { if (v) delete errors.value.bookedByPhone })
 watch(() => eb.bookedBy.jobTitle,  v => { if (v) delete errors.value.bookedByJobTitle })
 watch(() => eb.bookedBy.manNumber, v => { if (v) delete errors.value.bookedByManNumber })
 watch(() => eb.startDate,          v => { if (v) delete errors.value.startDate })
@@ -426,6 +427,7 @@ function validate() {
   if (!eb.bookedBy.name)  e.bookedByName  = 'Required'
   if (!eb.bookedBy.email) e.bookedByEmail = 'Required'
   else if (!/\S+@\S+\.\S+/.test(eb.bookedBy.email)) e.bookedByEmail = 'Enter a valid email'
+  if (!eb.bookedBy.phone) e.bookedByPhone = 'Required'
 
   if (!eb.startDate)             e.startDate = 'Required'
   else if (eb.startDate < today) e.startDate = 'Date cannot be in the past'
@@ -937,6 +939,7 @@ onMounted(async () => {
                 <p class="font-sans text-sm" :class="eb.bookedBy.phone ? 'text-(--color-on-surface)' : 'text-(--color-outline) italic'">
                   {{ eb.bookedBy.phone || 'Not provided' }}
                 </p>
+                <p v-if="errors.bookedByPhone" class="font-sans text-xs text-(--color-error) mt-0.5">{{ errors.bookedByPhone }}</p>
               </div>
               <div v-if="eb.isCorporate">
                 <p class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant) mb-0.5">Job Title</p>
@@ -970,9 +973,11 @@ onMounted(async () => {
                   <span v-if="errors.bookedByEmail" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByEmail }}</span>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone</label>
+                  <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Phone <span class="text-(--color-error)">*</span></label>
                   <input v-model="eb.bookedBy.phone" type="tel"
-                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 border-transparent focus:outline-none focus:border-(--color-primary) transition-colors" />
+                    class="w-full bg-(--color-savannah-mist) rounded-lg px-3 py-3 font-sans text-sm text-(--color-on-surface) border-2 focus:outline-none transition-colors"
+                    :class="errors.bookedByPhone ? 'border-(--color-error)' : 'border-transparent focus:border-(--color-primary)'" />
+                  <span v-if="errors.bookedByPhone" class="font-sans text-xs text-(--color-error)">{{ errors.bookedByPhone }}</span>
                 </div>
                 <div v-if="eb.isCorporate" class="flex flex-col gap-1">
                   <label class="font-sans text-xs font-semibold tracking-widest uppercase text-(--color-on-surface-variant)">Job Title <span v-if="isZS" class="text-(--color-error)">*</span></label>
